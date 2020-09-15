@@ -1,0 +1,2 @@
+# mcfud
+Collection of utilities
