@@ -97,7 +97,7 @@
      * @function
      */
     _M.V2=function(x,y){
-      return [x||0, y||0]
+      return _M.V2Pool.take(x,y)
     };
     /**
      * @public
@@ -145,11 +145,10 @@
          a.length !== b.length)
         throw "Error: Mismatch vector length";
       let n= is.num(b);
-      let out= local ? a : new Array(a.length);
+      let out= local ? a : (a.length===2 ? _M.V2Pool.take() : new Array(a.length));
       for(let i=0;i<a.length;++i)
         out[i]=op(a[i], n?b:b[i]);
       return out;
-      //return is.num(b) ? a.map(v => op(v,b)) : (a.length===b.length) ? a.map((v,i) => op(v,b[i])) : undefined
     }
     /**
      * @public
@@ -229,7 +228,20 @@
      */
     _M.vecUnit=function(a){
       let d=this.vecLen(a);
-      return d > EPSILON ? a.map(v => v/d) : a.map(v => 0)
+      let out= a.length===2 ? _M.V2Pool.take() : new Array(a.length);
+      for(let i=0;i<a.length;++i)
+        out[i] = d > EPSILON ? a[i]/d : 0;
+      return out;
+    };
+    /**
+     * @public
+     * @function
+     */
+    _M.vecUnitSelf=function(a){
+      for(let d=this.vecLen(a),i=0;i<a.length;++i){
+        a[i] = d > EPSILON ? a[i]/d : 0;
+      }
+      return a;
     };
     /**
      * @public
@@ -247,7 +259,9 @@
      * @function
      */
     _M.vecClone=function(v){
-      return v.slice()
+      let out= v.length===2 ? _M.V2Pool.take() : new Array(v.length);
+      for(let i=0;i<v.length;++i) out[i]=v[i];
+      return out;
     };
     /**
      * @public
@@ -261,18 +275,39 @@
       return des
     };
     /**
-     * @public
+     * @private
      * @function
      */
-    _M.vec2Rot=function(a,rot,center){
+    function _v2rot(a,rot,center,local){
       let cx=center ? center[0] : 0;
       let cy=center ? center[1] : 0;
       let x_= a[0] - cx;
       let y_= a[1] - cy;
       let cos= COS(rot);
       let sin=SIN(rot);
-      return this.V2(cx + (x_*cos - y_*sin),
-                     cy + (x_ * sin + y_ * cos))
+      let x= cx + (x_*cos - y_*sin);
+      let y= cy + (x_ * sin + y_ * cos);
+      if(local){
+        a[0] = x;
+        a[1] = y;
+      }else{
+        a= _M.V2Pool.take(x,y);
+      }
+      return a;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _M.vec2Rot=function(a,rot,center){
+      return _v2rot(a,rot,center)
+    };
+    /**
+     * @public
+     * @function
+     */
+    _M.vec2RotSelf=function(a,rot,center){
+      return _v2rot(a,rot,center,1)
     };
     /**
      * @public
@@ -283,10 +318,10 @@
         return p1[0] * p2[1] - p1[1] * p2[0]
       }
       if(is.vec(p1) && is.num(a)){
-        return this.V2(p2 * p1[1], -p2 * p1[0])
+        return _M.V2Pool.take(p2 * p1[1], -p2 * p1[0])
       }
       if(is.num(p1) && is.vec(p2)){
-        return this.V2( -p1 * p2[1], p1 * p2[0])
+        return _M.V2Pool.take( -p1 * p2[1], p1 * p2[0])
       }
     };
     /**
@@ -306,6 +341,27 @@
      */
     _M.vecAngle=function(a,b){
       return ACOS(this.vecDot(a,b) / (this.vecLen(a) * this.vecLen(b)))
+    };
+    /**
+     * Change vector to be perpendicular to what it was before, effectively
+     * rotates it 90 degrees in a clockwise direction.
+     * @public
+     * @function
+     */
+    _M.perpSelf=function(a){
+      let x = a[0];
+      a[0]=a[1];
+      a[1]= -x;
+      return a;
+    };
+    /**
+     * Change vector to be perpendicular to what it was before, effectively
+     * rotates it 90 degrees in a clockwise direction.
+     * @public
+     * @function
+     */
+    _M.perp=function(a){
+      return _M.V2Pool.take(a[1],-a[0])
     };
     /**
      * Find scalar projection.
@@ -371,7 +427,7 @@
       let y1=0;
       let dy= v[1] - y1;
       let dx= v[0] - x1;
-      return s ? this.V2(-dy, dx) : this.V2(dy, -dx)
+      return s ? _M.V2Pool.take(-dy, dx) : _M.V2Pool.take(dy, -dx)
     };
     /**
      * Minimum values of vectors.
@@ -1197,8 +1253,30 @@
       const biasAbsolute= 0.01;
       return a >= (b*biasRelative + a*biasAbsolute)
     };
+    /**
+     * @public
+     * @class
+     */
+    class V2Pool{
+      constructor(){
+        this.pool=[];
+        for(let i=0; i < 16; ++i) { this.pool.push([0,0]) }
+      }
+      take(x,y){
+        let out= this.pool.length>0 ? this.pool.pop() : [0,0];
+        out[0]=x||0;
+        out[1]=y||0;
+        return out;
+      }
+      drop(...args){
+        args.forEach(v => {
+          if(v && v.length===2) this.pool.push(v);
+        });
+        return this;
+      }
+    }
 
-    return (_singleton=_M);
+    return _singleton=_.inject(_M, {V2Pool: new V2Pool()});
   };
 
 })(this);

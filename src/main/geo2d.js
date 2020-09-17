@@ -24,10 +24,15 @@
   let _singleton=null;
   global["io.czlab.mcfud.geo2d"]=function(){
     if(_singleton) { return _singleton }
-    const _M=global["io.czlab.mcfud.math"]();
     const Core=global["io.czlab.mcfud.core"]();
+    const _M=global["io.czlab.mcfud.math"]();
+    const _V2P=_M.V2Pool;
     const _=Core.u;
     const _G={};
+    const MaxPolyVertexCount=64;
+    const LEFT_VORONOI= -1;
+    const MID_VORONOI= 0;
+    const RIGHT_VORONOI= 1;
     /**
      * @public
      * @class
@@ -104,13 +109,69 @@
       return _M.V2(cx/A, cy/A)
     };
     /**
-     * @public
-     * @class
+     * Lifted from Randy Gaul's impulse-engine:
+     * https://github.com/RandyGaul/ImpulseEngine#Shape.h
+     * @private
+     * @function
      */
-    class Polygon{
-      constructor(){
-        this.points=[];
+    function _orderPoints(vertices){
+      let count=vertices.length;
+      _.assert(count > 2 && count <= MaxPolyVertexCount); // at least 3
+      //find the right most point
+      let rightMost=0;
+      let highestX= vertices[0][0];
+      for(let x,i=1; i<count; ++i){
+        x=vertices[i][0];
+        if(x > highestX){
+          highestX= x;
+          rightMost= i;
+        }
+        // if same x then take farthest negative y
+        else if(_M.fuzzyEq(x, highestX)){
+          if(vertices[i][1] < vertices[rightMost][1]) rightMost = i;
+        }
       }
+      let hull=new Array(MaxPolyVertexCount);
+      let outCount = 0;
+      let indexHull = rightMost;
+      for(;;){
+        hull[outCount] = indexHull;
+        // search for next index that wraps around the hull
+        // by computing cross products to find the most counter-clockwise
+        // vertex in the set, given the previos hull index
+        let nextHullIndex = 0;
+        for(let i=1; i<count; ++i){
+          // skip if same coordinate as we need three unique
+          // points in the set to perform a cross product
+          if(nextHullIndex === indexHull){
+            nextHullIndex = i;
+            continue;
+          }
+          // cross every set of three unique vertices
+          // record each counter clockwise third vertex and add
+          // to the output hull
+          // see : http://www.oocities.org/pcgpe/math2d.html
+          let e1 = _M.vecSub(vertices[nextHullIndex], vertices[hull[outCount]]);
+          let e2 = _M.vecSub(vertices[i], vertices[hull[outCount]]);
+          let c = _M.vec2Cross(e1,e2);
+          if(c < 0.0)
+            nextHullIndex = i;
+          // cross product is zero then e vectors are on same line
+          // therefor want to record vertex farthest along that line
+          if(_M.fuzzyZero(c) && _M.vecLen2(e2) > _M.vecLen2(e1))
+            nextHullIndex = i;
+        }
+        ++outCount;
+        indexHull = nextHullIndex;
+        // conclude algorithm upon wrap-around
+        if(nextHullIndex === rightMost){
+          break;
+        }
+      }
+      const result=[];
+      for(let i=0; i<outCount; ++i)
+        result.push(_M.vecClone(vertices[hull[i]]));
+      return result;
     }
     /**
      * @public
@@ -127,10 +188,139 @@
      * @class
      */
     class Circle{
-      constructor(radius){
-        this.radius=radius;
+      constructor(r){
+        this.radius=r;
+        this.orient=0;
+        this.pos=_M.V2();
+      }
+      setOrient(r){
+        this.orient=r;
+        return this;
+      }
+      setPos(x,y){
+        _M.vecCopy(this.pos,x,y);
+        return this;
       }
     }
+    /**
+     * Points are specified in COUNTER-CLOCKWISE order
+     * @public
+     * @class
+     */
+    class Polygon{
+      constructor(){
+        this.orient = 0;
+        this.pos=_M.V2();
+      }
+      setPos(x,y){
+        _M.vecCopy(this.pos,x,y);
+        return this;
+      }
+      set(points){
+        points= _orderPoints(points);
+        if(this.calcPoints) this.calcPoints.length=0; else this.calcPoints = [];
+        if(this.normals) this.normals.length=0; else this.normals = [];
+        if(this.edges) this.edges.length=0; else this.edges = [];
+        for(let i=0; i < points.length; ++i){
+          this.calcPoints.push(_M.V2());
+          this.edges.push(_M.V2());
+          this.normals.push(_M.V2());
+        }
+        this.points = points;
+        this._recalc();
+        return this;
+      }
+      setOrient(rot){
+        this.orient = rot;
+        this._recalc();
+        return this;
+      }
+      translate(x, y){
+        for(let i=0; i < this.points.length; ++i){
+          this.points[i][0] += x;
+          this.points[i][1] += y;
+        }
+        this._recalc();
+        return this;
+      }
+      _recalc(){
+        for(let i=0; i < this.points.length; ++i){
+          _M.vecSet(this.calcPoints[i],this.points[i]);
+          if(!_M.fuzzyZero(this.orient))
+            _M.vec2RotSelf(this.calcPoints[i],this.orient);
+        }
+        for(let i2,p1,p2,e,i = 0; i < this.points.length; ++i){
+          p1 = this.calcPoints[i];
+          i2= (i+1) % this.calcPoints.length;
+          p2=this.calcPoints[i2];
+          this.edges[i]= _M.vecSub(p2,p1);
+          this.normals[i]= _M.vecUnit(_M.perp(this.edges[i]));
+        }
+        return this;
+      }
+    }
+    /**
+     * @public
+     * @class
+     */
+    class Box extends Rect{
+      constructor(x,y, w, h){
+        super(x,y,w,h);
+      }
+      toPolygon(){
+        return new Polygon().setPos(this.pos[0],
+                                    this.pos[1]).set([_M.V2(this.width,0),
+                                                      _M.V2(this.width,this.height),
+                                                      _M.V2(0,this.height),_M.V2()]);
+      }
+    }
+    /**
+     * @public
+     * @class
+     */
+    class Manifold{
+      constructor(A,B){
+        this.A = A;
+        this.B = B;
+        this.overlapN = _M.V2();
+        this.overlapV = _M.V2();
+        this.clear();
+      }
+      clear(){
+        this.overlap = Infinity;
+        this.AInB = true;
+        this.BInA = true;
+        return this;
+      }
+    }
+
+    /**
+     * @public
+     * @function
+     */
+    _G.getAABB=function(obj){
+      if(_.has(obj,"radius")){
+        return new _G.Rect(obj.pos[0]-obj.radius,
+                           obj.pos[1]-obj.radius,
+                           obj.radius*2, obj.radius*2)
+      } else{
+        let cps= obj.calcPoints;
+        let xMin = cps[0][0];
+        let yMin = cps[0][1];
+        let xMax = xMin;
+        let yMax = yMin;
+        for(let p,i=1; i<cps.length; ++i){
+          p= cps[i];
+          if(p[0] < xMin) xMin = p[0];
+          if(p[0] > xMax) xMax = p[0];
+          if(p[1] < yMin) yMin = p[1];
+          if(p[1] > yMax) yMax = p[1];
+        }
+        return new _G.Rect(obj.pos[0]+xMin,
+                           obj.pos[1]+yMin,
+                           xMax - xMin, yMax - yMin)
+      }
+    };
     /**
      * Shift a set of points.
      * @public
@@ -277,10 +467,340 @@
                       Math.min(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
                       Math.min(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
     };
+    /**
+     * @private
+     * @function
+     */
+    function _findProjRange(points, axis){
+      let min = Infinity;
+      let max = -Infinity;
+      for(let dot,i=0; i < points.length; ++i){
+        dot = _M.vecDot(points[i],axis);
+        if(dot < min) min = dot;
+        if(dot > max) max = dot;
+      }
+      return _V2P.take(min,max)
+    }
+    /**
+     * @private
+     * @function
+     */
+    function _voronoiRegion(line, point){
+      let dp = _M.vecDot(point,line);
+      let len2 = _M.vecLen2(line);
+      // If pt is beyond the start of the line, left voronoi region
+      // If pt is beyond the end of the line, right voronoi region
+      return dp < 0 ? LEFT_VORONOI : (dp > len2 ? RIGHT_VORONOI : MID_VORONOI)
+    }
+    /**
+     * @private
+     * @function
+     */
+    function _testSAT(aPos,aPoints, bPos,bPoints, axis, resolve){
+      let vAB= _M.vecSub(bPos,aPos); // B relative to A
+      let projectedOffset = _M.vecDot(vAB,axis);
+      let [minA,maxA] =_findProjRange(aPoints, axis);
+      let [minB,maxB] =_findProjRange(bPoints, axis);
+      // move B's range to its position relative to A.
+      minB += projectedOffset;
+      maxB += projectedOffset;
+      let gap;
+      if(minA > maxB || minB > maxA){
+        gap=true;
+      } else if(resolve){
+        let overlap = 0;
+        // A starts left of B
+        if(minA < minB){
+          resolve.AInB = false;
+          // A ends before B does. We have to pull A out of B
+          if(maxA < maxB){
+            overlap = maxA - minB;
+            resolve.BInA = false;
+          }else{
+            // B is fully inside A.  Pick the shortest way out.
+            let [d1,d2] = [maxA - minB, maxB - minA];
+            overlap = d1 < d2 ? d1 : -d2;
+          }
+        // B starts left than A
+        }else{
+          resolve.BInA = false;
+          // B ends before A ends. We have to push A out of B
+          if(maxA > maxB){
+            overlap = minA - maxB;
+            resolve.AInB = false;
+          }else{
+            // A is fully inside B.  Pick the shortest way out.
+            let [d1,d2] = [maxA - minB, maxB - minA];
+            overlap = d1 < d2 ? d1 : -d2;
+          }
+        }
+        // If smallest amount of overlap, set it as the minimum overlap.
+        let absOverlap = Math.abs(overlap);
+        if(absOverlap < resolve.overlap){
+          resolve.overlap = absOverlap;
+          _M.vecSet(resolve.overlapN,axis);
+          if(overlap < 0)
+            _M.vecFlipSelf(resolve.overlapN);
+        }
+      }
+      _V2P.drop(vAB);
+      return gap;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestPointCircle=function(p, c){
+      let d2 = _M.vecLen2(_M.vecSub(p,c.pos));
+      return d2 <= c.radius * c.radius;
+    };
+    const _RES= new Manifold();
+    const _FAKE_POLY= new Box(0,0, 1, 1).toPolygon();
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestPointPolygon=function(p, poly){
+      _M.vecSet(_FAKE_POLY.pos,p);
+      let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
+      return res ? _RES.AInB : false;
+    };
+    /**
+     * @private
+     * @function
+     */
+    function _circle_circle(a, b, resolve){
+      let r_ab = a.radius + b.radius;
+      let vAB= _M.vecSub(b.pos,a.pos);
+      let r2 = r_ab * r_ab;
+      let d2 = _M.vecLen2(vAB);
+      let status= !(d2 > r2);
+      if(status && resolve){
+        let dist = Math.sqrt(d2);
+        resolve.A = a;
+        resolve.B = b;
+        resolve.overlap = r_ab - dist;
+        _M.vecSet(resolve.overlapN, _M.vecUnitSelf(vAB));
+        _M.vecSet(resolve.overlapV, _M.vecMul(vAB,resolve.overlap));
+        resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
+        resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
+      }
+      _V2P.drop(vAB);
+      return status;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _G.hitCircleCircle=function(a, b){
+      let m=new Manifold();
+      return _circle_circle(a,b,m) ? m : null
+    };
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestCircleCircle=function(a, b){
+      return _circle_circle(a,b)
+    };
+    /**
+     * @private
+     * @function
+     */
+    function _poly_circle(polygon, circle, resolve){
+      // get position of the circle relative to the polygon.
+      let vPC= _M.vecSub(circle.pos,polygon.pos);
+      let r2 = circle.radius * circle.radius;
+      let cps = polygon.calcPoints;
+      let edge = _V2P.take();
+      let point = _V2P.take();
+      // for each edge in the polygon:
+      for(let len=cps.length,i=0; i < len; ++i){
+        let next = i === len-1 ? 0 : i+1;
+        let prev = i === 0 ? len-1 : i-1;
+        let overlap = 0;
+        let overlapN = null;
+        _M.vecSet(edge,polygon.edges[i]);
+        // calculate the center of the circle relative to the starting point of the edge.
+        _M.vecSet(point,_M.vecSub(vPC,cps[i]));
+        // if the distance between the center of the circle and the point
+        // is bigger than the radius, the polygon is definitely not fully in
+        // the circle.
+        if(resolve && _M.vecLen2(point) > r2){
+          resolve.AInB = false;
+        }
+        // calculate which Voronoi region the center of the circle is in.
+        let region = _voronoiRegion(edge, point);
+        if(region === LEFT_VORONOI){
+          // need to make sure we're in the RIGHT_VORONOI of the previous edge.
+          _M.vecSet(edge,polygon.edges[prev]);
+          // calculate the center of the circle relative the starting point of the previous edge
+          let point2= _M.vecSub(vPC,cps[prev]);
+          region = _voronoiRegion(edge, point2);
+          if(region === RIGHT_VORONOI){
+            // it's in the region we want.  Check if the circle intersects the point.
+            let dist = _M.vecLen(point);
+            if(dist > circle.radius){
+              // No intersection
+              _V2P.drop(vPC,edge,point,point2);
+              return false;
+            } else if(resolve){
+              // intersects, find the overlap.
+              resolve.BInA = false;
+              overlapN = _M.vecUnit(point);
+              overlap = circle.radius - dist;
+            }
+          }
+          _V2P.drop(point2);
+        } else if(region === RIGHT_VORONOI){
+          // need to make sure we're in the left region on the next edge
+          _M.vecSet(edge,polygon.edges[next]);
+          // calculate the center of the circle relative to the starting point of the next edge.
+          _M.vecSubSelf(_M.vecSet(point,vPC),cps[next]);
+          region = _voronoiRegion(edge, point);
+          if(region === LEFT_VORONOI){
+            // it's in the region we want.  Check if the circle intersects the point.
+            let dist = _M.vecLen(point);
+            if(dist > circle.radius){
+              _V2P.drop(vPC,edge,point);
+              return false;
+            } else if(resolve){
+              resolve.BInA = false;
+              overlapN = _M.vecUnit(point);
+              overlap = circle.radius - dist;
+            }
+          }
+        }else{
+          // check if the circle is intersecting the edge,
+          // change the edge into its "edge normal".
+          let normal = _M.vecUnitSelf(_M.perp(edge));
+          // find the perpendicular distance between the center of the circle and the edge.
+          let dist = _M.vecDot(point,normal);
+          let distAbs = Math.abs(dist);
+          // if the circle is on the outside of the edge, there is no intersection.
+          if(dist > 0 && distAbs > circle.radius){
+            _V2P.drop(vPC,normal,point);
+            return false;
+          } else if(resolve){
+            overlapN = normal;
+            overlap = circle.radius - dist;
+            // if the center of the circle is on the outside of the edge, or part of the
+            // circle is on the outside, the circle is not fully inside the polygon.
+            if(dist >= 0 || overlap < 2 * circle.radius){
+              resolve.BInA = false;
+            }
+          }
+        }
+        // if this is the smallest overlap we've seen, keep it.
+        // (overlapN may be null if the circle was in the wrong Voronoi region).
+        if(overlapN && resolve && Math.abs(overlap) < Math.abs(resolve.overlap)){
+          resolve.overlap = overlap;
+          _M.vecSet(resolve.overlapN,overlapN);
+        }
+      }
+      // calculate the final overlap vector - based on the smallest overlap.
+      if(resolve){
+        resolve.A = polygon;
+        resolve.B = circle;
+        _M.vecMulSelf(_M.vecSet(resolve.overlapV,resolve.overlapN),resolve.overlap);
+      }
+      _V2P.drop(vPC,edge,point);
+      return true;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _G.hitPolygonCircle=function(polygon, circle){
+      let m=new Manifold();
+      return _poly_circle(polygon,circle,m) ? m : null
+    };
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestPolygonCircle=function(polygon, circle){
+      return _poly_circle(polygon,circle)
+    };
+    /**
+     * @private
+     * @function
+     */
+    function _circle_poly(circle, polygon, resolve){
+      let result = _poly_circle(polygon, circle, resolve);
+      if(result && resolve){
+        // flip A and B
+        let a = resolve.A;
+        let aInB = resolve.AInB;
+        _M.vecFlipSelf(resolve.overlapN);
+        _M.vecFlipSelf(resolve.overlapV);
+        resolve.A = resolve.B;
+        resolve.B = a;
+        resolve.AInB = resolve.BInA;
+        resolve.BInA = aInB;
+      }
+      return result;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _G.hitCirclePolygon=function(circle, polygon){
+      let m=new Manifold();
+      return _circle_poly(circle,polygon,m) ? m : null
+    };
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestCirclePolygon=function(circle, polygon){
+      return _circle_poly(circle,polygon)
+    };
+    /**
+     * @private
+     * @function
+     */
+    function _poly_poly(a, b, resolve){
+      let pa = a.calcPoints;
+      let pb = b.calcPoints;
+      for(let i=0; i < pa.length; ++i){
+        if(_testSAT(a.pos, pa, b.pos, pb, a.normals[i], resolve))
+          return false;
+      }
+      for(let i=0;i < pb.length; ++i){
+        if(_testSAT(a.pos, pa, b.pos, pb, b.normals[i], resolve))
+          return false;
+      }
+      if(resolve){
+        resolve.A = a;
+        resolve.B = b;
+        _M.vecMulSelf(_M.vecSet(resolve.overlapV,resolve.overlapN),resolve.overlap);
+      }
+      return true;
+    }
+    /**
+     * @public
+     * @function
+     */
+    _G.hitPolygonPolygon=function(a, b){
+      let m=new Manifold();
+      return _poly_poly(a,b,m) ? m : null
+    };
+    /**
+     * @public
+     * @function
+     */
+    _G.hitTestPolygonPolygon=function(a, b){
+      return _poly_poly(a,b)
+    };
 
     return _singleton= _.inject(_G, {Circle: Circle,
                                      Line: Line,
+                                     Box: Box,
+                                     Manifold: Manifold,
                                      Polygon: Polygon, Rect: Rect, Area: Area});
+
   };
+
 
 })(this);
