@@ -2668,6 +2668,11 @@
                       Math.min(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
                       Math.min(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
     };
+
+    //------------------------------------------------------------------------
+    // 2d collision using Separating Axis Theorem.
+    // see https://github.com/jriecken/sat-js
+    //------------------------------------------------------------------------
     /**
      * @private
      * @function
