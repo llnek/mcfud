@@ -37,6 +37,7 @@
     const _C={};
 
     function isObject(obj){ return tostr.call(obj) === "[object Object]"; }
+    function isFun(obj){ return tostr.call(obj) === "[object Function]" }
     function isArray(obj){ return tostr.call(obj) === "[object Array]"; }
     function isMap(obj){ return tostr.call(obj) === "[object Map]"; }
     function isStr(obj){ return typeof obj === "string"; }
@@ -220,7 +221,9 @@
       },
       fill: function(a,v){
         if(a)
-          for(let i=0;i<a.length;++i) a[i]=v;
+          for(let i=0;i<a.length;++i){
+            a[i] = isFun(v) ? v() : v;
+          }
         return a;
       },
       size: function(obj){

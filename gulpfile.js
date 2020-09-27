@@ -9,6 +9,8 @@ const sourcemaps = require('gulp-sourcemaps');
 const jsFiles = [
   "src/main/core.js",
   "src/main/math.js",
+  "src/main/vec2.js",
+  "src/main/matrix.js",
   "src/main/crypt.js",
   "src/main/gfx.js",
   "src/main/geo2d.js",
