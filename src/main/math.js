@@ -46,6 +46,13 @@
       return Math.abs(x-y) <= (EPSILON * Math.max(1, Math.max(Math.abs(x), Math.abs(y))))
     }
     /**
+     * @public
+     * @function
+     */
+    _M.lerp=function(startv, endv, t){
+      return (1 - t) * startv + t * endv
+    };
+    /**
      * Proper modulo.
      * @public
      * @function

@@ -348,7 +348,7 @@
         clearTimeout(id);
       },
       rseq: function(obj,fn,target){
-        if(isArray(obj))
+        if(isArray(obj) && obj.length>0)
           for(let i=obj.length-1;i>=0;--i)
             fn.call(target, obj[i],i);
       },
