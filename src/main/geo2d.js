@@ -611,7 +611,7 @@
      * @function
      */
     _G.hitTestCircleCircle=function(a, b){
-      return _circle_circle(a,b)
+      return _circle_circle(a,b,new Manifold());
     };
     /**
      * @private
@@ -730,7 +730,7 @@
      * @function
      */
     _G.hitTestPolygonCircle=function(polygon, circle){
-      return _poly_circle(polygon,circle)
+      return _poly_circle(polygon,circle,new Manifold());
     };
     /**
      * @private
@@ -764,7 +764,7 @@
      * @function
      */
     _G.hitTestCirclePolygon=function(circle, polygon){
-      return _circle_poly(circle,polygon)
+      return _circle_poly(circle,polygon,new Manifold());
     };
     /**
      * @private
@@ -782,9 +782,12 @@
           return false;
       }
       if(resolve){
+        if(resolve.overlap===0 || _M.fuzzyZero(resolve.overlap))
+          return false;
         resolve.A = a;
         resolve.B = b;
-        _V.vecMulSelf(_V.vecSet(resolve.overlapV,resolve.overlapN),resolve.overlap);
+        _V.vecSet(resolve.overlapV,resolve.overlapN);
+        _V.vecMulSelf(resolve.overlapV,resolve.overlap);
       }
       return true;
     }
@@ -801,7 +804,7 @@
      * @function
      */
     _G.hitTestPolygonPolygon=function(a, b){
-      return _poly_poly(a,b)
+      return _poly_poly(a,b,new Manifold());
     };
 
     return _singleton= _.inject(_G, {Circle: Circle,
