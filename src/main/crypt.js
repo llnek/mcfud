@@ -31,6 +31,8 @@
    * @function
    */
   global["io.czlab.mcfud.crypt"]=function(){
+    if(_singleton)
+      return _singleton;
     const Core=global["io.czlab.mcfud.core"]();
     const _=Core.u;
     const _C={};

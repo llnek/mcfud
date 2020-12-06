@@ -12,6 +12,7 @@ const jsFiles = [
   "src/main/vec2.js",
   "src/main/matrix.js",
   "src/main/crypt.js",
+  "src/main/fsm.js",
   "src/main/gfx.js",
   "src/main/geo2d.js",
   "src/main/negamax.js"
