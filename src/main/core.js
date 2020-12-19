@@ -14,8 +14,8 @@
 
 ;(function(global){
   "use strict";
-  let _singleton=null;
   let window=null;
+  let _singleton=null;
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
