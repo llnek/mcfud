@@ -1,2 +1,2 @@
 # mcfud
-Collection of utilities in javascript
+Collection of utilities in javascript.
