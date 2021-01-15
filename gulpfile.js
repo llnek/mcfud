@@ -7,6 +7,7 @@ const rename = require('gulp-rename');
 const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
+  "src/main/seedrandom.js",
   "src/main/core.js",
   "src/main/math.js",
   "src/main/vec2.js",

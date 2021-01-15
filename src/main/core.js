@@ -32,6 +32,7 @@
    */
   global["io.czlab.mcfud.core"]=function(){
     if(_singleton){ return _singleton }
+    let PRNG = new Math.seedrandom();
     const document=global.document;
     const OBJ=Object.prototype;
     const ARR=Array.prototype;
@@ -46,7 +47,7 @@
     function isStr(obj){ return typeof obj === "string"; }
     function isNum(obj){ return tostr.call(obj) === "[object Number]"; }
     function _randXYInclusive(min,max){
-      return Math.floor(Math.random() * (max - min + 1) + min);
+      return Math.floor(PRNG() * (max - min + 1) + min);
     }
     function _fext(name){
       let pos= name.lastIndexOf(".");
@@ -109,6 +110,9 @@
      * @var {object}
      */
     const _={
+      randSeed(){
+        PRNG = new Math.seedrandom()
+      },
       feq0(a){
         return Math.abs(a) < EPSILON
       },
@@ -233,12 +237,12 @@
         return !r;
       },
       randFloat(min, max){
-        return min + Math.random() * (max - min);
+        return min + PRNG() * (max - min);
       },
-      randMinus1To1(){ return (Math.random() - 0.5) * 2 },
-      randInt(num){ return Math.floor(Math.random() * num) },
+      randMinus1To1(){ return (PRNG() - 0.5) * 2 },
+      randInt(num){ return Math.floor(PRNG() * num) },
       randInt2: _randXYInclusive,
-      rand(){ return Math.random() },
+      rand(){ return PRNG() },
       randSign(){ return _.rand() > 0.5 ? -1 : 1 },
       inst(type,obj){ return obj instanceof type },
       hashCode(s){
@@ -331,7 +335,7 @@
       shuffle(obj){
         let res=slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
-          j = Math.floor(Math.random() * (i+1));
+          j = Math.floor(PRNG() * (i+1));
           x = res[i];
           res[i] = res[j];
           res[j] = x;
