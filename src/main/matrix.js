@@ -17,20 +17,17 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
    * @public
    * @function
    */
-  global["io.czlab.mcfud.matrix"]=function(){
-    const Core= global["io.czlab.mcfud.core"]();
-    const _M= global["io.czlab.mcfud.math"]();
+  global["io/czlab/mcfud/matrix"]=function(){
+    const {u:_, is}= global["io/czlab/mcfud/core"]();
+    const _M= global["io/czlab/mcfud/math"]();
     if(_M.Matrix){return _M.Matrix}
-    const _=Core.u;
-    const is=Core.is;
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;

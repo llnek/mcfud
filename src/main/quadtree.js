@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -18,12 +18,11 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
-  global["io.czlab.mcfud.qtree"]=function(){
+  global["io/czlab/mcfud/qtree"]=function(){
     if(_singleton){ return _singleton }
     class QuadTree{
       constructor(x1,y1,x2,y2,maxCount,maxDepth){

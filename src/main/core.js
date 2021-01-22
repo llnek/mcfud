@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(global){
   "use strict";
@@ -20,8 +20,7 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }else if(global.document){
     window=global;
@@ -30,7 +29,7 @@
    * @public
    * @function
    */
-  global["io.czlab.mcfud.core"]=function(){
+  global["io/czlab/mcfud/core"]=function(){
     if(_singleton){ return _singleton }
     let PRNG = new Math.seedrandom();
     const document=global.document;

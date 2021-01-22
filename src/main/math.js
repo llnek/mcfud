@@ -10,15 +10,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
@@ -26,11 +25,9 @@
    * @public
    * @function
    */
-  global["io.czlab.mcfud.math"]=function(){
+  global["io/czlab/mcfud/math"]=function(){
     if(_singleton) { return _singleton }
-    const Core= global["io.czlab.mcfud.core"]();
-    const _=Core.u;
-    const is=Core.is;
+    const {is,u:_}= global["io/czlab/mcfud/core"]();
     const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;

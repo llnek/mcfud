@@ -10,29 +10,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   /**
    * @public
    * @function
    */
-  global["io.czlab.mcfud.vec2"]=function(UseOBJ){
+  global["io/czlab/mcfud/vec2"]=function(UseOBJ){
     class V2Obj{ constructor(){ this.x=0; this.y=0; } }
-    const Core= global["io.czlab.mcfud.core"]();
-    const _M= global["io.czlab.mcfud.math"]();
+    const {u:_, is}= global["io/czlab/mcfud/core"]();
+    const _M= global["io/czlab/mcfud/math"]();
     if(_M.Vec2){return _M.Vec2}
     const EPSILON= 0.0000000001;
-    const _=Core.u;
-    const is=Core.is;
     const _V={};
     function _cobj() { return new V2Obj() }
     function _carr() { return [0,0] }

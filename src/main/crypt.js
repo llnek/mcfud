@@ -10,7 +10,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2020, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(global){
   "use strict";
@@ -18,8 +18,7 @@
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
@@ -30,11 +29,10 @@
    * @public
    * @function
    */
-  global["io.czlab.mcfud.crypt"]=function(){
+  global["io/czlab/mcfud/crypt"]=function(){
     if(_singleton)
       return _singleton;
-    const Core=global["io.czlab.mcfud.core"]();
-    const _=Core.u;
+    const {u:_} =global["io/czlab/mcfud/core"]();
     const _C={};
     /**
      * Find the offset.

@@ -10,24 +10,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
-;
-(function(global){
+// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+
+;(function(global){
   //export--------------------------------------------------------------------
   if(typeof module === "object" &&
      module && typeof module.exports === "object"){
     global=module.exports;
-  }
-  else if(typeof exports === "object" && exports){
+  }else if(typeof exports === "object" && exports){
     global=exports;
   }
   let _singleton=null;
-  global["io.czlab.mcfud.geo2d"]=function(){
+  global["io/czlab/mcfud/geo2d"]=function(){
     if(_singleton) { return _singleton }
-    const Core=global["io.czlab.mcfud.core"]();
-    const _M=global["io.czlab.mcfud.math"]();
-    const _V=global["io.czlab.mcfud.vec2"]();
-    const _=Core.u;
+    const {u:_}=global["io/czlab/mcfud/core"]();
+    const _M=global["io/czlab/mcfud/math"]();
+    const _V=global["io/czlab/mcfud/vec2"]();
     const _G={};
     const MaxPolyVertexCount=64;
     const LEFT_VORONOI= -1;
