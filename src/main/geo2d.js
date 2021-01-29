@@ -12,22 +12,16 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
-  global["io/czlab/mcfud/geo2d"]=function(){
-    if(_singleton) { return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _V=global["io/czlab/mcfud/vec2"]();
-    const _G={};
+;(function(gscope){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  "use strict";
+  function _module(Core,_M,_V){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+    if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
     const MaxPolyVertexCount=64;
+    const {u:_}=Core;
+    const _G={};
     const LEFT_VORONOI= -1;
     const MID_VORONOI= 0;
     const RIGHT_VORONOI= 1;
@@ -52,9 +46,9 @@
         if(arguments.length===2){
           this.width=x;
           this.height=y;
-          this.pos= _V.V2();
+          this.pos= _V.vec2();
         }else{
-          this.pos=_V.V2(x,y);
+          this.pos=_V.vec2(x,y);
           this.width=width;
           this.height=height;
         }
@@ -104,7 +98,7 @@
         cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
         cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
       }
-      return _V.V2(cx/A, cy/A)
+      return _V.vec2(cx/A, cy/A)
     };
     /**
      * Lifted from Randy Gaul's impulse-engine:
@@ -177,8 +171,8 @@
      */
     class Line{
       constructor(x1,y1,x2,y2){
-        this.p= _V.V2(x1,y1);
-        this.q= _V.V2(x2,y2);
+        this.p= _V.vec2(x1,y1);
+        this.q= _V.vec2(x2,y2);
       }
     }
     /**
@@ -189,7 +183,7 @@
       constructor(r){
         this.radius=r;
         this.orient=0;
-        this.pos=_V.V2();
+        this.pos=_V.vec2();
       }
       setOrient(r){
         this.orient=r;
@@ -208,7 +202,7 @@
     class Polygon{
       constructor(x,y){
         this.orient = 0;
-        this.pos=_V.V2();
+        this.pos=_V.vec2();
         this.setPos(x,y);
       }
       setPos(x,y){
@@ -221,9 +215,9 @@
         if(this.normals) this.normals.length=0; else this.normals = [];
         if(this.edges) this.edges.length=0; else this.edges = [];
         for(let i=0; i < points.length; ++i){
-          this.calcPoints.push(_V.V2());
-          this.edges.push(_V.V2());
-          this.normals.push(_V.V2());
+          this.calcPoints.push(_V.vec2());
+          this.edges.push(_V.vec2());
+          this.normals.push(_V.vec2());
         }
         this.points = points;
         this._recalc();
@@ -272,9 +266,9 @@
       }
       toPolygon(){
         return new Polygon(this.pos[0],
-                           this.pos[1]).set([_V.V2(this.width,0),
-                                             _V.V2(this.width,this.height),
-                                             _V.V2(0,this.height),_V.V2()]);
+                           this.pos[1]).set([_V.vec2(this.width,0),
+                                             _V.vec2(this.width,this.height),
+                                             _V.vec2(0,this.height),_V.vec2()]);
       }
     }
     /**
@@ -285,8 +279,8 @@
       constructor(A,B){
         this.A = A;
         this.B = B;
-        this.overlapN = _V.V2();
-        this.overlapV = _V.V2();
+        this.overlapN = _V.vec2();
+        this.overlapV = _V.vec2();
         this.clear();
       }
       clear(){
@@ -349,10 +343,10 @@
     _G.calcRectPoints=function(w,h){
       let w2=w/2;
       let h2=h/2;
-      return [_V.V2(hw,-hh),
-              _V.V2(hw,hh),
-              _V.V2(-hw,hh),
-              _V.V2(-hw,-hh)];
+      return [_V.vec2(hw,-hh),
+              _V.vec2(hw,hh),
+              _V.vec2(-hw,hh),
+              _V.vec2(-hw,-hh)];
     };
     /**
      * @public
@@ -805,13 +799,20 @@
       return _poly_poly(a,b,new Manifold());
     };
 
-    return _singleton= _.inject(_G, {Circle: Circle,
-                                     Line: Line,
-                                     Box: Box,
-                                     Manifold: Manifold,
-                                     Polygon: Polygon, Rect: Rect, Area: Area});
+    return _.inject(_G, {Circle: Circle,
+                         Line: Line,
+                         Box: Box,
+                         Manifold: Manifold,
+                         Polygon: Polygon, Rect: Rect, Area: Area});
+  }
 
-  };
-
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"),
+                           require("./vec2"))
+  }else{
+    gscope["io/czlab/mcfud/geo2d"]=_module
+  }
 
 })(this);

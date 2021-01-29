@@ -7,7 +7,7 @@ const rename = require('gulp-rename');
 const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
-  "src/main/seedrandom.js",
+  "src/tpcl/seedrandom.min.js",
   "src/main/core.js",
   "src/main/math.js",
   "src/main/vec2.js",
@@ -17,7 +17,8 @@ const jsFiles = [
   "src/main/gfx.js",
   "src/main/geo2d.js",
   "src/main/quadtree.js",
-  "src/main/negamax.js"
+  "src/main/negamax.js",
+  "src/main/test.js"
 ];
 
 var destDir = 'dist'; //or any folder inside your public asset folder

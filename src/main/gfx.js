@@ -12,21 +12,19 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
-  global["io/czlab/mcfud/gfx"]=function(){
-    if(_singleton){ return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
-    const _M=global["io/czlab/mcfud/math"]();
-    const _G={};
+;(function(gscope){
+  "use strict";
+  /**
+   * @private
+   * @function
+   */
+  function _module(Core,_M){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+
     const TWO_PI=Math.PI*2;
+    const {u:_}=Core;
+    const _G={};
     /**
      * Html5 Text Style object.
      * @public
@@ -258,8 +256,16 @@
       }
     }
 
-    return (_singleton= _.inject(_G, {TXMatrix2d: TXMatrix2d}))
-  };
+    return _.inject(_G, {TXMatrix2d: TXMatrix2d});
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"))
+  }else{
+    gscope["io/czlab/mcfud/gfx"]=_module
+  }
 
 })(this);
 

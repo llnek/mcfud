@@ -12,41 +12,36 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
+;(function(gscope){
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/vec2"]=function(UseOBJ){
-    class V2Obj{ constructor(){ this.x=0; this.y=0; } }
-    const {u:_, is}= global["io/czlab/mcfud/core"]();
-    const _M= global["io/czlab/mcfud/math"]();
-    if(_M.Vec2){return _M.Vec2}
-    const EPSILON= 0.0000000001;
-    const _V={};
+  function _module(UseOBJ=false,Core=null,_M=null){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+    const {u:_, is}= Core;
+    class V2Obj{ constructor(){ this.x=this.y=0 } }
     function _cobj() { return new V2Obj() }
     function _carr() { return [0,0] }
+    const PLEN=96;
+    const _V={};
     const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= _.fill(new Array(128), _CTOR);
+    const _POOL= _.fill(new Array(PLEN), _CTOR);
     /**
      * @private
      * @function
      */
     function _drop(...args){
-      args.forEach(a => {
+      let ok;
+      args.forEach(a=>{
         if(a){
+          ok=0;
           if(UseOBJ){
-            if(a instanceof V2Obj) _POOL.push(a)
-          }else{
-            if(a.length===2) _POOL.push(a)
-          }
+            if(a instanceof V2Obj){ok=1}
+          }else if(a.length===2){ok=1}
+          if(ok && _POOL.length<PLEN) _POOL.push(a)
         }
       })
     }
@@ -56,12 +51,14 @@
      */
     function _take(x,y){
       let out= _POOL.length>0 ? _POOL.pop() : _CTOR();
+      x=x || 0;
+      y=y || 0;
       if(UseOBJ){
-        out.x=x||0;
-        out.y=y||0;
+        out.x=x;
+        out.y=y;
       }else{
-        out[0]=x||0;
-        out[1]=y||0;
+        out[0]=x;
+        out[1]=y;
       }
       return out;
     }
@@ -69,7 +66,7 @@
      * @public
      * @function
      */
-    _V.V2=function(x,y){ return _take(x,y) };
+    _V.vec2=function(x,y){ return _take(x,y) };
     _V.takeV2=_take;
     _V.dropV2=_drop;
     /**
@@ -152,8 +149,9 @@
      * @returns {number}
      */
     _V.vecDot=function(a,b){
-      return _assertArgs(a,b) ? (UseOBJ ? (a.x * b.x + a.y * b.y)
-                                        : (a[0]*b[0] + a[1]*b[1])) : undefined
+      if(_assertArgs(a,b))
+        return UseOBJ ? (a.x*b.x + a.y*b.y)
+                      : (a[0]*b[0] + a[1]*b[1])
     }
     /**
      * @public
@@ -195,7 +193,7 @@
     _V.vecUnit=function(a){
       let d=this.vecLen(a);
       let out= _CTOR();
-      if(d>EPSILON){
+      if(d>_M.EPSILON){
         if(UseOBJ){
           out.x = a.x/d;
           out.y = a.y/d;
@@ -212,7 +210,7 @@
      */
     _V.vecUnitSelf=function(a){
       let d=this.vecLen(a);
-      if(d>EPSILON){
+      if(d>_M.EPSILON){
         if(UseOBJ){
           a.x /= d;
           a.y /= d;
@@ -236,7 +234,7 @@
         des[0]=src[0];
         des[1]=src[1];
       }
-      return des
+      return des;
     }
     /**
      * @public
@@ -248,7 +246,7 @@
     /**
      * @public
      * @function
-     */;
+     */
     _V.vecCopy=function(des,...args){
       _.assert(args.length===2) && _assertArgs(des,des);
       if(UseOBJ){
@@ -258,19 +256,19 @@
         des[0]=args[0];
         des[1]=args[1];
       }
-      return des
+      return des;
     };
     /**
      * @private
      * @function
      */
     function _v2rot_arr(a,cos,sin,center,local){
-      let cx=center ? center[0] : 0;
-      let cy=center ? center[1] : 0;
-      let x_= a[0] - cx;
-      let y_= a[1] - cy;
-      let x= cx + (x_*cos - y_*sin);
-      let y= cy + (x_ * sin + y_ * cos);
+      const cx=center ? center[0] : 0;
+      const cy=center ? center[1] : 0;
+      const x_= a[0] - cx;
+      const y_= a[1] - cy;
+      const x= cx + (x_*cos - y_*sin);
+      const y= cy + (x_ * sin + y_ * cos);
       if(local){
         a[0] = x;
         a[1] = y;
@@ -284,12 +282,12 @@
      * @function
      */
     function _v2rot_obj(a,cos,sin,center,local){
-      let cx=center ? center.x : 0;
-      let cy=center ? center.y : 0;
-      let x_= a.x - cx;
-      let y_= a.y - cy;
-      let x= cx + (x_*cos - y_*sin);
-      let y= cy + (x_ * sin + y_ * cos);
+      const cx=center ? center.x : 0;
+      const cy=center ? center.y : 0;
+      const x_= a.x - cx;
+      const y_= a.y - cy;
+      const x= cx + (x_*cos - y_*sin);
+      const y= cy + (x_ * sin + y_ * cos);
       if(local){
         a.x = x;
         a.y = y;
@@ -304,8 +302,8 @@
      */
     _V.vec2Rot=function(a,rot,center){
       _assertArgs(a, center || a);
-      let c= Math.cos(rot);
-      let s= Math.sin(rot);
+      const c= Math.cos(rot);
+      const s= Math.sin(rot);
       return UseOBJ ? _v2rot_obj(a,c,s,center) : _v2rot_arr(a,c,s,center);
     };
     /**
@@ -314,8 +312,8 @@
      */
     _V.vec2RotSelf=function(a,rot,center){
       _assertArgs(a, center || a);
-      let c= Math.cos(rot);
-      let s= Math.sin(rot);
+      const c= Math.cos(rot);
+      const s= Math.sin(rot);
       return UseOBJ ? _v2rot_obj(a,c,s,center,1) : _v2rot_arr(a,c,s,center,1);
     };
     /**
@@ -375,7 +373,7 @@
      */
     _V.perpSelf=function(a,ccw){
       _assertArgs(a,a);
-      let x = UseOBJ ? a.x : a[0];
+      const x = UseOBJ ? a.x : a[0];
       if(UseOBJ){
         if(ccw){
           a.x=-a.y;
@@ -423,10 +421,8 @@
      * @function
      */
     _V.vecProj=function(a,b){
-      // (a.b')b'
-      let bn = this.vecUnit(b);
+      const bn = this.vecUnit(b);
       return this.vecMulSelf(bn, this.vecDot(a,bn));
-      //return this.vecMul(b, this.vecDot(a,b)/this.vecLen2(b))
     };
     /**
      * Find the perpedicular vector.
@@ -471,8 +467,8 @@
     _V.vecNormal=function(v,s){
       _assertArgs(v,v);
       //origin = (0,0) => x1=0,y1=0, x2= vx, y2=vy
-      let x1=0;
-      let y1=0;
+      const x1=0;
+      const y1=0;
       let dy;
       let dx;
       if(UseOBJ){
@@ -494,12 +490,21 @@
         args=args[0];
         a=true;
       }
-      return args.length===1 && !a ? this.V2(pos[0]+args[0][0],pos[1]+args[0][1])
-                                   : args.map(p => this.V2(pos[0]+p[0],pos[1]+p[1]))
+      return args.length===1 && !a ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
+                                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
     };
 
-    return (_M.Vec2=_V)
-  };
+    return _V;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(false,
+                           require("./core"),
+                           require("./math"))
+  }else{
+    gscope["io/czlab/mcfud/vec2"]=_module
+  }
 
 })(this);
 

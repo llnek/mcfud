@@ -12,50 +12,46 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(window,doco,seed_rand){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
-  let window=null;
-  let _singleton=null;
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }else if(global.document){
-    window=global;
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  if(typeof module==="object" && module.exports){
+    seed_rand=require("../tpcl/seedrandom.min")
+  }else{
+    doco=window.document
   }
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/core"]=function(){
-    if(_singleton){ return _singleton }
-    let PRNG = new Math.seedrandom();
-    const document=global.document;
+  function _module(){
+    let PRNG= seed_rand?seed_rand():new Math.seedrandom();
     const OBJ=Object.prototype;
     const ARR=Array.prototype;
     const slicer=ARR.slice;
     const tostr=OBJ.toString;
     const _C={};
-
-    function isObject(obj){ return tostr.call(obj) === "[object Object]"; }
+    function isObject(obj){ return tostr.call(obj) === "[object Object]" }
     function isFun(obj){ return tostr.call(obj) === "[object Function]" }
-    function isArray(obj){ return tostr.call(obj) === "[object Array]"; }
-    function isMap(obj){ return tostr.call(obj) === "[object Map]"; }
-    function isStr(obj){ return typeof obj === "string"; }
-    function isNum(obj){ return tostr.call(obj) === "[object Number]"; }
+    function isArray(obj){ return tostr.call(obj) === "[object Array]" }
+    function isMap(obj){ return tostr.call(obj) === "[object Map]" }
+    function isStr(obj){ return typeof obj === "string" }
+    function isNum(obj){ return tostr.call(obj) === "[object Number]" }
     function _randXYInclusive(min,max){
-      return Math.floor(PRNG() * (max - min + 1) + min);
+      return Math.floor(PRNG() * (max - min + 1) + min)
     }
-    function _fext(name){
-      let pos= name.lastIndexOf(".");
-      return pos>0 ? name.substring(pos+1).toLowerCase() : "";
+    //regexes handling file paths
+    const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
+    const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
+    function _fext(path){
+      let t=FEXT.exec(path);
+      return t && t[1]  ? t[1].toLowerCase() : "";
     }
-
     //https://github.com/bryc/code/blob/master/jshash/PRNGs.md
     //xoshiro128+ (128-bit state generator in 32-bit)
-    const xoshiro128p = (function(a,b,c,d){
+    const xoshiro128p=(function(a,b,c,d){
       return function(){
         let t = b << 9, r = a + d;
             c = c ^ a;
@@ -67,7 +63,10 @@
         return (r >>> 0) / 4294967296;
       };
     })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
-    //const EPSILON= 0.00001;
+    /**
+     * private
+     * @var {number}
+     */
     const EPSILON= 0.0000000001;
     /**
      * @private
@@ -89,7 +88,7 @@
       }
     }
     /**
-     * @public
+     * @private
      * @var {object}
      */
     const is={
@@ -97,51 +96,53 @@
       str(s,...args){ return _everyF(isStr,s,args) },
       void0(obj){ return obj === void 0 },
       undef(obj){ return obj === undefined },
-      obj(o,...args){ return _everyF(isObject,o,args) },
+      some(obj){ return _.size(obj) > 0 },
+      none(obj){ return _.size(obj) === 0 },
       map(m,...args){ return _everyF(isMap,m,args) },
       num(n,...args){ return _everyF(isNum,n,args) },
       vec(v,...args){ return _everyF(isArray,v,args) },
-      some(obj){ return _.size(obj) > 0 },
-      none(obj){ return _.size(obj) === 0 }
+      obj(o,...args){ return _everyF(isObject,o,args) }
     };
     /**
-     * @public
+     * @private
      * @var {object}
      */
     const _={
-      srand(){
-        PRNG = new Math.seedrandom()
-      },
-      feq0(a){
-        return Math.abs(a) < EPSILON
-      },
-      feq(a, b){
-        // <= instead of < for NaN comparison safety
-        return Math.abs(a - b) <= EPSILON;
-      },
-      fgteq(a,b){
-        return a>b || this.feq(a,b);
-      },
-      flteq(a,b){
-        return a<b || this.feq(a,b);
-      },
+      /** Re-seed a random */
+      srand(){ PRNG = new Math.seedrandom() },
+      /** Fuzzy zero */
+      feq0(a){ return Math.abs(a) < EPSILON },
+      /** Fuzzy equals */
+      feq(a, b){ return Math.abs(a - b) < EPSILON },
+      /** Fuzzy greater_equals */
+      fgteq(a,b){ return a>b || this.feq(a,b) },
+      /** Fuzzy less_equals */
+      flteq(a,b){ return a<b || this.feq(a,b) },
+      /** Serialize to JSON */
       pack(o){ return JSON.stringify(o) },
+      /** Deserialize from JSON */
       unpack(s){ return JSON.parse(s) },
+      /** Put values into array */
       v2(x,y){ return [x,y] },
+      /** 2D point(x,y) */
       p2(x,y){ return {x: x, y: y} },
+      /** Return it if it's a number else 0 */
       numOrZero(n){ return isNaN(n) ? 0 : n },
+      /** Return b if a doesn't exist else a */
       or(a,b){ return a===undefined?b:a },
-      parseNumber(s,dft){
+      /** Convert input into number, if not return the default */
+      toNumber(s,dft){
         let n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
+      /** Break version string into Major.Minor.Patch */
       splitVerStr(s){
-        let arr=(""+(s || "")).split(".").filter(s=> s.length>0);
-        let major=this.parseNumber(arr[0],0);
-        let minor=this.parseNumber(arr[1],0);
-        let patch=this.parseNumber(arr[2],0);
-        return [major, minor, patch];
+        const arr=(""+(s || "")).split(".").filter(s=> s.length>0);
+        return [this.toNumber(arr[0],0),
+                this.toNumber(arr[1],0),
+                this.toNumber(arr[2],0)]
       },
+      /** Compare 2 versions like a standard comparator */
       cmpVerStrs(V1,V2){
         let v1= this.splitVerStr(""+V1);
         let v2= this.splitVerStr(""+V2);
@@ -153,186 +154,226 @@
         else if(v1[2] < v2[2]) return -1;
         return 0;
       },
+      /** Look for files matching any one of these extensions */
       findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s)) > -1);
       },
       pdef(obj){
-        obj.enumerable=true;
-        obj.configurable=true;
+        obj.configurable=obj.enumerable=true;
         return obj;
       },
+      /** Chop input into chunks of `count` items */
       partition(count,arr){
-        let out=[];
-        for(let row,i=0;;){
+        const out=[];
+        for(let row,j,i=0;;){
           row=[];
-          for(let j=0;j<count;++j){
+          for(j=0;j<count;++j){
             if(i<arr.length){
-              row.push(arr[i]);
-              ++i;
+              row.push(arr[i++]);
             }else{
-              if(row.length>0) out.push(row);
-              return out;
-            }
+              j=-1; break; }
           }
+          if(row.length>0) out.push(row);
+          if(j<0) break;
         }
+        return out;
       },
-      range(start,end){
-        _.assert(start !== undefined);
-        let out=[];
+      XXrange(start,end){
+        _.assert(is.num(start));
+        const out=[];
         if(arguments.length===1){ end=start; start=0 }
+        _.assert(is.num(end));
         for(let i=start;i<end;++i){ out.push(i) }
         return out
       },
+      /** Returns keys of object or Map. */
       keys(obj){
         return isMap(obj) ? Array.from(obj.keys())
                           : (isObject(obj) ? Object.keys(obj) : []);
       },
-      selectNotKeys(coll,keys){
-        let out;
-        if(isMap(coll) || isObject(coll)){
-          out= isMap(coll) ? new Map() : {};
-          keys=_.seq(keys);
-          _.doseq(coll,(v,k)=>{
-            if(!keys.includes(k)){
-              if(isMap(out))
-                out.set(k, v);
-              else
-                out[k]= v;
-            }
-          });
-        }
+      /** Clone object/Map but exclude these keys */
+      selectNotKeys(c,keys){
+        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        const out= isMap(c) ? new Map() : {};
+        keys=_.seq(keys);
+        _.doseq(c,(v,k)=>{
+          if(!keys.includes(k))
+            isMap(out) ? out.set(k, v) : out[k]=v;
+        });
         return out;
       },
-      selectKeys(coll,keys){
-        let out;
-        if(isMap(coll) || isObject(coll)){
-          if(isMap(coll)) out=new Map();
-          else out={};
-          this.seq(keys).forEach(k=>{
-            if(isMap(coll)){
-              if(coll.has(k))
-                out.set(k, coll.get(k));
-            }else{
-              if(OBJ.hasOwnProperty.call(coll, k))
-                out[k]= coll[k];
-            }
-          });
-        }
+      /** Choose these keys from object/map */
+      selectKeys(c,keys){
+        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        const out= isMap(c) ? new Map() : {};
+        _.seq(keys).forEach(k=>{
+          if(isMap(c)){
+            c.has(k) && out.set(k, c.get(k));
+          }else if(OBJ.hasOwnProperty.call(c, k)){
+            out[k]=c[k];
+          }
+        });
         return out;
       },
-      assertNot(cond){
-        if(cond)
-          throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
-        return true
+      /** assert the condition is false */
+      assertNot(cond,...args){
+        return _.assert(!cond,...args)
       },
+      /** assert the condition is true */
       assert(cond){
         if(!cond)
           throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
         return true
       },
+      /** true if target has none of these keys */
       noSuchKeys(keys,target){
-        let r=this.some(this.seq(keys),k => this.has(target,k)?k:null);
-        if(r) console.log("keyfound="+r);
-        return !r;
+        return !_.some(_.seq(keys),k => _.has(target,k)?k:null);
+        //if(r) console.log("keyfound="+r);
+        //return !r;
       },
+      /** a random float between min and max-1 */
       randFloat(min, max){
-        return min + PRNG() * (max - min);
+        return min + PRNG() * (max - min)
       },
-      randMinus1To1(){ return (PRNG() - 0.5) * 2 },
-      randInt(num){ return Math.floor(PRNG() * num) },
+      /** a random float between -1 and 1 */
+      randMinus1To1(){ return (PRNG()-0.5) * 2 },
+      /** a random int between 0 and num */
+      randInt(num){ return (PRNG() * num)|0 },
+      /** a random int between min and max */
       randInt2: _randXYInclusive,
+      /** a random float between 0 and 1 */
       rand(){ return PRNG() },
+      /** randomly choose -1 or 1 */
       randSign(){ return _.rand() > 0.5 ? -1 : 1 },
+      /** true if obj is subclass of type */
       inst(type,obj){ return obj instanceof type },
+      /** Calculate hashCode of this string, like java hashCode */
       hashCode(s){
-        let h=0;
+        let n=0;
         for(let i=0; i<s.length; ++i)
-          h = Math.imul(31, h) + s.charCodeAt(i) | 0;// force to be 32 bit int via | 0
-        return h;
+          n= Math.imul(31, n) + s.charCodeAt(i)|0;
+        return n;
       },
+      /** Randomly choose an item from this array */
       randArrayItem(arr){
-        if(arr)
-          return arr.length===0 ? null : arr.length === 1 ? arr[0] : arr[_.floor(_.rand() * arr.length)]
+        if(arr && arr.length>0)
+          return arr.length===1 ? arr[0] : arr[_.randInt(arr.length)]
       },
+      /** true if string represents a percentage value */
       isPerc(s){
-        return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/);
+        return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/)
       },
+      /** true if number is even */
       isEven(n){
         return n>0 ? (n % 2 === 0) : ((-n) % 2 === 0);
       },
+      /** Creates a javascript Map */
       jsMap(){ return new Map() },
+      /** Creates a javascript object */
       jsObj(){ return {} },
+      /** Creates a javascript array */
       jsVec(...args){
-        return args.length===0 ? [] : args.slice();
+        return args.length===0 ? [] : args.slice()
       },
-      lastIndex(coll){
-        return (coll && coll.length) ? coll.length-1 : -1
+      /** Returns the last index */
+      lastIndex(c){
+        return (c && c.length>0) ? c.length-1 : -1
       },
-      head(coll){
-        return (coll && coll.length) ? coll[0] : undefined
-      },
-      tail(coll){
-        return (coll && coll.length) ? coll[coll.length-1] : undefined
-      },
+      /** Returns the first element */
+      first(c){ if(c && c.length>0) return c[0] },
+      /** Returns the last element */
+      last(c){ if(c&& c.length>0) return c[c.length-1] },
+      head(c){ return _.first(c) },
+      tail(c){ return _.last(c) },
+      /** floor a number */
       floor(v){ return Math.floor(v) },
+      /** ceiling a number */
       ceil(v){ return Math.ceil(v) },
+      /** absolute value */
       abs(v){ return Math.abs(v) },
+      /** square root number */
       sqrt(v){ return Math.sqrt(v) },
-      min(a,b){ return Math.min(a,b) },
-      max(a,b){ return Math.max(a,b) },
+      /** choose min from 2 */
+      min(...args){ return Math.min(...args) },
+      /** choose max from 2 */
+      max(...args){ return Math.max(...args) },
+      /** Take a slice of an array */
       slice(a,i){ return slicer.call(a, i) },
+      /** true only if every item in list equals v */
       every(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] !== v) return false;
         return c.length>0;
       },
+      /** true only if no item in list equals v */
       notAny(c,v){
         for(let i=0;i<c.length;++i)
           if(c[i] === v) return false;
         return c.length>0;
       },
+      /** Copy all or some items from `from` to `to` */
       copy(to,from){
-        if(!from) return to;
-        if(!to) return from.slice();
+        if(!from){return to}
+        if(!to){
+          return from ? from.slice() : undefined }
         let len= Math.min(to.length,from.length);
         for(let i=0;i<len;++i) to[i]=from[i];
         return to;
       },
+      /** Append all or some items from `from` to `to` */
       append(to,from){
-        if(!from) return to;
-        if(!to) return from.slice();
+        if(!from){return to}
+        if(!to){
+          return from ? from.slice() : undefined }
         for(let i=0;i<from.length;++i) to.push(from[i]);
         return to;
       },
+      /** Fill array with v or v() */
       fill(a,v){
         if(a)
           for(let i=0;i<a.length;++i){
-            a[i] = isFun(v) ? v() : v;
+            a[i]= isFun(v) ? v() : v;
           }
         return a;
       },
+      /** Return the size of object/map/array */
       size(obj){
-        let len=0;
-        if(isArray(obj)) len= obj.length;
-        else if(isMap(obj)) len=obj.size;
-        else if(obj) len=_.keys(obj).length;
-        return len;
+        return isArray(obj) ? obj.length
+                            : (isMap(obj) ? obj.size
+                                          : (obj ? _.keys(obj).length : 0))
       },
+      /** Next sequence number */
       nextId(){ return ++_seqNum },
+      /** Time in milliseconds */
       now(){ return Date.now() },
-      fileExt: _fext,
-      fileNoExt(name){
-        let pos= name.lastIndexOf(".");
-        return pos>0 ? name.substring(0,pos) : name;
-      },
-      range(start,stop,step=1){
-        if(typeof stop==="undefined"){
-          stop=start; start=0; step=1;
+      /** Find file extension */
+      fileExt(path){ return _fext(path) },
+      /** Find file name, no extension */
+      fileBase(path){
+        let pos=path.indexOf("?");
+        if(pos>0)
+          path=path.substring(0,pos);
+        let res= BNAME.exec(path.replace(/(\/|\\\\)$/, ""));
+        let name="";
+        if(res){
+          name = res[2];
+          pos=name.lastIndexOf(".");
+          if(pos>0)
+            name=name.substring(0,pos);
         }
-        let res=[];
+        return name;
+      },
+      /** return a list of numbers from start to end - like a Range object */
+      range(start,stop,step=1){
+        if(arguments.length===1){
+          stop=start;
+          start=0;
+          step=1;
+        }
         let len = (stop-start)/step;
-        len = Math.ceil(len);
-        len = Math.max(0, len);
+        const res=[];
+        len= Math.ceil(len);
+        len= Math.max(0,len);
         res.length=len;
         for(let i=0;i<len;++i){
           res[i] = start;
@@ -340,8 +381,9 @@
         }
         return res;
       },
+      /** Shuffle items */
       shuffle(obj){
-        let res=slicer.call(obj,0);
+        const res=slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
           j = Math.floor(PRNG() * (i+1));
           x = res[i];
@@ -350,193 +392,181 @@
         }
         return res;
       },
+      /** Return only the distinct items */
       uniq(arr){
-        let res= [];
-        let prev= null;
-        arr = slicer.call(arr).sort();
-        arr.forEach(a=>{
-          if(a !== undefined &&
-             a !== prev) res.push(a);
-          prev = a;
+        if(false){
+          let prev,res= [];
+          slicer.call(arr).sort().forEach(a=>{
+            if(a !== undefined &&
+               a !== prev) res.push(a);
+            prev = a;
+          });
+          return res;
+        }
+        return Array.from(new Set(arr));
+      },
+      /** functional map */
+      map(obj, fn,target){
+        const res= [];
+        _.doseq(obj, (v,k)=>{
+          res.push(fn.call(target, v,k,obj));
         });
         return res;
       },
-      map(obj, fn,target){
-        let res= [];
-        if(isArray(obj))
-          res= obj.map(fn,target);
-        else if(isMap(obj)){
-          obj.forEach((v,k)=>{
-            res.push(fn.call(target, v,k,obj));
-          });
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k))
-              res.push(fn.call(target, obj[k],k,obj));
-        }
+      /** `find` with extra args */
+      find(coll,fn,target){
+        let args=slicer.call(arguments,3);
+        let res,cont=true;
+        _.doseq(coll, (v,k)=>{
+          if(cont && fn.apply(target, [v, k].concat(args))){
+            res=[k, v];
+            cont=false;
+          }
+        });
         return res;
       },
-      find(obj,fn,target){
+      /** `some` with extra args */
+      some(coll,fn,target){
         let args=slicer.call(arguments,3);
-        if(isArray(obj)){
-          for(let i=0,z=obj.length;i<z;++i)
-            if(fn.apply(target, [obj[i], i].concat(args)))
-              return obj[i];
-        }else if(isMap(obj)){
-          let ks=Array.from(obj.keys());
-          for(let k,i=0,z=ks.length;i<z;++i){
-            k=ks[i];
-            if(fn.apply(target, [obj.get(k), k].concat(args)))
-            return [k, obj.get(k)];
+        let res,cont=true;
+        _.doseq(coll,(v,k)=>{
+          if(cont){
+            res = fn.apply(target, [v, k].concat(args));
+            if(res) cont=false;
           }
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k) &&
-               fn.apply(target, [obj[k], k].concat(args)))
-              return [k,obj[k]];
-        }
+        });
+        return res;
       },
-      some(obj,fn,target){
-        let res;
-        let args=slicer.call(arguments,3);
-        if(isArray(obj)){
-          for(let i=0,z=obj.length;i<z;++i)
-            if(res = fn.apply(target, [obj[i], i].concat(args)))
-              return res;
-        }else if(isMap(obj)){
-          let ks=Array.from(obj.keys());
-          for(let k,i=0,z=ks.length;i<z;++i){
-            k=ks[i];
-            if(res = fn.apply(target, [obj.get(k), k].concat(args)))
-              return res;
-          }
-        }else if(obj){
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj, k))
-              if(res = fn.apply(target, [obj[k], k].concat(args)))
-                return res;
-        }
-      },
-      invoke(arr,key){
+      /** Each item in the array is an object, invoke obj.method with extra args */
+      invoke(arr,method_name){
         let args=slicer.call(arguments,2);
-        if(isArray(arr))
+        isArray(arr) &&
           arr.forEach(x => x[key].apply(x, args));
       },
-      delay(wait,f){
-        return setTimeout(f,wait);
-      },
+      /** Run function after some delay */
+      delay(wait,f){ return setTimeout(f,wait) },
+      /** Create a once/repeat timer */
       timer(f,delay=0,repeat=false){
         return {
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
         }
       },
+      /** clear a timer */
       clear(handle){
         if(handle)
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
       },
-      rseq(obj,fn,target){
-        if(isArray(obj) && obj.length>0)
-          for(let i=obj.length-1;i>=0;--i)
-            fn.call(target, obj[i],i);
+      /** Iterate a collection in reverse */
+      rseq(coll,fn,target){
+        if(isArray(coll) && coll.length>0)
+          for(let i=coll.length-1;i>=0;--i){
+            fn.call(target, coll[i],i)
+          }
       },
-      doseq(obj,fn,target){
-        if(isArray(obj))
-          obj.forEach(fn,target);
-        else if(isMap(obj))
-          obj.forEach((v,k)=> fn.call(target,v,k,obj));
-        else if(obj)
-          for(let k in obj)
-            if(OBJ.hasOwnProperty.call(obj,k))
-            fn.call(target, obj[k], k, obj);
+      /** Iterate a collection */
+      doseq(coll,fn,target){
+        if(isArray(coll)){
+          coll.forEach(fn,target);
+        }else if(isMap(coll)){
+          coll.forEach((v,k)=> fn.call(target,v,k,coll));
+        }else if(coll){
+          Object.keys(coll).forEach(k=>{
+            fn.call(target, coll[k], k, coll);
+          });
+        }
       },
-      dissoc(obj,key){
+      /** Remove a key from collection */
+      dissoc(coll,key){
         if(arguments.length>2){
           let prev,i=1;
           for(;i<arguments.length;++i)
-            prev=this.dissoc(obj,arguments[i]);
+            prev=_.dissoc(coll,arguments[i]);
           return prev;
         }else{
           let val;
-          if(isMap(obj)){
-            val=obj.get(key);
-            obj.delete(key);
-          }else if(obj){
-            val = obj[key];
-            delete obj[key];
+          if(isMap(coll)){
+            val=coll.get(key);
+            coll.delete(key);
+          }else if(coll){
+            val = coll[key];
+            delete coll[key];
           }
           return val;
         }
       },
-      get(obj,key){
-        if(typeof key !== "undefined"){
-          if(isMap(obj)) return obj.get(key);
-          else if(obj) return obj[key];
+      /** Return the value of property `key` */
+      get(coll,key){
+        if(key !== undefined){
+          if(isMap(coll)) return coll.get(key);
+          else if(coll) return coll[key];
         }
       },
-      assoc(obj,key,value){
+      /** Set property `key` */
+      assoc(coll,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
             throw "ArityError: expecting even count of args.";
           let prev, i=1;
           for(;i < arguments.length;){
-            prev= this.assoc(obj,arguments[i],arguments[i+1]);
+            prev= _.assoc(coll,arguments[i],arguments[i+1]);
             i+=2;
           }
           return prev;
         }else{
           let prev;
-          if(isMap(obj)){
-            prev=obj.get(key);
-            obj.set(key,value);
-          }else if(obj){
-            prev=obj[key];
-            obj[key]=value;
+          if(isMap(coll)){
+            prev=coll.get(key);
+            coll.set(key,value);
+          }else if(coll){
+            prev=coll[key];
+            coll[key]=value;
           }
           return prev;
         }
       },
+      /** Remove item from array */
       disj(coll,obj){
         let i = coll ? coll.indexOf(obj) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
+      /** Append item to array */
       conj(coll,...objs){
         if(coll)
           objs.forEach(o => coll.push(o));
         return coll;
       },
+      /** Make input into array */
       seq(arg,sep=","){
         if(typeof arg === "string")
           arg = arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isArray(arg)) arg = [arg];
         return arg;
       },
-      has(obj,key){
-        if(!key)
-          return false;
-        if(isMap(obj))
-          return obj.has(key);
-        if(isArray(obj))
-          return obj.indexOf(key) !== -1;
-        if(obj)
-          return OBJ.hasOwnProperty.call(obj, key);
+      /** true if collection has property `key` */
+      has(coll,key){
+        return arguments.length===1 ? false
+          : isMap(coll) ? coll.has(key)
+          : isArray(coll) ? coll.indexOf(key) !== -1
+          : coll ? OBJ.hasOwnProperty.call(coll, key) : false;
       },
+      /** Add these keys to `des` only if the key is missing */
       patch(des,additions){
         des=des || {};
         if(additions)
           Object.keys(additions).forEach(k=>{
-            if(des[k]===undefined)
+            if(!_.has(des,k))
               des[k]=additions[k];
           });
         return des;
       },
+      /** Deep clone */
       clone(obj){
-        if(obj)
-          obj=JSON.parse(JSON.stringify(obj));
-        return obj;
+        return obj ? _.unpack(_.pack(obj)) : obj
       },
+      /** Merge others into `des` */
       inject(des){
         let args=slicer.call(arguments,1);
         des=des || {};
@@ -545,9 +575,10 @@
         });
         return des;
       },
+      /** Deep copy array/array of arrays */
       deepCopyArray(v){
         _.assert(is.vec(v),"Expected array");
-        let out = [];
+        const out = [];
         for(let i=0,z=v.length; i<z; ++i)
           out[i]= is.vec(v[i]) ? _.deepCopyArray(v[i]) : v[i];
         return out;
@@ -570,8 +601,7 @@
        * @return {Object} the modified original object
       */
       merge(original, extended){
-        let key = undefined;
-        let ext = undefined;
+        let key,ext;
         Object.keys(extended).forEach(key=>{
           ext = extended[key];
           if(typeof ext !== "object" || ext === null || !original[key]){
@@ -813,14 +843,12 @@
         //_debounced.flush = flush;
         return _debounced;
       },
+      /** Return a function that will return the negation of original func */
       negate(func){
         _.assert(is.fun(func),"expected function");
         return function(...args){
           return !func.apply(this, args)
         }
-      },
-      reject(coll, func){
-        return _.doseq(coll,_.negate(func))
       },
       /**
        * Maybe pad a string (right side.)
@@ -852,8 +880,9 @@
        * @return {Array.String}
       */
       safeSplit(s, sep){
-        return _.reject(s.trim().split(sep), (z) => z.length===0)
+        return s.trim().split(sep).filter(z => z.length>0)
       },
+      /** Capitalize the first char */
       capitalize(str){
         return str.charAt(0).toUpperCase() + str.slice(1)
       },
@@ -877,18 +906,32 @@
       dropArgs(args, num){
         return args.length > num ? Array.prototype.slice(args, num) : []
       },
+      /** true if url is secure */
       isSSL(){
         return window && window.location && window.location.protocol.indexOf("https") >= 0
       },
+      /** true if url is mobile */
       isMobile(navigator){
         return navigator && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       },
+      /** true if browser is safari */
       isSafari(navigator){
         return navigator && /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
+      },
+      /** true if cross-origin */
+      isCrossOrigin(url) {
+        if(url) {
+          let pos= url.indexOf("://");
+          if(pos > 0){
+            let end= url.indexOf("/", pos+3);
+            let o = end<0 ? url : url.substring(0, end);
+            return o !== window.location.origin;
+          }
+        }
       }
     };
     //browser only--------------------------------------------------------------
-    if(document){
+    if(doco){
       _.addEvent=function(event,target,cb,arg){
         if(isArray(event) && arguments.length===1)
           event.forEach(e => this.addEvent.apply(this, e));
@@ -907,13 +950,13 @@
      * @var {object}
      */
     const dom={
-      qSelector(sel){ return document.querySelectorAll(sel) },
-      qId(id){ return document.getElementById(id) },
-      parent(e){ return e ? e.parentNode : undefined },
+      qSelector(sel){ return doco.querySelectorAll(sel) },
+      qId(id){ return doco.getElementById(id) },
+      parent(e){ if(e) return e.parentNode },
       conj(par,child){ return par.appendChild(child) },
       byTag(tag, ns){
-        return !is.str(ns) ? document.getElementsByTagName(id)
-                           : document.getElementsByTagNameNS(ns,tag) },
+        return !is.str(ns) ? doco.getElementsByTagName(id)
+                           : doco.getElementsByTagNameNS(ns,tag) },
       attrs(e, attrs){
         if(!is.obj(attrs) && attrs){
           if(arguments.length > 2)
@@ -931,7 +974,7 @@
           return e.style[styles];
         }
         if(styles)
-          _.doseq(styles, (v,k) => { e.style[k]= v; });
+          _.doseq(styles, (v,k) => { e.style[k]= v });
         return e;
       },
       wrap(child,wrapper){
@@ -941,13 +984,13 @@
         return wrapper;
       },
       newElm(tag, attrs, styles){
-        let e = document.createElement(tag);
+        let e = doco.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
       newTxt(tag, attrs, styles){
-        let e = document.createTextNode(tag);
+        let e = doco.createTextNode(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
@@ -1006,12 +1049,20 @@
       };
     };
 
-    if(document){ _C.dom=dom }
+    if(doco){ _C.dom=dom }
     _C.EventBus= EventBus;
     _C.u= _;
     _C.is= is;
-    return (_singleton=_C);
-  };
+    return _C;
+  }
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //exports
+  if(typeof module==="object" && module.exports){
+    module.exports=_module()
+  }else{
+    window["io/czlab/mcfud/core"]=_module
+  }
 
 })(this);
 

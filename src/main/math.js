@@ -12,36 +12,21 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
+;(function(gscope){
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/math"]=function(){
-    if(_singleton) { return _singleton }
-    const {is,u:_}= global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
-    const _M={EPSILON: EPSILON};
-    /**
-     * Fuzzy match.
-     * @private
-     * @function
-     */
-    function _cmp_eq(x,y){
-      return Math.abs(x-y) <= (EPSILON * Math.max(1, Math.max(Math.abs(x), Math.abs(y))))
-    }
+    const {is,u:_}= Core;
+    const _M={EPSILON:EPSILON};
     /**
      * @public
      * @function
@@ -62,17 +47,13 @@
      * @function
      */
     _M.clamp=function(min,max,v){
-      if(v < min) return min;
-      if(v > max) return max;
-      return v
+      return v<min ? min : (v>max ? max : v)
     };
     /**
      * @function
      * @public
      */
-    _M.sqr=function(a){
-      return a*a
-    };
+    _M.sqr=function(a){ return a*a };
     /**
      * @public
      * @function
@@ -141,8 +122,15 @@
       return a >= (b*biasRelative + a*biasAbsolute)
     };
 
-    return (_singleton=_M)
-  };
+    return _M;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    gscope["io/czlab/mcfud/math"]=_module
+  }
 
 })(this);
 

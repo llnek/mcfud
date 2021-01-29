@@ -12,20 +12,11 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-
-  let _singleton;
-  global["io/czlab/mcfud/fsm"]=function(){
-    if(_singleton)
-      return _singleton;
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  function _module(){
     const _R={
       fsm(defn){
         let _state=defn.initState();
@@ -55,9 +46,13 @@
         }
       }
     };
-    return (_singleton=_R);
-  };
+    return _R;
+  }
 
+  /**
+   * @private
+   * @var {object}
+   */
   const sample={
     initState(){ return "happy"},
     "happy":{
@@ -81,6 +76,13 @@
       }
     }
   };
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module()
+  }else{
+    gscope["io/czlab/mcfud/fsm"]=_module
+  }
 
 })(this);
 

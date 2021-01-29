@@ -12,23 +12,15 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global) {
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/negamax"]= function(){
-    if(_singleton){ return _singleton }
-    const {u:_}=global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const {u:_}=Core;
     const _N={};
     //const PINF = 1000000;
     /**
@@ -129,8 +121,15 @@
       return f.lastBestMove;
     };
 
-    return _singleton= _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
-  };
+    return _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    gscope["io/czlab/mcfud/negamax"]=_module
+  }
 
 })(this);
 

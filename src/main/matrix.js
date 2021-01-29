@@ -10,28 +10,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
+;(function(gscope){
+  "use strict";
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/matrix"]=function(){
-    const {u:_, is}= global["io/czlab/mcfud/core"]();
-    const _M= global["io/czlab/mcfud/math"]();
-    if(_M.Matrix){return _M.Matrix}
+  function _module(Core,_M){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
+    const {u:_, is}= Core;
     const _X={
       V3:function(x,y,z){
         return [x||0,y||0,z||0]
@@ -858,8 +853,16 @@
                        : this.V3(ATAN2(-r2[2],r2[1]), ATAN2(-r3[0],sy), 0)
     };
 
-    return (_M.Matrix=_X)
-  };
+    return _X;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"),
+                           require("./math"))
+  }else{
+    gscope["io/czlab/mcfud/matrix"]=_module
+  }
 
 })(this);
 

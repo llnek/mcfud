@@ -12,27 +12,18 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" &&
-     module && typeof module.exports === "object"){
-    global=module.exports;
-  }else if(typeof exports === "object" && exports){
-    global=exports;
-  }
-  let _singleton=null;
   const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
                "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
   const VISCHS_LEN=VISCHS.length;
   /**
-   * @public
+   * @private
    * @function
    */
-  global["io/czlab/mcfud/crypt"]=function(){
-    if(_singleton)
-      return _singleton;
-    const {u:_} =global["io/czlab/mcfud/core"]();
+  function _module(Core){
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    const {u:_} = Core;
     const _C={};
     /**
      * Find the offset.
@@ -117,8 +108,15 @@
       return out.join("")
     };
 
-    return _singleton= _C;
-  };
+    return _C;
+  }
+
+  //export--------------------------------------------------------------------
+  if(typeof module === "object" && module.exports){
+    module.exports=_module(require("./core"))
+  }else{
+    gscope["io/czlab/mcfud/crypt"]=_module;
+  }
 
 })(this);
 
