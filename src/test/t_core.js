@@ -18,7 +18,7 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const Core=require("../main/core.js");
 const Test=require("../main/test.js");
-const {u:_,is}=Core;
+const {u:_,is,EventBus}=Core;
 function tearDown(){
   //console.log("tearDown called()");
 }
@@ -374,6 +374,37 @@ Test.deftest("Core.u").
         }
       },300,true);
     });
+  }).
+  ensure("EventBus",()=>{
+    let ok1,ok2,ok3,ok4,ok5;
+    let sum=0;
+    let e= EventBus(),x={foo:(a)=>sum+=a*2},y={foo:(a)=>{sum+=a}};
+    //
+    e.sub(["t1",x],"foo",y);
+    e.pub(["t1",x],1);
+    ok1=sum===1;
+    //
+    e.unsub(["t1",x],"foo",y);
+    e.pub(["t1",x],1);
+    ok2=sum===1;
+    sum=0;
+    //
+    e.sub(["t2"],"foo",x)
+    e.pub(["t2"],3);
+    ok3=sum===6;
+    //
+    sum=0;
+    e.sub(["t1",x],"foo");
+    e.pub(["t1",x],1);
+    ok4=sum===2;
+    //
+    e.reset();
+    sum=0;
+    e.sub(["t1,t2",x],"foo");
+    e.pub(["t1",x],1);
+    e.pub(["t2",x],2);
+    ok5=sum===6;
+    return ok1&&ok2&&ok3&&ok4&&ok5;
   }).
   ensure("dropArgs",()=>{
     function x(){ return _.dropArgs(arguments,3) }

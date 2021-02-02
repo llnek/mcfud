@@ -886,6 +886,21 @@
       prettyNumber(num, digits=2){
         return this.strPadLeft(Number(num).toString(), digits, "0")
       },
+      prettyMillis(ms){
+        let h,m,s= MFL(ms/1000);
+        m=MFL(s/60);
+        ms=ms-s*1000;
+        s=s-m*60;
+        h= MFL(m/60);
+        m=m-h*60;
+        let out=[];
+        out.push(`${s}.${ms} secs`);
+        if(m>0 || h>0)
+          out.push(`${m} mins, `);
+        if(h>0)
+          out.push(`${h} hrs, `);
+        return out.reverse().join("");
+      },
       /**
        * Remove some arguments from the front.
        * @function
@@ -1024,6 +1039,9 @@
               s[0].apply(s[1],args.concat(s[2] || ZA));
             });
           });
+        },
+        reset(){
+          _tree.clear()
         },
         unsub(subject,cb,ctx){
           let event=subject[0],

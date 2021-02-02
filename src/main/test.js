@@ -125,7 +125,7 @@
         console.log(Colors.white(rstr(78,"=")));
         console.log(Colors.yellow(["Passed: ",ok,"/",sum," [",perc|0,"%]"].join("")));
         console.log(Colors.magenta(`Failed: ${sum-ok}`));
-        console.log(Colors.white(["cpu-time: ",r.duration,"ms"].join("")));
+        console.log(Colors.white(["cpu-time: ",_.prettyMillis(r.duration)].join("")));
         console.log(Colors.white(rstr(78,"=")));
       },
       deftest(name){
