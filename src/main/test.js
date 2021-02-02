@@ -20,8 +20,11 @@
    * @private
    * @function
    */
-  function _module(Core){
+  function _module(Core,Colors){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!Colors){
+      throw "Fatal: No Colors!";
+    }
     const {is,u:_}=Core;
     /**
      * @private
@@ -105,6 +108,26 @@
      * @var {object}
      */
     const _$={
+      prn(r){
+        const ok= r.passed.length;
+        const sum=r.total;
+        const perc=ok/sum*100;
+        console.log(Colors.white(rstr(78,"+")));
+        console.log(Colors.white.bold(r.title));
+        console.log(Colors.white(r.date));
+        console.log(Colors.white(rstr(78,"+")));
+        if(r.passed.length>0)
+          console.log(Colors.green(r.passed.join("\n")));
+        if(r.skippd.length>0)
+          console.log(Colors.grey(r.skippd.join("\n")));
+        if(r.failed.length>0)
+          console.log(Colors.magenta(r.failed.join("\n")));
+        console.log(Colors.white(rstr(78,"=")));
+        console.log(Colors.yellow(["Passed: ",ok,"/",sum," [",perc|0,"%]"].join("")));
+        console.log(Colors.magenta(`Failed: ${sum-ok}`));
+        console.log(Colors.white(["cpu-time: ",r.duration,"ms"].join("")));
+        console.log(Colors.white(rstr(78,"=")));
+      },
       deftest(name){
         let iniz=null;
         let finz=null;
@@ -158,7 +181,7 @@
         };
         return x;
       },
-      foo(test){
+      _run(test){
         return new Promise((resolve,reject)=>{
           test().then(function(arr){
             resolve(arr);
@@ -167,25 +190,19 @@
       },
       runtest(test,title){
         const mark= Date.now();
-        return this.foo(test).then(function(res){
+        return this._run(test).then(function(res){
           const mark2= Date.now();
-          const sum= res.length;
-          const good= res.filter(_f);
-          const ok=good.length;
-          const perc= (ok/sum)*100;
-          const diff=mark2-mark;
-          const out= [
-            rstr(78,"+"),
-            title||test.title,
-            new Date().toString(),
-            rstr(78,"+"),
-            res.join("\n"),
-            rstr(78,"="),
-            ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
-            `Failed: ${sum-ok}`,
-            ["cpu-time: ",diff,"ms"].join("")].join("\n");
-          return new Promise((r,j)=>{
-            r(out);
+          const out={
+            title: title||test.title,
+            date: new Date().toString(),
+            total: res.length,
+            duration: mark2-mark,
+            passed: res.filter(s=>s[0]==="P"),
+            skippd: res.filter(s=>s[0]==="S"),
+            failed: res.filter(s=>s[0]==="F")
+          };
+          return new Promise((resolve,j)=>{
+            resolve(out);
           });
         });
       }
@@ -195,7 +212,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"))
+    module.exports=_module(require("./core"), require("colors/safe"))
   }else{
     gscope["io/czlab/mcfud/test"]= _module
   }

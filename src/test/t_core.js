@@ -364,10 +364,14 @@ Test.deftest("Core.u").
     });
   }).
   ensure("timer,repeat", function(){
+    let count=0;
     return new Promise((resolve,reject)=>{
       let x= _.timer(()=>{
-        _.clear(x);
-        resolve(true);
+        count+=1;
+        if(count>4){
+          _.clear(x);
+          resolve(true);
+        }
       },300,true);
     });
   }).
@@ -381,8 +385,8 @@ Test.deftest("Core.u").
   ensure("isCrossOrigin",function(){
     return _.isCrossOrigin("https://www.mozilla.com/helloworld.php",this.window) &&
            !_.isCrossOrigin("https://www.google.com/helloworld.php",this.window);
-  }).end(tearDown)).then(function(msg){
-  console.log(msg);
+  }).end(tearDown)).then(function(r){
+  Test.prn(r);
   });
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
