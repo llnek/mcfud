@@ -23,7 +23,7 @@ function tearDown(){
   //console.log("tearDown called()");
 }
 
-console.log(Test.runtest(
+Test.runtest(
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Test.deftest("Core.u").
   begin(env=>{
@@ -350,10 +350,26 @@ Test.deftest("Core.u").
     return _.prettyNumber(117)=="117" && _.prettyNumber("9",5)=="00009";
   }).
   ensure("delay", function(){
-    return 709394;
+    return new Promise((resolve,reject)=>{
+      _.delay(300,()=>{
+        resolve(true)
+      })
+    });
   }).
-  ensure("timer", function(){
-    return 709394;
+  ensure("timer,once", function(){
+    return new Promise((resolve,reject)=>{
+      _.timer(()=>{
+        resolve(true)
+      },300);
+    });
+  }).
+  ensure("timer,repeat", function(){
+    return new Promise((resolve,reject)=>{
+      let x= _.timer(()=>{
+        _.clear(x);
+        resolve(true);
+      },300,true);
+    });
   }).
   ensure("dropArgs",()=>{
     function x(){ return _.dropArgs(arguments,3) }
@@ -365,7 +381,9 @@ Test.deftest("Core.u").
   ensure("isCrossOrigin",function(){
     return _.isCrossOrigin("https://www.mozilla.com/helloworld.php",this.window) &&
            !_.isCrossOrigin("https://www.google.com/helloworld.php",this.window);
-  }).end(tearDown)));
+  }).end(tearDown)).then(function(msg){
+  console.log(msg);
+  });
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

@@ -60,36 +60,40 @@
      * @private
      * @function
      */
-    function ensure_eq(env,form){
-      let out;
-      try{
-        out= form.call(env);
-        if(out === 709394){
-          out=t_skip;
-        }else if(out){
-          out=t_ok;
-        }else{
-          out=t_bad;
+    function ensure_eq(env,name,form){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          if(out instanceof Promise){
+            out.then(function(res){
+              resolve(`${res?t_ok:t_bad}: ${name}`);
+            });
+          }else{
+            out= out ? (out===709394?t_skip:t_ok) : t_bad;
+            resolve(`${out}: ${name}`);
+          }
+        }catch(e){
+          out= t_bad;
+          resolve(`${out}: ${name}`);
         }
-        //out = form.call(env) ? t_ok : t_bad;
-      }catch(e){
-        out= t_bad;
-      }
-      return out;
+      });
     }
     /**
      * @private
      * @function
      */
-    function ensure_ex(env,form,error){
-      let out;
-      try{
-        form.call(env);
-        out=ex_thrown(error,null);
-      }catch(e){
-        out=ex_thrown(error,e);
-      }
-      return out;
+    function ensure_ex(env,name,form,error){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          out=out===709394?t_ok:ex_thrown(error,null);
+        }catch(e){
+          out=ex_thrown(error,e);
+        }
+        resolve(`${out}: ${name}`);
+      });
     }
     /**
      * @private
@@ -124,47 +128,66 @@
           end(f){
             finz=f;
             let F=function(){
-              iniz && iniz(env);
-              let out=[];
-              for(let r,a,i=0;i<arr.length;++i){
-                a=arr[i];
-                r="";
-                switch(a[0]){
-                  case 1: r=ensure_eq(env,a[2]); break;
-                  case 911: r=ensure_ex(env,a[2],"any"); break;
+              return new Promise((RR,j)=>{
+                iniz && iniz(env);
+                let _prev,out=[];
+                for(let p,a,i=0;i<arr.length;++i){
+                  a=arr[i];
+                  switch(a[0]){
+                    case 1: p=ensure_eq(env,a[1],a[2]); break;
+                    case 911: p=ensure_ex(env,a[1],a[2],"any"); break; }
+                  if(!_prev){_prev=p}else{
+                    _prev= _prev.then(function(msg){
+                      out.push(msg);
+                      return p;
+                    });
+                  }
                 }
-                if(r)
-                  out.push(`${r}: ${a[1]}`);
-              }
-              arr.length=0;
-              finz && finz(env);
-              return out;
+                if(_prev){
+                  _prev.then(function(msg){
+                    out.push(msg);
+                    arr.length=0;
+                    finz && finz(env);
+                    RR(out);
+                  });
+                }
+              });
             };
             return (F.title=name) && F;
           }
         };
         return x;
       },
+      foo(test){
+        return new Promise((resolve,reject)=>{
+          test().then(function(arr){
+            resolve(arr);
+          });
+        });
+      },
       runtest(test,title){
         const mark= Date.now();
-        const res=test();
-        const mark2= Date.now();
-        const sum= res.length;
-        const good= res.filter(_f);
-        const ok=good.length;
-        const perc= (ok/sum)*100;
-        const diff=mark2-mark;
-        const out= [
-          rstr(78,"+"),
-          title||test.title,
-          new Date().toString(),
-          rstr(78,"+"),
-          res.join("\n"),
-          rstr(78,"="),
-          ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
-          `Failed: ${sum-ok}`,
-          ["cpu-time: ",diff,"ms"].join("")].join("\n");
-        return out;
+        return this.foo(test).then(function(res){
+          const mark2= Date.now();
+          const sum= res.length;
+          const good= res.filter(_f);
+          const ok=good.length;
+          const perc= (ok/sum)*100;
+          const diff=mark2-mark;
+          const out= [
+            rstr(78,"+"),
+            title||test.title,
+            new Date().toString(),
+            rstr(78,"+"),
+            res.join("\n"),
+            rstr(78,"="),
+            ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
+            `Failed: ${sum-ok}`,
+            ["cpu-time: ",diff,"ms"].join("")].join("\n");
+          return new Promise((r,j)=>{
+            r(out);
+          });
+        });
       }
     };
     return _$;
