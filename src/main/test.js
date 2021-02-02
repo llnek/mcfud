@@ -20,10 +20,20 @@
    * @private
    * @function
    */
-  function _module(){
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const {is,u:_}=Core;
+    /**
+     * @private
+     * @function
+     */
     function _f(s){
-      return s.startsWith("P")
-    }
+      return s.startsWith("P") }
+
+    /**
+     * @private
+     * @function
+     */
     function rstr(len,ch){
       let out="";
       while(len>0){
@@ -32,6 +42,10 @@
       }
       return out;
     }
+    /**
+     * @private
+     * @function
+     */
     function ex_thrown(expected,e){
       let out=t_bad;
       if(e){
@@ -43,15 +57,23 @@
       }
       return out;
     }
-    function ensure_eq(env,form,expected){
+    /**
+     * @private
+     * @function
+     */
+    function ensure_eq(env,form){
       let out;
       try{
-        out = form.call(env)===expected ? t_ok : t_bad;
+        out = form.call(env) ? t_ok : t_bad;
       }catch(e){
         out= t_bad;
       }
       return out;
     }
+    /**
+     * @private
+     * @function
+     */
     function ensure_ex(env,form,error){
       let out;
       try{
@@ -62,21 +84,28 @@
       }
       return out;
     }
-    const t_bad="Failed";
-    const t_ok="Passed";
-    const _T={
+    /**
+     * @private
+     * @var {string}
+     */
+    const [t_bad,t_ok]=["Failed", "Passed"];
+    /**
+     * @private
+     * @var {object}
+     */
+    const _$={
       deftest(name){
         let iniz=null;
         let finz=null;
         let arr=null;
         let env=null;
         let x={
-          ensure_eq(n,w,f){
-            arr.push([n,w,f]);
+          ensure(n,f){
+            arr.push([1,n,f]);
             return x;
           },
-          ensure_ex(n,f){
-            arr.push([n,f]);
+          eerror(n,f){
+            arr.push([911,n,f]);
             return x;
           },
           begin(f){
@@ -87,28 +116,29 @@
           },
           end(f){
             finz=f;
-            return function(){
+            let F=function(){
               iniz && iniz(env);
               let out=[];
               for(let r,a,i=0;i<arr.length;++i){
                 a=arr[i];
                 r="";
-                switch(a.length){
-                  case 3: r=ensure_eq(env,a[2],a[1]); break;
-                  case 2: r=ensure_ex(env,a[1],"any"); break;
+                switch(a[0]){
+                  case 1: r=ensure_eq(env,a[2]); break;
+                  case 911: r=ensure_ex(env,a[2],"any"); break;
                 }
                 if(r)
-                  out.push(`${r}: ${a[0]}`);
+                  out.push(`${r}: ${a[1]}`);
               }
               arr.length=0;
               finz && finz(env);
               return out;
-            }
+            };
+            return (F.title=name) && F;
           }
         };
         return x;
       },
-      runtest(title,test){
+      runtest(test,title){
         const mark= Date.now();
         const res=test();
         const mark2= Date.now();
@@ -119,7 +149,7 @@
         const diff=mark2-mark;
         const out= [
           rstr(78,"+"),
-          title,
+          title||test.title,
           new Date().toString(),
           rstr(78,"+"),
           res.join("\n"),
@@ -130,14 +160,12 @@
         return out;
       }
     };
-    return _T;
+    return _$;
   }
-
-
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/test"]= _module
   }

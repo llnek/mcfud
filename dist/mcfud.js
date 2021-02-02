@@ -28,47 +28,62 @@
    * @function
    */
   function _module(){
+    const [Slicer,toStr]=[Array.prototype.slice, Object.prototype.toString];
+    const MFL=Math.floor;
+    function isObj(obj){ return toStr.call(obj) == "[object Object]" }
+    function isNil(obj){ return toStr.call(obj) == "[object Null]" }
+    function isFun(obj){ return toStr.call(obj) == "[object Function]" }
+    function isVec(obj){ return toStr.call(obj) == "[object Array]" }
+    function isMap(obj){ return toStr.call(obj) == "[object Map]" }
+    function isStr(obj){ return toStr.call(obj) == "[object String]" }
+    function isNum(obj){ return toStr.call(obj) == "[object Number]" }
+    function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
+    function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
     let PRNG= seed_rand?seed_rand():new Math.seedrandom();
-    const OBJ=Object.prototype;
-    const ARR=Array.prototype;
-    const slicer=ARR.slice;
-    const tostr=OBJ.toString;
-    const _C={};
-    function isObject(obj){ return tostr.call(obj) === "[object Object]" }
-    function isFun(obj){ return tostr.call(obj) === "[object Function]" }
-    function isArray(obj){ return tostr.call(obj) === "[object Array]" }
-    function isMap(obj){ return tostr.call(obj) === "[object Map]" }
-    function isStr(obj){ return typeof obj === "string" }
-    function isNum(obj){ return tostr.call(obj) === "[object Number]" }
     function _randXYInclusive(min,max){
-      return Math.floor(PRNG() * (max - min + 1) + min)
+      return MFL(PRNG() * (max-min+1) + min)
+    }
+    function _preAnd(conds,msg){
+      for(let c,i=0;i<conds.length;++i){
+        c=conds[i];
+        if(!c[0](c[1]))
+          throw new TypeError(`wanted ${msg}`);
+      }
+      return true;
+    }
+    function _preOr(conds,msg){
+      for(let c,i=0;i<conds.length;++i){
+        c=conds[i];
+        if(c[0](c[1])){return true}
+      }
+      throw new TypeError(`wanted ${msg}`);
+    }
+    function _pre(f,arg,msg){
+      if(!f(arg))
+        throw new TypeError(`wanted ${msg}`);
+      return true;
     }
     //regexes handling file paths
     const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
     const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
-    function _fext(path){
+    function _fext(path,incdot){
       let t=FEXT.exec(path);
-      return t && t[1]  ? t[1].toLowerCase() : "";
+      if(t && t[1]){
+        t= t[1].toLowerCase();
+        if(!incdot) t=t.substring(1);
+      }else{ t="" }
+      return t;
     }
-    //https://github.com/bryc/code/blob/master/jshash/PRNGs.md
-    //xoshiro128+ (128-bit state generator in 32-bit)
-    const xoshiro128p=(function(a,b,c,d){
-      return function(){
-        let t = b << 9, r = a + d;
-            c = c ^ a;
-            d = d ^ b;
-            b = b ^ c;
-            a = a ^ d;
-            c = c ^ t;
-            d = (d << 11) | (d >>> 21);
-        return (r >>> 0) / 4294967296;
-      };
-    })(Date.now(),Date.now(),Date.now(),Date.now()); // simple seeding??
     /**
      * private
      * @var {number}
      */
     const EPSILON= 0.0000000001;
+    /**
+     * @private
+     * @var {object}
+     */
+    const _$={};
     /**
      * @private
      * @var {number}
@@ -101,8 +116,9 @@
       none(obj){ return _.size(obj) === 0 },
       map(m,...args){ return _everyF(isMap,m,args) },
       num(n,...args){ return _everyF(isNum,n,args) },
-      vec(v,...args){ return _everyF(isArray,v,args) },
-      obj(o,...args){ return _everyF(isObject,o,args) }
+      vec(v,...args){ return _everyF(isVec,v,args) },
+      obj(o,...args){ return _everyF(isObj,o,args) },
+      own(o,p){ return Object.prototype.hasOwnProperty.call(o,p) }
     };
     /**
      * @private
@@ -110,30 +126,30 @@
      */
     const _={
       /** Re-seed a random */
-      srand(){ PRNG = new Math.seedrandom() },
+      srand(){ PRNG= seed_rand?seed_rand():new Math.seedrandom() },
       /** Fuzzy zero */
       feq0(a){ return Math.abs(a) < EPSILON },
       /** Fuzzy equals */
-      feq(a, b){ return Math.abs(a - b) < EPSILON },
+      feq(a, b){ return Math.abs(a-b) < EPSILON },
       /** Fuzzy greater_equals */
-      fgteq(a,b){ return a>b || this.feq(a,b) },
+      //fgteq(a,b){ return a>b || this.feq(a,b) },
       /** Fuzzy less_equals */
-      flteq(a,b){ return a<b || this.feq(a,b) },
+      //flteq(a,b){ return a<b || this.feq(a,b) },
       /** Serialize to JSON */
       pack(o){ return JSON.stringify(o) },
       /** Deserialize from JSON */
       unpack(s){ return JSON.parse(s) },
       /** Put values into array */
-      v2(x,y){ return [x,y] },
+      v2(x=0,y=0){ return [x,y] },
       /** 2D point(x,y) */
-      p2(x,y){ return {x: x, y: y} },
+      p2(x=0,y=0){ return {x: x, y: y} },
       /** Return it if it's a number else 0 */
       numOrZero(n){ return isNaN(n) ? 0 : n },
       /** Return b if a doesn't exist else a */
       or(a,b){ return a===undefined?b:a },
       /** Convert input into number, if not return the default */
       toNumber(s,dft){
-        let n=parseFloat(s);
+        const n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
       /** Break version string into Major.Minor.Patch */
@@ -155,13 +171,13 @@
         else if(v1[2] < v2[2]) return -1;
         return 0;
       },
+      /** */
+      pdef(obj){
+        return (obj.configurable=true) && (obj.enumerable=true) && obj
+      },
       /** Look for files matching any one of these extensions */
       findFiles(files, exts){
-        return files.filter(s=> exts.indexOf(_fext(s)) > -1);
-      },
-      pdef(obj){
-        obj.configurable=obj.enumerable=true;
-        return obj;
+        return files.filter(s=> exts.indexOf(_fext(s,1)) > -1)
       },
       /** Chop input into chunks of `count` items */
       partition(count,arr){
@@ -179,113 +195,111 @@
         }
         return out;
       },
-      XXrange(start,end){
-        _.assert(is.num(start));
-        const out=[];
-        if(arguments.length===1){ end=start; start=0 }
-        _.assert(is.num(end));
-        for(let i=start;i<end;++i){ out.push(i) }
-        return out
-      },
       /** Returns keys of object or Map. */
       keys(obj){
         return isMap(obj) ? Array.from(obj.keys())
-                          : (isObject(obj) ? Object.keys(obj) : []);
+                          : (isObj(obj) ? Object.keys(obj) : [])
       },
       /** Clone object/Map but exclude these keys */
       selectNotKeys(c,keys){
-        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
-        keys=_.seq(keys);
-        _.doseq(c,(v,k)=>{
-          if(!keys.includes(k))
-            isMap(out) ? out.set(k, v) : out[k]=v;
-        });
+        keys=this.seq(keys);
+        this.doseq(c,(v,k)=> (!keys.includes(k)) && this.assoc(out,k,v));
         return out;
       },
       /** Choose these keys from object/map */
       selectKeys(c,keys){
-        _.assert(isMap(c)||isObject(c),"Expecting object/map.");
+        _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
-        _.seq(keys).forEach(k=>{
+        this.seq(keys).forEach(k=>{
           if(isMap(c)){
             c.has(k) && out.set(k, c.get(k));
-          }else if(OBJ.hasOwnProperty.call(c, k)){
-            out[k]=c[k];
-          }
+          }else if(is.own(c,k)){ out[k]=c[k] }
         });
         return out;
       },
       /** assert the condition is false */
       assertNot(cond,...args){
-        return _.assert(!cond,...args)
+        return this.assert(!cond,...args)
       },
       /** assert the condition is true */
-      assert(cond){
+      assert(cond,...args){
         if(!cond)
-          throw (arguments.length<2) ? "Assert Failed!" : slicer.call(arguments,1).join("");
-        return true
+          throw args.length===0 ? "Assertion!" : args.join("");
+        return true;
       },
       /** true if target has none of these keys */
       noSuchKeys(keys,target){
-        return !_.some(_.seq(keys),k => _.has(target,k)?k:null);
+        return !this.some(this.seq(keys),k=> this.has(target,k)?k:null)
         //if(r) console.log("keyfound="+r);
         //return !r;
       },
-      /** a random float between min and max-1 */
-      randFloat(min, max){
-        return min + PRNG() * (max - min)
-      },
-      /** a random float between -1 and 1 */
-      randMinus1To1(){ return (PRNG()-0.5) * 2 },
-      /** a random int between 0 and num */
-      randInt(num){ return (PRNG() * num)|0 },
       /** a random int between min and max */
       randInt2: _randXYInclusive,
+      /** a random float between min and max-1 */
+      randFloat(min, max){
+        return min + PRNG() * (max-min)
+      },
+      /** a random float between -1 and 1 */
+      randMinus1To1(){ return 2*(PRNG()-0.5) },
+      /** a random int between 0 and num */
+      randInt(num){ return MFL(PRNG()*num) },
       /** a random float between 0 and 1 */
       rand(){ return PRNG() },
       /** randomly choose -1 or 1 */
-      randSign(){ return _.rand() > 0.5 ? -1 : 1 },
+      randSign(){ return PRNG()>0.5 ? -1 : 1 },
       /** true if obj is subclass of type */
       inst(type,obj){ return obj instanceof type },
       /** Calculate hashCode of this string, like java hashCode */
       hashCode(s){
         let n=0;
         for(let i=0; i<s.length; ++i)
-          n= Math.imul(31, n) + s.charCodeAt(i)|0;
+          n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
       /** Randomly choose an item from this array */
-      randArrayItem(arr){
+      randItem(arr){
         if(arr && arr.length>0)
-          return arr.length===1 ? arr[0] : arr[_.randInt(arr.length)]
+          return arr.length===1 ? arr[0]
+                                : arr[MFL(PRNG()*arr.length)]
       },
       /** true if string represents a percentage value */
       isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/)
       },
       /** true if number is even */
-      isEven(n){
-        return n>0 ? (n % 2 === 0) : ((-n) % 2 === 0);
-      },
+      isEven:isEven,
       /** Creates a javascript Map */
-      jsMap(){ return new Map() },
+      jsMap(...args){
+        _pre(isEven,args.length,"even n# of args");
+        let out=new Map();
+        for(let i=0;i<args.length;){
+          out.set(args[i],args[i+1]);
+          i+=2;
+        }
+        return out;
+      },
       /** Creates a javascript object */
-      jsObj(){ return {} },
+      jsObj(...args){
+        _pre(isEven,args.length,"even n# of args");
+        let out={};
+        for(let i=0;i<args.length;){
+          out[args[i]]=args[i+1];
+          i+=2;
+        }
+        return out;
+      },
       /** Creates a javascript array */
-      jsVec(...args){
-        return args.length===0 ? [] : args.slice()
-      },
+      jsVec(...args){ return args.length===0 ? [] : args.slice() },
       /** Returns the last index */
-      lastIndex(c){
-        return (c && c.length>0) ? c.length-1 : -1
-      },
+      lastIndex(c){ return (isVec(c) && c.length>0) ? c.length-1 : -1 },
       /** Returns the first element */
-      first(c){ if(c && c.length>0) return c[0] },
+      first(c){ if(isVec(c) && c.length>0) return c[0] },
       /** Returns the last element */
-      last(c){ if(c&& c.length>0) return c[c.length-1] },
-      head(c){ return _.first(c) },
-      tail(c){ return _.last(c) },
+      last(c){ if(isVec(c) && c.length>0) return c[c.length-1] },
+      head(c){ return this.first(c) },
+      tail(c){ return this.last(c) },
       /** floor a number */
       floor(v){ return Math.floor(v) },
       /** ceiling a number */
@@ -299,49 +313,58 @@
       /** choose max from 2 */
       max(...args){ return Math.max(...args) },
       /** Take a slice of an array */
-      slice(a,i){ return slicer.call(a, i) },
+      slice(a,i){ return Slicer.call(a, i) },
       /** true only if every item in list equals v */
       every(c,v){
-        for(let i=0;i<c.length;++i)
-          if(c[i] !== v) return false;
+        _pre(isVec,c,"array");
+        for(let i=0;i<c.length;++i){
+          if(isFun(v)){
+            if(!v(c[i])) return false;
+          }else{
+            if(c[i] !== v) return false;
+          }
+        }
         return c.length>0;
       },
       /** true only if no item in list equals v */
       notAny(c,v){
-        for(let i=0;i<c.length;++i)
-          if(c[i] === v) return false;
+        _pre(isVec,c,"array");
+        for(let i=0;i<c.length;++i){
+          if(isFun(v)){
+            if(v(c[i])) return false;
+          }else{
+            if(c[i] === v) return false;
+          }
+        }
         return c.length>0;
       },
       /** Copy all or some items from `from` to `to` */
-      copy(to,from){
-        if(!from){return to}
-        if(!to){
-          return from ? from.slice() : undefined }
-        let len= Math.min(to.length,from.length);
+      copy(to,from=[]){
+        _preAnd([[isVec,to],[isVec,from]],"arrays");
+        const len= Math.min(to.length,from.length);
         for(let i=0;i<len;++i) to[i]=from[i];
         return to;
       },
       /** Append all or some items from `from` to `to` */
-      append(to,from){
-        if(!from){return to}
-        if(!to){
-          return from ? from.slice() : undefined }
+      append(to,from=[]){
+        _preAnd([[isVec,to],[isVec,from]],"arrays");
         for(let i=0;i<from.length;++i) to.push(from[i]);
         return to;
       },
       /** Fill array with v or v() */
       fill(a,v){
-        if(a)
-          for(let i=0;i<a.length;++i){
+        if(isNum(a)){a= new Array(a)}
+        if(isVec(a)){
+          for(let i=0;i<a.length;++i)
             a[i]= isFun(v) ? v() : v;
-          }
+        }
         return a;
       },
-      /** Return the size of object/map/array */
+      /** Return the size of object/map/array/string */
       size(obj){
-        return isArray(obj) ? obj.length
-                            : (isMap(obj) ? obj.size
-                                          : (obj ? _.keys(obj).length : 0))
+        return (isVec(obj)||isStr(obj)) ? obj.length
+                          : isMap(obj) ? obj.size
+                                       : obj ? this.keys(obj).length : 0
       },
       /** Next sequence number */
       nextId(){ return ++_seqNum },
@@ -351,26 +374,22 @@
       fileExt(path){ return _fext(path) },
       /** Find file name, no extension */
       fileBase(path){
-        let pos=path.indexOf("?");
-        if(pos>0)
-          path=path.substring(0,pos);
-        let res= BNAME.exec(path.replace(/(\/|\\\\)$/, ""));
-        let name="";
+        let name,res,pos=path.indexOf("?");
+        if(pos>0) path=path.substring(0,pos);
+        path=path.replace(/(\/|\\\\)$/, "");
+        res= BNAME.exec(path);
+        name="";
         if(res){
-          name = res[2];
+          name=res[2];
           pos=name.lastIndexOf(".");
-          if(pos>0)
-            name=name.substring(0,pos);
+          if(pos>0) name=name.substring(0,pos);
         }
         return name;
       },
       /** return a list of numbers from start to end - like a Range object */
       range(start,stop,step=1){
         if(arguments.length===1){
-          stop=start;
-          start=0;
-          step=1;
-        }
+          stop=start; start=0; step=1; }
         let len = (stop-start)/step;
         const res=[];
         len= Math.ceil(len);
@@ -384,20 +403,22 @@
       },
       /** Shuffle items */
       shuffle(obj){
-        const res=slicer.call(obj,0);
+        _pre(isVec,obj,"array");
+        const res=Slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
-          j = Math.floor(PRNG() * (i+1));
-          x = res[i];
+          j= MFL(PRNG() * (i+1));
+          x= res[i];
           res[i] = res[j];
           res[j] = x;
         }
-        return res;
+        return this.copy(obj,res);
       },
       /** Return only the distinct items */
       uniq(arr){
+        _pre(isVec,arr,"array");
         if(false){
           let prev,res= [];
-          slicer.call(arr).sort().forEach(a=>{
+          Slicer.call(arr).sort().forEach(a=>{
             if(a !== undefined &&
                a !== prev) res.push(a);
             prev = a;
@@ -406,21 +427,26 @@
         }
         return Array.from(new Set(arr));
       },
-      /** functional map */
-      map(obj, fn,target){
-        const res= [];
-        _.doseq(obj, (v,k)=>{
-          res.push(fn.call(target, v,k,obj));
-        });
-        return res;
+      /** functional map but return same type as `obj` */
+      map(obj, fn, target){
+        _pre(isColl,obj,"array/map/object");
+        if(isVec(obj)){
+          return obj.map(fn,target);
+        }else{
+          const res={};
+          this.doseq(obj,(v,k)=>{
+            res[k]=fn.call(target, v,k,obj) });
+          return res;
+        }
       },
       /** `find` with extra args */
       find(coll,fn,target){
-        let args=slicer.call(arguments,3);
-        let res,cont=true;
-        _.doseq(coll, (v,k)=>{
-          if(cont && fn.apply(target, [v, k].concat(args))){
-            res=[k, v];
+        let res,
+            cont=true,
+            args=Slicer.call(arguments,3);
+        this.doseq(coll, (v,k)=>{
+          if(cont && fn.apply(target, [v,k].concat(args))){
+            res=[k,v];
             cont=false;
           }
         });
@@ -428,27 +454,29 @@
       },
       /** `some` with extra args */
       some(coll,fn,target){
-        let args=slicer.call(arguments,3);
-        let res,cont=true;
-        _.doseq(coll,(v,k)=>{
+        let res,
+            cont=true,
+            args=Slicer.call(arguments,3);
+        this.doseq(coll,(v,k)=>{
           if(cont){
-            res = fn.apply(target, [v, k].concat(args));
-            if(res) cont=false;
+            res=fn.apply(target, [v,k].concat(args));
+            if(res) cont=false; else res=undefined;
           }
         });
         return res;
       },
       /** Each item in the array is an object, invoke obj.method with extra args */
-      invoke(arr,method_name){
-        let args=slicer.call(arguments,2);
-        isArray(arr) &&
-          arr.forEach(x => x[key].apply(x, args));
+      invoke(arr,key){
+        let args=Slicer.call(arguments,2);
+        isVec(arr) &&
+          //invoke the method on each object
+          arr.forEach(o=> o[key].apply(o, args));
       },
       /** Run function after some delay */
       delay(wait,f){ return setTimeout(f,wait) },
       /** Create a once/repeat timer */
       timer(f,delay=0,repeat=false){
-        return {
+        return{
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
         }
@@ -461,40 +489,44 @@
       },
       /** Iterate a collection in reverse */
       rseq(coll,fn,target){
-        if(isArray(coll) && coll.length>0)
-          for(let i=coll.length-1;i>=0;--i){
-            fn.call(target, coll[i],i)
-          }
+        _pre(isVec,coll,"array");
+        if(coll.length>0){
+          for(let i=coll.length-1;i>=0;--i)
+            fn.call(target, coll[i],i,coll)
+        }
       },
       /** Iterate a collection */
       doseq(coll,fn,target){
-        if(isArray(coll)){
-          coll.forEach(fn,target);
+        if(isVec(coll)){
+          coll.forEach(fn,target)
         }else if(isMap(coll)){
-          coll.forEach((v,k)=> fn.call(target,v,k,coll));
-        }else if(coll){
-          Object.keys(coll).forEach(k=>{
-            fn.call(target, coll[k], k, coll);
-          });
+          coll.forEach((v,k)=> fn.call(target,v,k,coll))
+        }else if(isObj(coll)){
+          Object.keys(coll).forEach(k=> fn.call(target, coll[k], k, coll))
         }
+      },
+      /** Iterate collection but ignore nulls/undefs */
+      doseqEx(coll,fn,target){
+        this.doseq(coll,(v,k)=>
+          v!==undefined&&v!==null&&fn.call(target,v,k,coll))
       },
       /** Remove a key from collection */
       dissoc(coll,key){
         if(arguments.length>2){
           let prev,i=1;
           for(;i<arguments.length;++i)
-            prev=_.dissoc(coll,arguments[i]);
+            prev=this.dissoc(coll,arguments[i]);
           return prev;
         }else{
-          let val;
+          let prev;
           if(isMap(coll)){
-            val=coll.get(key);
+            prev=coll.get(key);
             coll.delete(key);
-          }else if(coll){
-            val = coll[key];
+          }else if(isObj(coll)){
+            prev= coll[key];
             delete coll[key];
           }
-          return val;
+          return prev;
         }
       },
       /** Return the value of property `key` */
@@ -508,10 +540,10 @@
       assoc(coll,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
-            throw "ArityError: expecting even count of args.";
+            throw "wanted even count of args";
           let prev, i=1;
-          for(;i < arguments.length;){
-            prev= _.assoc(coll,arguments[i],arguments[i+1]);
+          for(;i<arguments.length;){
+            prev= this.assoc(coll,arguments[i],arguments[i+1]);
             i+=2;
           }
           return prev;
@@ -529,59 +561,56 @@
       },
       /** Remove item from array */
       disj(coll,obj){
-        let i = coll ? coll.indexOf(obj) : -1;
+        const i = coll ? coll.indexOf(obj) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
       /** Append item to array */
       conj(coll,...objs){
         if(coll)
-          objs.forEach(o => coll.push(o));
+          objs.forEach(o=> coll.push(o));
         return coll;
       },
       /** Make input into array */
-      seq(arg,sep=","){
+      seq(arg,sep=/[,; \t\n]+/){
         if(typeof arg === "string")
-          arg = arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
-        if(!isArray(arg)) arg = [arg];
+          arg= arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
+        if(!isVec(arg)){arg = [arg]}
         return arg;
       },
       /** true if collection has property `key` */
       has(coll,key){
         return arguments.length===1 ? false
           : isMap(coll) ? coll.has(key)
-          : isArray(coll) ? coll.indexOf(key) !== -1
-          : coll ? OBJ.hasOwnProperty.call(coll, key) : false;
+          : isVec(coll) ? coll.indexOf(key) !== -1
+          : isObj(coll) ? is.own(coll, key) : false;
       },
       /** Add these keys to `des` only if the key is missing */
       patch(des,additions){
-        des=des || {};
+        _pre(isObj,(des=des||{}),"object");
         if(additions)
           Object.keys(additions).forEach(k=>{
-            if(!_.has(des,k))
+            if(!this.has(des,k))
               des[k]=additions[k];
           });
         return des;
       },
       /** Deep clone */
       clone(obj){
-        return obj ? _.unpack(_.pack(obj)) : obj
+        return obj ? this.unpack(this.pack(obj)) : obj
       },
       /** Merge others into `des` */
-      inject(des){
-        let args=slicer.call(arguments,1);
+      inject(des,...args){
         des=des || {};
-        args.forEach(s=>{
-          if(s) Object.assign(des,s);
-        });
+        args.forEach(s=> s && Object.assign(des,s));
         return des;
       },
       /** Deep copy array/array of arrays */
       deepCopyArray(v){
-        _.assert(is.vec(v),"Expected array");
+        _pre(isVec,v,"array");
         const out = [];
         for(let i=0,z=v.length; i<z; ++i)
-          out[i]= is.vec(v[i]) ? _.deepCopyArray(v[i]) : v[i];
+          out[i]= isVec(v[i]) ? this.deepCopyArray(v[i]) : v[i];
         return out;
       },
       /**
@@ -592,7 +621,7 @@
        * @return {Object} a new object
       */
       mergeEx(original, extended){
-        return _.merge(_.merge({}, original), extended)
+        return this.merge(this.merge({}, original), extended)
       },
       /**
        * Merge 2 objects in place.
@@ -604,14 +633,14 @@
       merge(original, extended){
         let key,ext;
         Object.keys(extended).forEach(key=>{
-          ext = extended[key];
+          ext= extended[key];
           if(typeof ext !== "object" || ext === null || !original[key]){
             original[key] = ext;
           }else{
             if(typeof original[key] !== "object"){
               original[key] = ext instanceof Array ? [] : {}
             }
-            _.merge(original[key], ext);
+            this.merge(original[key], ext);
           }
         });
         return original;
@@ -625,54 +654,24 @@
        * `wait` timeout. The `func` is invoked with the last arguments provided to the
        * throttled function. Subsequent calls to the throttled function return the
        * result of the last `func` invocation.
-       *
-       * **Note:** If `leading` and `trailing` options are `true`, `func` is
-       * invoked on the trailing edge of the timeout only if the throttled function
-       * is invoked more than once during the `wait` timeout.
-       *
-       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
-       * until the next tick, similar to `setTimeout` with a timeout of `0`.
-       *
-       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
-       * invocation will be deferred until the next frame is drawn (typically about
-       * 16ms).
-       *
-       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
-       * for details over the differences between `throttle` and `debounce`.
-       *
-       * @since 0.1.0
-       * @category Function
-       * @param {Function} func The function to throttle.
-       * @param {number} [wait=0]
-       *  The number of milliseconds to throttle invocations to; if omitted,
-       *  `requestAnimationFrame` is used (if available).
-       * @param {Object} [options={}] The options object.
-       * @param {boolean} [options.leading=true]
-       *  Specify invoking on the leading edge of the timeout.
-       * @param {boolean} [options.trailing=true]
-       *  Specify invoking on the trailing edge of the timeout.
-       * @returns {Function} Returns the new throttled function.
-       * @example
-       *
-       * // Avoid excessively updating the position while scrolling.
-       * jQuery(window).on('scroll', throttle(updatePosition, 100))
-       *
-       * // Invoke `renewToken` when the click event is fired, but not more than once every 5 minutes.
-       * const throttled = throttle(renewToken, 300000, { 'trailing': false })
-       * jQuery(element).on('click', throttled)
-       *
-       * // Cancel the trailing throttled invocation.
-       * jQuery(window).on('popstate', throttled.cancel)
        */
+      //original source: https://github.com/lodash/lodash/throttle.js
       throttle(func, wait, options){
-        let leading = true;
-        let trailing = true;
-        _.assert(is.fun(func),"Expecting a function");
-        if(is.obj(options)){
-          leading = "leading" in options ? !!options.leading : leading;
-          trailing = "trailing" in options ? !!options.trailing : trailing;
+        let leading = true
+        let trailing = true
+
+        if (typeof func !== 'function') {
+          throw new TypeError('Expected a function')
         }
-        return _.debounce(func, wait, { leading, trailing, "maxWait": wait });
+        if (isObj(options)) {
+          leading = 'leading' in options ? !!options.leading : leading
+          trailing = 'trailing' in options ? !!options.trailing : trailing
+        }
+        return this.debounce(func, wait, {
+          leading,
+          trailing,
+          'maxWait': wait
+        })
       },
       /**
        * Creates a debounced function that delays invoking `func` until after `wait`
@@ -684,169 +683,158 @@
        * `wait` timeout. The `func` is invoked with the last arguments provided to the
        * debounced function. Subsequent calls to the debounced function return the
        * result of the last `func` invocation.
-       *
-       * **Note:** If `leading` and `trailing` options are `true`, `func` is
-       * invoked on the trailing edge of the timeout only if the debounced function
-       * is invoked more than once during the `wait` timeout.
-       *
-       * If `wait` is `0` and `leading` is `false`, `func` invocation is deferred
-       * until the next tick, similar to `setTimeout` with a timeout of `0`.
-       *
-       * If `wait` is omitted in an environment with `requestAnimationFrame`, `func`
-       * invocation will be deferred until the next frame is drawn (typically about
-       * 16ms).
-       *
-       * See [David Corbacho's article](https://css-tricks.com/debouncing-throttling-explained-examples/)
-       * for details over the differences between `debounce` and `throttle`.
-       *
-       * @since 0.1.0
-       * @category Function
-       * @param {Function} func The function to debounce.
-       * @param {number} [wait=0]
-       *  The number of milliseconds to delay; if omitted, `requestAnimationFrame` is
-       *  used (if available).
-       * @param {Object} [options={}] The options object.
-       * @param {boolean} [options.leading=false]
-       *  Specify invoking on the leading edge of the timeout.
-       * @param {number} [options.maxWait]
-       *  The maximum time `func` is allowed to be delayed before it's invoked.
-       * @param {boolean} [options.trailing=true]
-       *  Specify invoking on the trailing edge of the timeout.
-       * @returns {Function} Returns the new debounced function.
-       * @example
-       *
-       * // Avoid costly calculations while the window size is in flux.
-       * jQuery(window).on('resize', debounce(calculateLayout, 150))
-       *
-       * // Invoke `sendMail` when clicked, debouncing subsequent calls.
-       * jQuery(element).on('click', debounce(sendMail, 300, {
-       *   'leading': true,
-       *   'trailing': false
-       * }))
-       *
-       * // Ensure `batchLog` is invoked once after 1 second of debounced calls.
-       * const debounced = debounce(batchLog, 250, { 'maxWait': 1000 })
-       * const source = new EventSource('/stream')
-       * jQuery(source).on('message', debounced)
-       *
-       * // Cancel the trailing debounced invocation.
-       * jQuery(window).on('popstate', debounced.cancel)
-       *
-       * // Check for pending invocations.
-       * const status = debounced.pending() ? "Pending..." : "Ready"
       */
-      //lifted from https://github.com/lodash/lodash
+      //original source: https://github.com/lodash/lodash/debounce.js
       debounce(func, wait, options){
         let lastArgs,
-            lastThis,
-            maxWait,
-            result,
-            timerId,
-            lastCallTime,
-            lastInvokeTime = 0,
-            leading = false,
-            maxing = false,
-            trailing = true;
-        _.assert(is.fun(func),"expecting function");
-        wait = wait || 0;
-        if(is.obj(options)){
-          leading = !!options.leading;
-          maxing = "maxWait" in options;
-          maxWait = maxing ? Math.max(options.maxWait || 0, wait) : maxWait;
-          trailing = "trailing" in options ? !!options.trailing : trailing;
+          lastThis,
+          maxWait,
+          result,
+          timerId,
+          lastCallTime
+
+        let lastInvokeTime = 0
+        let leading = false
+        let maxing = false
+        let trailing = true
+
+        // Bypass `requestAnimationFrame` by explicitly setting `wait=0`.
+        const useRAF = (!wait && wait !== 0 && typeof root.requestAnimationFrame === 'function')
+
+        if (typeof func !== 'function') {
+          throw new TypeError('Expected a function')
         }
-        function _invokeFunc(time){
-          let args = lastArgs;
-          let thisArg = lastThis;
-          lastArgs = lastThis = undefined;
-          lastInvokeTime = time;
-          result = func.apply(thisArg, args);
-          return result;
+        wait = +wait || 0
+        if (isObject(options)) {
+          leading = !!options.leading
+          maxing = 'maxWait' in options
+          maxWait = maxing ? Math.max(+options.maxWait || 0, wait) : maxWait
+          trailing = 'trailing' in options ? !!options.trailing : trailing
         }
-        function _leadingEdge(time){
+
+        function invokeFunc(time) {
+          const args = lastArgs
+          const thisArg = lastThis
+
+          lastArgs = lastThis = undefined
+          lastInvokeTime = time
+          result = func.apply(thisArg, args)
+          return result
+        }
+
+        function startTimer(pendingFunc, wait) {
+          if (useRAF) {
+            root.cancelAnimationFrame(timerId)
+            return root.requestAnimationFrame(pendingFunc)
+          }
+          return setTimeout(pendingFunc, wait)
+        }
+
+        function cancelTimer(id) {
+          if (useRAF) {
+            return root.cancelAnimationFrame(id)
+          }
+          clearTimeout(id)
+        }
+
+        function leadingEdge(time) {
           // Reset any `maxWait` timer.
-          lastInvokeTime = time;
+          lastInvokeTime = time
           // Start the timer for the trailing edge.
-          timerId = setTimeout(_timerExpired, wait);
+          timerId = startTimer(timerExpired, wait)
           // Invoke the leading edge.
-          return leading ? _invokeFunc(time) : result;
+          return leading ? invokeFunc(time) : result
         }
-        function _remainingWait(time){
-          let timeSinceLastCall = time - lastCallTime;
-          let timeSinceLastInvoke = time - lastInvokeTime;
-          let timeWaiting = wait - timeSinceLastCall;
+
+        function remainingWait(time) {
+          const timeSinceLastCall = time - lastCallTime
+          const timeSinceLastInvoke = time - lastInvokeTime
+          const timeWaiting = wait - timeSinceLastCall
+
           return maxing
             ? Math.min(timeWaiting, maxWait - timeSinceLastInvoke)
-            : timeWaiting;
+            : timeWaiting
         }
-        function _shouldInvoke(time){
-          let timeSinceLastCall = time - lastCallTime;
-          let timeSinceLastInvoke = time - lastInvokeTime;
+
+        function shouldInvoke(time) {
+          const timeSinceLastCall = time - lastCallTime
+          const timeSinceLastInvoke = time - lastInvokeTime
+
           // Either this is the first call, activity has stopped and we're at the
           // trailing edge, the system time has gone backwards and we're treating
           // it as the trailing edge, or we've hit the `maxWait` limit.
-          return lastCallTime === undefined ||
-                 (timeSinceLastCall >= wait) ||
-                 (timeSinceLastCall < 0) ||
-                 (maxing && timeSinceLastInvoke >= maxWait);
+          return (lastCallTime === undefined || (timeSinceLastCall >= wait) ||
+            (timeSinceLastCall < 0) || (maxing && timeSinceLastInvoke >= maxWait))
         }
-        function _timerExpired(){
-          let time = _.now();
-          if(_shouldInvoke(time)){
-            return _trailingEdge(time);
+
+        function timerExpired() {
+          const time = Date.now()
+          if (shouldInvoke(time)) {
+            return trailingEdge(time)
           }
           // Restart the timer.
-          timerId = setTimeout(_timerExpired, _remainingWait(time));
+          timerId = startTimer(timerExpired, remainingWait(time))
         }
-        function _trailingEdge(time){
-          timerId = undefined;
+
+        function trailingEdge(time) {
+          timerId = undefined
+
           // Only invoke if we have `lastArgs` which means `func` has been
           // debounced at least once.
-          if(trailing && lastArgs){
-            return _invokeFunc(time);
+          if (trailing && lastArgs) {
+            return invokeFunc(time)
           }
-          lastArgs = lastThis = undefined;
-          return result;
+          lastArgs = lastThis = undefined
+          return result
         }
-        function _cancel() {
-          if(timerId !== undefined){
-            clearTimeout(timerId);
+
+        function cancel() {
+          if (timerId !== undefined) {
+            cancelTimer(timerId)
           }
-          lastInvokeTime = 0;
-          lastArgs = lastCallTime = lastThis = timerId = undefined;
+          lastInvokeTime = 0
+          lastArgs = lastCallTime = lastThis = timerId = undefined
         }
-        function _flush() {
-          return timerId === undefined ? result : _trailingEdge(_.now());
+
+        function flush() {
+          return timerId === undefined ? result : trailingEdge(Date.now())
         }
-        function _debounced(){
-          let time = _.now();
-          let isInvoking = _shouldInvoke(time);
-          lastArgs = arguments;
-          lastThis = this;
-          lastCallTime = time;
-          if(isInvoking){
-            if(timerId === undefined){
-              return _leadingEdge(lastCallTime);
+
+        function pending() {
+          return timerId !== undefined
+        }
+
+        function debounced(...args) {
+          const time = Date.now()
+          const isInvoking = shouldInvoke(time)
+
+          lastArgs = args
+          lastThis = this
+          lastCallTime = time
+
+          if (isInvoking) {
+            if (timerId === undefined) {
+              return leadingEdge(lastCallTime)
             }
-            if(maxing){
+            if (maxing) {
               // Handle invocations in a tight loop.
-              clearTimeout(timerId);
-              timerId = setTimeout(_timerExpired, wait);
-              return _invokeFunc(lastCallTime);
+              timerId = startTimer(timerExpired, wait)
+              return invokeFunc(lastCallTime)
             }
           }
-          if(timerId === undefined){
-            timerId = setTimeout(_timerExpired, wait);
+          if (timerId === undefined) {
+            timerId = startTimer(timerExpired, wait)
           }
-          return result;
+          return result
         }
-        //_debounced.cancel = cancel;
-        //_debounced.flush = flush;
-        return _debounced;
+        debounced.cancel = cancel
+        debounced.flush = flush
+        debounced.pending = pending
+        return debounced
       },
       /** Return a function that will return the negation of original func */
       negate(func){
-        _.assert(is.fun(func),"expected function");
+        _pre(isFun,func,"function");
         return function(...args){
           return !func.apply(this, args)
         }
@@ -860,7 +848,8 @@
        * @return {String}
       */
       strPadRight(str, len, s){
-        return (len -= str.length)>0 ? str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
+        return (len -= str.length)>0 ?
+          str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
       },
       /**
        * Maybe pad a string (left side.)
@@ -871,7 +860,8 @@
        * @return {String}
       */
       strPadLeft(str, len, s){
-        return (len -= str.length)>0 ? new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
+        return (len -= str.length)>0 ?
+          new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
       },
       /**
        * Safely split a string, null and empty strings are removed.
@@ -881,7 +871,7 @@
        * @return {Array.String}
       */
       safeSplit(s, sep){
-        return s.trim().split(sep).filter(z => z.length>0)
+        return (s||"").trim().split(sep).filter(z=> z.length>0)
       },
       /** Capitalize the first char */
       capitalize(str){
@@ -895,7 +885,7 @@
        * @return {String}
       */
       prettyNumber(num, digits=2){
-        return _.strPadLeft(Number(num).toString(), digits, "0")
+        return this.strPadLeft(Number(num).toString(), digits, "0")
       },
       /**
        * Remove some arguments from the front.
@@ -905,7 +895,7 @@
        * @return {Array} remaining arguments
       */
       dropArgs(args, num){
-        return args.length > num ? Array.prototype.slice(args, num) : []
+        return args.length>num ? Slicer.call(args, num) : []
       },
       /** true if url is secure */
       isSSL(){
@@ -921,12 +911,15 @@
       },
       /** true if cross-origin */
       isCrossOrigin(url) {
-        if(url) {
-          let pos= url.indexOf("://");
-          if(pos > 0){
+        let wnd=window;
+        if(arguments.length===2 &&
+           arguments[1].hack===911){ wnd=arguments[1] }
+        if(wnd&&wnd.location&&url){
+          const pos= url.indexOf("://");
+          if(pos>0){
             let end= url.indexOf("/", pos+3);
             let o = end<0 ? url : url.substring(0, end);
-            return o !== window.location.origin;
+            return o != wnd.location.origin;
           }
         }
       }
@@ -934,20 +927,20 @@
     //browser only--------------------------------------------------------------
     if(doco){
       _.addEvent=function(event,target,cb,arg){
-        if(isArray(event) && arguments.length===1)
-          event.forEach(e => this.addEvent.apply(this, e));
+        if(isVec(event) && arguments.length===1)
+          event.forEach(e=> this.addEvent.apply(this, e));
         else
           target.addEventListener(event,cb,arg);
       };
       _.delEvent=function(event,target,cb,arg){
-        if(isArray(event) && arguments.length===1)
+        if(isVec(event) && arguments.length===1)
           event.forEach(e => this.delEvent.apply(this, e));
         else
           target.removeEventListener(event,cb,arg);
       };
     }
     /**
-     * @public
+     * @private
      * @var {object}
      */
     const dom={
@@ -956,62 +949,63 @@
       parent(e){ if(e) return e.parentNode },
       conj(par,child){ return par.appendChild(child) },
       byTag(tag, ns){
-        return !is.str(ns) ? doco.getElementsByTagName(id)
-                           : doco.getElementsByTagNameNS(ns,tag) },
+        return !isStr(ns) ? doco.getElementsByTagName(id)
+                          : doco.getElementsByTagNameNS(ns,tag) },
       attrs(e, attrs){
-        if(!is.obj(attrs) && attrs){
+        if(!isObj(attrs) && attrs){
           if(arguments.length > 2)
             e.setAttribute(attrs, arguments[2]);
           return e.getAttribute(attrs);
         }
         if(attrs)
-          _.doseq(attrs, (v,k) => e.setAttribute(k,v));
+          _.doseq(attrs, (v,k)=> e.setAttribute(k,v));
         return e;
       },
       css(e, styles){
-        if(!is.obj(styles) && styles){
+        if(!isObj(styles) && styles){
           if(arguments.length > 2)
             e.style[styles]= arguments[2];
           return e.style[styles];
         }
         if(styles)
-          _.doseq(styles, (v,k) => { e.style[k]= v });
+          _.doseq(styles, (v,k)=> e.style[k]=v);
         return e;
       },
       wrap(child,wrapper){
-        let p=child.parentNode;
+        const p=child.parentNode;
         wrapper.appendChild(child);
         p.appendChild(wrapper);
         return wrapper;
       },
       newElm(tag, attrs, styles){
-        let e = doco.createElement(tag);
+        const e = doco.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
       newTxt(tag, attrs, styles){
-        let e = doco.createTextNode(tag);
+        const e = doco.createTextNode(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       }
     };
     /**
-     * @public
+     * @private
      * @function
      */
-    const EventBus= function(){
+    const EventBus=function(){
       let _tree= _.jsMap();
       let NULL={};
       let ZA=[];
-      return {
+      return{
         sub(subject,cb,ctx,extras){
-          let event=subject[0], target=subject[1];
+          let event=subject[0],
+              target=subject[1];
           //handle multiple events in one string
           _.seq(event).forEach(e=>{
             if(!cb) cb=e;
-            if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+            if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
             if(!cb) throw "Error: no callback for sub()";
             if(!_tree.has(e)) _tree.set(e, _.jsMap());
             let m= _tree.get(e);
@@ -1021,7 +1015,9 @@
           });
         },
         pub(subject,...args){
-          let m,t,event=subject[0], target=subject[1] || NULL;
+          let m,t,
+              event=subject[0],
+              target=subject[1] || NULL;
           _.seq(event).forEach(e=>{
             t=_tree.get(e);
             m= t && t.get(target);
@@ -1031,13 +1027,14 @@
           });
         },
         unsub(subject,cb,ctx){
-          let event=subject[0], target=subject[1] || NULL;
+          let event=subject[0],
+              target=subject[1] || NULL;
           let t,m, es=_.seq(event);
           es.forEach(e=>{
             t= _tree.get(e);
             m= t && t.get(target);
             if(m){
-              if(is.str(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+              if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
               if(!cb){
                 //t.delete(target);
               }
@@ -1050,11 +1047,12 @@
       };
     };
 
-    if(doco){ _C.dom=dom }
-    _C.EventBus= EventBus;
-    _C.u= _;
-    _C.is= is;
-    return _C;
+    return{
+      is: is,
+      u: _,
+      dom: doco?dom:{},
+      EventBus: EventBus
+    };
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1083,14 +1081,14 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
   /**
    * @private
    * @function
    */
   function _module(Core){
-    if(!Core) Core= global["io/czlab/mcfud/core"]();
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
@@ -1200,7 +1198,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/math"]=_module
+    gscope["io/czlab/mcfud/math"]=_module
   }
 
 })(this);
@@ -1221,47 +1219,40 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
   /**
    * @private
    * @function
    */
-  function _module(UseOBJ=false,Core=null,_M=null){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
-    const {u:_, is}= Core;
+  function _module(UseOBJ=false,Core=null){
     class V2Obj{ constructor(){ this.x=this.y=0 } }
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const {u:_, is}= Core;
     function _cobj() { return new V2Obj() }
     function _carr() { return [0,0] }
-    const PLEN=96;
-    const _V={};
     const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= _.fill(new Array(PLEN), _CTOR);
-    /**
+    const _POOL= [];
+    const PLEN=96;
+    /**Put stuff back into the pool.
      * @private
      * @function
      */
     function _drop(...args){
-      let ok;
-      args.forEach(a=>{
-        if(a){
-          ok=0;
-          if(UseOBJ){
-            if(a instanceof V2Obj){ok=1}
-          }else if(a.length===2){ok=1}
-          if(ok && _POOL.length<PLEN) _POOL.push(a)
-        }
-      })
+      for(let a,i=0;i<args.length;++i){
+        a=args[i];
+        if(_POOL.length<PLEN){
+          if((UseOBJ && a instanceof V2Obj) ||
+             (!UseOBJ && a && a.length===2)) _POOL.push(a)
+        }else{break}
+      }
     }
-    /**
+    /**Take something from the pool.
      * @private
      * @function
      */
-    function _take(x,y){
-      let out= _POOL.length>0 ? _POOL.pop() : _CTOR();
-      x=x || 0;
-      y=y || 0;
+    function _take(x=0,y=0){
+      const out= _POOL.length>0 ? _POOL.pop() : _CTOR();
       if(UseOBJ){
         out.x=x;
         out.y=y;
@@ -1272,19 +1263,12 @@
       return out;
     }
     /**
-     * @public
-     * @function
-     */
-    _V.vec2=function(x,y){ return _take(x,y) };
-    _V.takeV2=_take;
-    _V.dropV2=_drop;
-    /**
      * @private
      * @var {object}
      */
     const _4ops={ "+": (a,b)=>a+b, "-": (a,b)=>a-b,
                   "*": (a,b)=>a*b, "/": (a,b)=>a/b };
-    /**
+    /**Make sure we have good data.
      * @private
      * @function
      */
@@ -1310,170 +1294,13 @@
       }
       return out;
     }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecAdd=function(a,b){ return _vecXXX(_4ops["+"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecAddSelf=function(a,b){ return _vecXXX(_4ops["+"],a,b,1) };
-    /**
-     * @function
-     * @public
-     */
-    _V.vecSub=function(a,b){ return _vecXXX(_4ops["-"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecSubSelf=function(a,b){ return _vecXXX(_4ops["-"],a,b,1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecMul=function(a,b){ return _vecXXX(_4ops["*"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecMulSelf=function(a,b){ return _vecXXX(_4ops["*"],a,b,1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDiv=function(a,b){ return _vecXXX(_4ops["/"],a,b) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDivSelf=function(a,b){ return _vecXXX(_4ops["/"],a,b,1) };
-    /**
-     * Dot product of vectors, cosα = a·b / (|a| * |b|).
-     *
-     * @public
-     * @function
-     * @returns {number}
-     */
-    _V.vecDot=function(a,b){
-      if(_assertArgs(a,b))
-        return UseOBJ ? (a.x*b.x + a.y*b.y)
-                      : (a[0]*b[0] + a[1]*b[1])
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.makeVecAB=function(a,b){
-      return _take(b[0]-a[0],b[1]-a[1])
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecLen2=function(a){ return this.vecDot(a,a) }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecLen=function(a){ return Math.sqrt(this.vecLen2(a)) }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDist2=function(a,b){
-      let v= this.vecSub(b,a);
-      let d= this.vecLen2(v);
-      _drop(v);
-      return d;
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecDist=function(a,b){ return Math.sqrt(this.vecDist2(a,b)) }
-    /**
-     * Unit-vector.
-     * @public
-     * @function
-     */
-    _V.vecUnit=function(a){
-      let d=this.vecLen(a);
-      let out= _CTOR();
-      if(d>_M.EPSILON){
-        if(UseOBJ){
-          out.x = a.x/d;
-          out.y = a.y/d;
-        }else{
-          out[0] = a[0]/d;
-          out[1] = a[1]/d;
-        }
-      }
-      return out;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecUnitSelf=function(a){
-      let d=this.vecLen(a);
-      if(d>_M.EPSILON){
-        if(UseOBJ){
-          a.x /= d;
-          a.y /= d;
-        }else{
-          a[0] /= d;
-          a[1] /= d;
-        }
-      }
-      return a;
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecSet=function(des,src){
-      _assertArgs(des,src);
-      if(UseOBJ){
-        des.x=src.x;
-        des.y=src.y;
-      }else{
-        des[0]=src[0];
-        des[1]=src[1];
-      }
-      return des;
-    }
-    /**
-     * @public
-     * @function
-     */
-    _V.vecClone=function(v){
-      return this.vecSet(_CTOR(),v)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecCopy=function(des,...args){
-      _.assert(args.length===2) && _assertArgs(des,des);
-      if(UseOBJ){
-        des.x=args[0];
-        des.y=args[1];
-      }else{
-        des[0]=args[0];
-        des[1]=args[1];
-      }
-      return des;
-    };
-    /**
+    /**Rotate a vector([]) around a pivot.
      * @private
      * @function
      */
-    function _v2rot_arr(a,cos,sin,center,local){
-      const cx=center ? center[0] : 0;
-      const cy=center ? center[1] : 0;
+    function _v2rot_arr(a,cos,sin,pivot,local){
+      const cx=pivot ? pivot[0] : 0;
+      const cy=pivot ? pivot[1] : 0;
       const x_= a[0] - cx;
       const y_= a[1] - cy;
       const x= cx + (x_*cos - y_*sin);
@@ -1486,13 +1313,13 @@
       }
       return a;
     }
-    /**
+    /**Rotate a vector(obj) around a pivot.
      * @private
      * @function
      */
-    function _v2rot_obj(a,cos,sin,center,local){
-      const cx=center ? center.x : 0;
-      const cy=center ? center.y : 0;
+    function _v2rot_obj(a,cos,sin,pivot,local){
+      const cx=pivot ? pivot.x : 0;
+      const cy=pivot ? pivot.y : 0;
       const x_= a.x - cx;
       const y_= a.y - cy;
       const x= cx + (x_*cos - y_*sin);
@@ -1505,214 +1332,234 @@
       }
       return a;
     }
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2Rot=function(a,rot,center){
-      _assertArgs(a, center || a);
-      const c= Math.cos(rot);
-      const s= Math.sin(rot);
-      return UseOBJ ? _v2rot_obj(a,c,s,center) : _v2rot_arr(a,c,s,center);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.vec2RotSelf=function(a,rot,center){
-      _assertArgs(a, center || a);
-      const c= Math.cos(rot);
-      const s= Math.sin(rot);
-      return UseOBJ ? _v2rot_obj(a,c,s,center,1) : _v2rot_arr(a,c,s,center,1);
-    };
-    /**
+    /**2d cross product, data-type=[].
      * @private
      * @function
      */
     function _vecXSS_arr(p1,p2){
+      //v2 X v2
       if(is.vec(p1) && is.vec(p2)){
         _assertArgs(p1,p2);
         return p1[0] * p2[1] - p1[1] * p2[0]
       }
-      if(is.vec(p1) && is.num(a)){
+      //v2 X num
+      if(is.vec(p1) && is.num(p2)){
         _assertArgs(p1,p1);
         return _take(p2 * p1[1], -p2 * p1[0])
       }
+      //num X v2
       if(is.num(p1) && is.vec(p2)){
         _assertArgs(p2,p2);
-        return _take( -p1 * p2[1], p1 * p2[0])
+        return _take(-p1 * p2[1], p1 * p2[0])
       }
     }
-    /**
+    /**2d cross product, data-type=object.
      * @private
      * @function
      */
     function _vecXSS_obj(p1,p2){
+      //v2 X v2
       if(p1 instanceof V2Obj && p2 instanceof V2Obj){
         return p1.x * p2.y - p1.y * p2.x
       }
-      if(p1 instanceof V2Obj && is.num(a)){
+      //v2 X num
+      if(p1 instanceof V2Obj && is.num(p2)){
         return _take(p2 * p1.y, -p2 * p1.x)
       }
+      //num X v2
       if(is.num(p1) && p2 instanceof V2Obj){
-        return _take( -p1 * p2.y, p1 * p2.x)
+        return _take(-p1 * p2.y, p1 * p2.x)
       }
     }
-    /**
-     * @public
-     * @function
+    /**The object to export.
+     * @private
+     * @var {object}
      */
-    _V.vec2Cross=function(p1,p2){
-      return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2)
-    };
-    /**
-     * Angle between these 2 vectors.
-     * a.b = cos(t)*|a||b|
-     * @public
-     * @function
-     */
-    _V.vecAngle=function(a,b){
-      return Math.acos(this.vecDot(a,b) / (this.vecLen(a) * this.vecLen(b)))
-    };
-    /**
-     * Change vector to be perpendicular to what it was before, effectively
-     * rotates it 90 degrees in a clockwise direction.
-     * @public
-     * @function
-     */
-    _V.perpSelf=function(a,ccw){
-      _assertArgs(a,a);
-      const x = UseOBJ ? a.x : a[0];
-      if(UseOBJ){
-        if(ccw){
-          a.x=-a.y;
-          a.y= x;
-        }else{
-          a.x=a.y;
-          a.y= -x;
+    const _$={
+      take:_take,
+      reclaim:_drop,
+      vec2(x,y){ return _take(x,y) },
+      /** A+B */
+      add(a,b){ return _vecXXX(_4ops["+"],a,b) },
+      /** A= A+B */
+      add$(a,b){ return _vecXXX(_4ops["+"],a,b,1) },
+      /** A-B */
+      sub(a,b){ return _vecXXX(_4ops["-"],a,b) },
+      /** A=A-B */
+      sub$(a,b){ return _vecXXX(_4ops["-"],a,b,1) },
+      /** A*B */
+      mul(a,b){ return _vecXXX(_4ops["*"],a,b) },
+      /** A=A*B */
+      mul$(a,b){ return _vecXXX(_4ops["*"],a,b,1) },
+      /** A/B */
+      div(a,b){ return _vecXXX(_4ops["/"],a,b) },
+      /** A=A/B */
+      div$(a,b){ return _vecXXX(_4ops["/"],a,b,1) },
+      /** Dot product of vectors, cos(t) = a·b / (|a| * |b|) */
+      dot(a,b){
+        if(_assertArgs(a,b))
+          return UseOBJ ? (a.x*b.x + a.y*b.y)
+                        : (a[0]*b[0] + a[1]*b[1])
+      },
+      /** vectorAB is calculated by doing B-A */
+      makeVecAB(a,b){
+        return UseOBJ ? _take(b.x-a.x,b.y-a.y)
+                      : _take(b[0]-a[0],b[1]-a[1])
+      },
+      /** length square */
+      len2(a){ return this.dot(a,a) },
+      len(a){ return Math.sqrt(this.len2(a)) },
+      /** distance square */
+      dist2(a,b){
+        let v= this.sub(b,a),
+            d= this.len2(v);
+        _drop(v);
+        return d;
+      },
+      /** distance */
+      dist(a,b){ return Math.sqrt(this.dist2(a,b)) },
+      /** unit vector */
+      unit(a){
+        let d=this.len(a),
+            out= _CTOR();
+        if(!_.feq0(d)){
+          if(UseOBJ){
+            out.x= a.x/d;
+            out.y= a.y/d;
+          }else{
+            out[0]= a[0]/d;
+            out[1]= a[1]/d;
+          }
         }
-      }else{
-        if(ccw){
-          a[0]=-a[1];
-          a[1]= x;
+        return out;
+      },
+      /** A=unit(A) */
+      unit$(a){
+        let d=this.len(a);
+        if(!_.feq0(d)){
+          if(UseOBJ){
+            a.x /= d;
+            a.y /= d;
+          }else{
+            a[0] /= d;
+            a[1] /= d;
+          }
+        }
+        return a;
+      },
+      /** Copy `src` into `des` */
+      set(des,src){
+        _assertArgs(des,src);
+        if(UseOBJ){
+          des.x=src.x;
+          des.y=src.y;
         }else{
-          a[0]=a[1];
-          a[1]= -x;
+          des[0]=src[0];
+          des[1]=src[1];
+        }
+        return des;
+      },
+      /** */
+      clone(v){ return this.set(_CTOR(),v) },
+      /** Copy values(args) into `des` */
+      copy(des,...args){
+        _.assert(args.length===2) && _assertArgs(des,des);
+        if(UseOBJ){
+          des.x=args[0];
+          des.y=args[1];
+        }else{
+          des[0]=args[0];
+          des[1]=args[1];
+        }
+        return des;
+      },
+      /** Rotate a vector around a pivot */
+      rot(a,rot,pivot){
+        _assertArgs(a, pivot||a);
+        const c= Math.cos(rot);
+        const s= Math.sin(rot);
+        return UseOBJ ? _v2rot_obj(a,c,s,pivot) : _v2rot_arr(a,c,s,pivot);
+      },
+      /** A=rot(A) */
+      rot$(a,rot,pivot){
+        _assertArgs(a, pivot||a);
+        const c= Math.cos(rot);
+        const s= Math.sin(rot);
+        return UseOBJ ? _v2rot_obj(a,c,s,pivot,1)
+                      : _v2rot_arr(a,c,s,pivot,1);
+      },
+      /** 2d cross product */
+      cross(p1,p2){ return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2) },
+      /**
+       * Angle between these 2 vectors.
+       * a.b = cos(t)*|a||b|
+       */
+      angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
+      /**
+       * Change vector to be perpendicular to what it was before, effectively
+       * rotates it 90 degrees(normal)
+       */
+      normal(a,ccw=false){
+        _assertArgs(a,a);
+        if(UseOBJ){
+          return ccw ? _take(-a.y,a.x) : _take(a.y,-a.x)
+        }else{
+          return ccw ? _take(-a[1],a[0]) : _take(a[1],-a[0])
+        }
+      },
+      /** A=normal(A) */
+      normal$(a,ccw=false){
+        _assertArgs(a,a);
+        const x= UseOBJ ? a.x : a[0];
+        if(UseOBJ){
+          if(ccw){ a.x=-a.y; a.y= x; }else{ a.x=a.y; a.y= -x; }
+        }else{
+          if(ccw){ a[0]=-a[1]; a[1]= x; }else{ a[0]=a[1]; a[1]= -x; }
+        }
+        return a;
+      },
+      /** Find scalar projection A onto B */
+      proj_scalar(a,b){ return this.dot(a,b)/this.len(b) },
+      /** Find vector A projection onto B */
+      proj(a,b){
+        const bn = this.unit(b);
+        return this.mul$(bn, this.dot(a,bn));
+      },
+      /** Find the perpedicular vector */
+      perp(a,b){ return this.sub(a, this.proj(a,b)) },
+      /** Reflect a normal */
+      reflect(src,normal){
+        return this.sub(src, this.mul(normal, 2*this.dot(src,normal)))
+      },
+      /** Negate a vector */
+      flip(v){ return this.mul(v, -1) },
+      /** V=flip(V) */
+      flip$(v){ return this.mul$(v, -1) },
+      /** Move a bunch of points */
+      translate(pos,...args){
+        let b,a=false;
+        if(args.length===1 && is.vec(args[0])){
+          args=args[0];
+          a=true;
+        }
+        b=args.length===1&&!a;
+        if(UseOBJ){
+          return b ? this.vec2(pos.x+args[0].x,pos.y+args[0].y)
+                   : args.map(p=> this.vec2(pos.x+p.x,pos.y+p.y))
+        }else{
+          return b ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
+                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
         }
       }
-      return a;
     };
-    /**
-     * Change vector to be perpendicular to what it was before, effectively
-     * rotates it 90 degrees in a clockwise direction.
-     * @public
-     * @function
-     */
-    _V.perp=function(a,ccw){
-      _assertArgs(a,a);
-      if(UseOBJ){
-        return ccw ? _take(-a.y,a.x) : _take(a.y,-a.x)
-      }else{
-        return ccw ? _take(-a[1],a[0]) : _take(a[1],-a[0])
-      }
-    };
-    /**
-     * Find scalar projection.
-     * @public
-     * @function
-     * @returns {number}
-     */
-    _V.proj=function(a,b){
-      return this.vecDot(a,b)/this.vecLen(b)
-    };
-    /**Find vector projection.
-     * @public
-     * @function
-     */
-    _V.vecProj=function(a,b){
-      const bn = this.vecUnit(b);
-      return this.vecMulSelf(bn, this.vecDot(a,bn));
-    };
-    /**
-     * Find the perpedicular vector.
-     * @public
-     * @function
-     */
-    _V.vecPerp=function(a,b){ return this.vecSub(a, this.vecProj(a,b)) };
-    /**
-     * Reflect a normal.
-     * @public
-     * @function
-     */
-    _V.vecReflect=function(src,normal){
-      return this.vecSub(src, this.vecMul(normal, 2*this.vecDot(src,normal)))
-    };
-    /**
-     * Negate a vector.
-     * @public
-     * @function
-     */
-    _V.vecFlip=function(v){ return this.vecMul(v, -1) };
-    /**
-     * @public
-     * @function
-     */
-    _V.vecFlipSelf=function(v){ return this.vecMulSelf(v, -1) };
-    /**
-     * Normal of a vector.
-     *
-     * if v is ------------------> then
-     *         |
-     *         |
-     *         v
-     * if s=true, then
-     *         ^
-     *         |
-     *         |
-     *         -------------------->
-     * @public
-     * @function
-     */
-    _V.vecNormal=function(v,s){
-      _assertArgs(v,v);
-      //origin = (0,0) => x1=0,y1=0, x2= vx, y2=vy
-      const x1=0;
-      const y1=0;
-      let dy;
-      let dx;
-      if(UseOBJ){
-        dy= v.y - y1;
-        dx= v.x - x1;
-      }else{
-        dy= v[1] - y1;
-        dx= v[0] - x1;
-      }
-      return s ? _take(-dy, dx) : _take(dy, -dx)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _V.translate=function(pos,...args){
-      let a=false;
-      if(args.length===1 && is.vec(args[0])){
-        args=args[0];
-        a=true;
-      }
-      return args.length===1 && !a ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
-                                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
-    };
-
-    return _V;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(false,
-                           require("./core"),
-                           require("./math"))
+    module.exports=_module(false, require("./core"))
   }else{
-    global["io/czlab/mcfud/vec2"]=_module
+    gscope["io/czlab/mcfud/vec2"]=_module
   }
 
 })(this);
@@ -1733,15 +1580,15 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
   /**
    * @private
    * @function
    */
   function _module(Core,_M){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
 
     const ATAN2= Math.atan2;
     const COS= Math.cos;
@@ -2582,7 +2429,7 @@
     module.exports=_module(require("./core"),
                            require("./math"))
   }else{
-    global["io/czlab/mcfud/matrix"]=_module
+    gscope["io/czlab/mcfud/matrix"]=_module
   }
 
 })(this);
@@ -2603,7 +2450,7 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
   const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
                "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
@@ -2613,7 +2460,7 @@
    * @function
    */
   function _module(Core){
-    if(!Core) Core= global["io/czlab/mcfud/core"]();
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
     const _C={};
     /**
@@ -2706,7 +2553,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/crypt"]=_module;
+    gscope["io/czlab/mcfud/crypt"]=_module;
   }
 
 })(this);
@@ -2726,7 +2573,7 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2795,7 +2642,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module()
   }else{
-    global["io/czlab/mcfud/fsm"]=_module
+    gscope["io/czlab/mcfud/fsm"]=_module
   }
 
 })(this);
@@ -2816,15 +2663,15 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   "use strict";
   /**
    * @private
    * @function
    */
   function _module(Core,_M){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
 
     const TWO_PI=Math.PI*2;
     const {u:_}=Core;
@@ -3068,7 +2915,7 @@
     module.exports=_module(require("./core"),
                            require("./math"))
   }else{
-    global["io/czlab/mcfud/gfx"]=_module
+    gscope["io/czlab/mcfud/gfx"]=_module
   }
 
 })(this);
@@ -3088,45 +2935,41 @@
 //
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
+  /**
+   * @private
+   * @function
+   */
   function _module(Core,_M,_V){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
-    if(!_M) _M=global["io/czlab/mcfud/math"]();
-    if(!_V) _V=global["io/czlab/mcfud/vec2"]();
-    const MaxPolyVertexCount=64;
+    const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
+    //dependencies
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+    if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
+    const MaxVertices=36;
     const {u:_}=Core;
     const _G={};
-    const LEFT_VORONOI= -1;
-    const MID_VORONOI= 0;
-    const RIGHT_VORONOI= 1;
-    /**
-     * @public
-     * @class
-     */
-    class Box4{
-      constructor(left,bottom,right,top){
-        this.left=left;
-        this.right=right;
-        this.top=top;
-        this.bottom=bottom;
-      }
-    }
-    /**
+    /**Standard Cartesian: bottom-left corner + width + height.
      * @public
      * @class
      */
     class Rect{
       constructor(x,y,width,height){
-        if(arguments.length===2){
-          this.width=x;
-          this.height=y;
-          this.pos= _V.vec2();
-        }else{
-          this.pos=_V.vec2(x,y);
-          this.width=width;
-          this.height=height;
+        switch(arguments.length){
+          case 2:
+            this.pos= _V.vec2();
+            this.width=x;
+            this.height=y;
+            break;
+          case 4:
+            this.pos=_V.vec2(x,y);
+            this.width=width;
+            this.height=height;
+            break;
+          default:
+            throw "Error: bad input to Rect()";
         }
       }
     }
@@ -3140,7 +2983,7 @@
         this.height=h;
       }
       half(){
-        return new Area(this.width/2,this.height/2)
+        return new Area(this.width/2|0,this.height/2|0)
       }
     }
     /**
@@ -3152,11 +2995,11 @@
       let area=0;
       for(let p,q,i2,len=points.length,i=0;i<len;++i){
         i2= (i+1)%len;
-        p=poly.points[i];
-        q=poly.points[i2];
+        p=points[i];
+        q=points[i2];
         area += (p[0]*q[1] - q[0]*p[1]);
       }
-      return Math.abs(area)/2
+      return Math.abs(area)/2|0;
     }
     /**
      * Find the center point of this polygon.
@@ -3164,7 +3007,7 @@
      * @function
      */
     _G.calcPolyCenter=function(points){
-      let A= 6*this.polyArea(points);
+      let A= 6*_G.polyArea(points);
       let cx=0;
       let cy=0;
       for(let p,q,i2,i=0,len=points.length;i<len;++i){
@@ -3174,39 +3017,39 @@
         cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
         cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
       }
-      return _V.vec2(cx/A, cy/A)
+      return _V.vec2(cx/A|0, cy/A|0);
     };
     /**
-     * Lifted from Randy Gaul's impulse-engine:
+     * Copied from Randy Gaul's impulse-engine:
      * https://github.com/RandyGaul/ImpulseEngine#Shape.h
      * @private
      * @function
      */
     function _orderPoints(vertices){
       let count=vertices.length;
-      _.assert(count > 2 && count <= MaxPolyVertexCount); // at least 3
-      //find the right most point
+      _.assert(count > 2 && count <= MaxVertices); // at least 3
+      //find the right-most point
       let rightMost=0;
       let highestX= vertices[0][0];
       for(let x,i=1; i<count; ++i){
         x=vertices[i][0];
-        if(x > highestX){
+        if(x>highestX){
           highestX= x;
           rightMost= i;
-        }
-        // if same x then take farthest negative y
-        else if(_M.fuzzyEq(x, highestX)){
-          if(vertices[i][1] < vertices[rightMost][1]) rightMost = i;
+        }else if(_.feq(x, highestX) &&
+                 vertices[i][1]<vertices[rightMost][1]){
+          //if same x then choose one with smaller y
+          rightMost = i;
         }
       }
-      let hull=new Array(MaxPolyVertexCount);
-      let outCount = 0;
-      let indexHull = rightMost;
+      let hull=new Array(MaxVertices);
+      let indexHull=rightMost;
+      let outCount=0;
       for(;;){
-        hull[outCount] = indexHull;
-        // search for next index that wraps around the hull
-        // by computing cross products to find the most counter-clockwise
-        // vertex in the set, given the previos hull index
+        hull[outCount]=indexHull;
+        //search for next index that wraps around the hull
+        //by computing cross products to find the most counter-clockwise
+        //vertex in the set, given the previos hull index
         let nextHullIndex = 0;
         for(let i=1; i<count; ++i){
           // skip if same coordinate as we need three unique
@@ -3215,24 +3058,24 @@
             nextHullIndex = i;
             continue;
           }
-          // cross every set of three unique vertices
-          // record each counter clockwise third vertex and add
-          // to the output hull
-          // see : http://www.oocities.org/pcgpe/math2d.html
-          let e1 = _V.vecSub(vertices[nextHullIndex], vertices[hull[outCount]]);
-          let e2 = _V.vecSub(vertices[i], vertices[hull[outCount]]);
-          let c = _V.vec2Cross(e1,e2);
-          if(c < 0.0)
-            nextHullIndex = i;
-          // cross product is zero then e vectors are on same line
-          // therefor want to record vertex farthest along that line
-          if(_M.fuzzyZero(c) && _V.vecLen2(e2) > _V.vecLen2(e1))
+          //cross every set of three unique vertices
+          //record each counter clockwise third vertex and add
+          //to the output hull
+          //see: http://www.oocities.org/pcgpe/math2d.html
+          let e1= _V.vecSub(vertices[nextHullIndex], vertices[hull[outCount]]);
+          let e2= _V.vecSub(vertices[i], vertices[hull[outCount]]);
+          let c= _V.vec2Cross(e1,e2);
+          if(c<0.0)
+            nextHullIndex=i;
+          //cross product is zero then e vectors are on same line
+          //therefore want to record vertex farthest along that line
+          if(_.feq0(c) && _V.vecLen2(e2) > _V.vecLen2(e1))
             nextHullIndex = i;
         }
         ++outCount;
-        indexHull = nextHullIndex;
-        // conclude algorithm upon wrap-around
-        if(nextHullIndex === rightMost){
+        indexHull=nextHullIndex;
+        //conclude algorithm upon wrap-around
+        if(nextHullIndex===rightMost){
           break;
         }
       }
@@ -3277,75 +3120,71 @@
      */
     class Polygon{
       constructor(x,y){
+        this.calcPoints=null;
+        this.normals=null;
+        this.edges=null;
+        this.points=null;
         this.orient = 0;
         this.pos=_V.vec2();
         this.setPos(x,y);
       }
-      setPos(x,y){
-        _V.vecCopy(this.pos,x||0,y||0);
+      setPos(x=0,y=0){
+        _V.vecCopy(this.pos,x,y);
         return this;
       }
       set(points){
-        points= _orderPoints(points);
-        if(this.calcPoints) this.calcPoints.length=0; else this.calcPoints = [];
-        if(this.normals) this.normals.length=0; else this.normals = [];
-        if(this.edges) this.edges.length=0; else this.edges = [];
-        for(let i=0; i < points.length; ++i){
+        this.calcPoints= this.calcPoints || [];
+        this.normals= this.normals || [];
+        this.edges= this.edges || [];
+        this.calcPoints.length=0;
+        this.normals.length=0;
+        this.edges.length=0;
+        this.points= _orderPoints(points);
+        _.doseq(this.points, p=>{
           this.calcPoints.push(_V.vec2());
           this.edges.push(_V.vec2());
           this.normals.push(_V.vec2());
-        }
-        this.points = points;
-        this._recalc();
-        return this;
+        });
+        return this._recalc();
       }
       setOrient(rot){
         this.orient = rot;
-        this._recalc();
-        return this;
+        return this._recalc();
       }
       translate(x, y){
-        if(this.points){
-          for(let i=0; i < this.points.length; ++i){
-            this.points[i][0] += x;
-            this.points[i][1] += y;
-          }
-          this._recalc();
-        }
-        return this;
+        _.doseq(this.points,p=>{
+          p[0] += x; p[1] += y;
+        });
+        return this._recalc();
       }
       _recalc(){
         if(this.points){
-          for(let i=0; i < this.points.length; ++i){
-            _V.vecSet(this.calcPoints[i],this.points[i]);
-            if(!_M.fuzzyZero(this.orient))
+          _.doseq(this.points,(p,i)=>{
+            _V.vecSet(this.calcPoints[i],p);
+            if(!_.feq0(this.orient))
               _V.vec2RotSelf(this.calcPoints[i],this.orient);
-          }
-          for(let i2,p1,p2,e,i = 0; i < this.points.length; ++i){
-            p1 = this.calcPoints[i];
+          });
+          let i2,p1,p2;
+          _.doseq(this.points,(p,i)=>{
             i2= (i+1) % this.calcPoints.length;
+            p1=this.calcPoints[i];
             p2=this.calcPoints[i2];
             this.edges[i]= _V.vecSub(p2,p1);
             this.normals[i]= _V.vecUnit(_V.perp(this.edges[i]));
-          }
+          });
         }
         return this;
       }
     }
     /**
      * @public
-     * @class
+     * @function
      */
-    class Box extends Rect{
-      constructor(x,y, w, h){
-        super(x,y,w,h);
-      }
-      toPolygon(){
-        return new Polygon(this.pos[0],
-                           this.pos[1]).set([_V.vec2(this.width,0),
-                                             _V.vec2(this.width,this.height),
-                                             _V.vec2(0,this.height),_V.vec2()]);
-      }
+    function toPolygon(r){
+      return new Polygon(r.pos[0],
+                         r.pos[1]).set([_V.vec2(r.width,0),
+                                        _V.vec2(r.width,r.height),
+                                        _V.vec2(0,r.height),_V.vec2()])
     }
     /**
      * @public
@@ -3353,10 +3192,10 @@
      */
     class Manifold{
       constructor(A,B){
-        this.A = A;
-        this.B = B;
         this.overlapN = _V.vec2();
         this.overlapV = _V.vec2();
+        this.A = A;
+        this.B = B;
         this.clear();
       }
       clear(){
@@ -3366,7 +3205,6 @@
         return this;
       }
     }
-
     /**
      * @public
      * @function
@@ -3376,12 +3214,12 @@
         return new _G.Rect(obj.pos[0]-obj.radius,
                            obj.pos[1]-obj.radius,
                            obj.radius*2, obj.radius*2)
-      } else{
+      }else{
         let cps= _V.translate(obj.pos, obj.calcPoints);
-        let xMin = cps[0][0];
-        let yMin = cps[0][1];
-        let xMax = xMin;
-        let yMax = yMin;
+        let xMin= cps[0][0];
+        let yMin= cps[0][1];
+        let xMax= xMin;
+        let yMax= yMin;
         for(let p,i=1; i<cps.length; ++i){
           p= cps[i];
           if(p[0] < xMin) xMin = p[0];
@@ -3399,16 +3237,16 @@
      * @public
      * @function
      */
-    _G.shiftPoints=function(ps,delta){
-      return ps.map(v => _V.vecAdd(v,delta))
+    _G.shiftPoints=function(points,delta){
+      return points.map(v=> _V.vecAdd(v,delta))
     };
     /**
      * Rotate a set of points.
      * @public
      * @function
      */
-    _G.rotPoints=function(ps,rot,pivot){
-      return ps.map(v => _V.vec2Rot(v,rot,pivot))
+    _G.rotPoints=function(points,rot,pivot){
+      return points.map(v=> _V.vec2Rot(v,rot,pivot))
     };
     /**
      * Find the vertices of a rectangle.
@@ -3417,12 +3255,12 @@
      * @returns points in counter-cwise, bottom-right first.
      */
     _G.calcRectPoints=function(w,h){
-      let w2=w/2;
-      let h2=h/2;
+      let hw=w/2|0;
+      let hh=h/2|0;
       return [_V.vec2(hw,-hh),
               _V.vec2(hw,hh),
               _V.vec2(-hw,hh),
-              _V.vec2(-hw,-hh)];
+              _V.vec2(-hw,-hh)]
     };
     /**
      * @public
@@ -3441,7 +3279,7 @@
              r1.pos[0]===r2.pos[0] &&
              r1.pos[1]===r2.pos[1]
     };
-    /**
+    /**Test if `R` contains `r`.
      * @public
      * @function
      */
@@ -3465,7 +3303,7 @@
      * @function
      */
     _G.rectGetMidX=function(r){
-      return r.pos[0] + r.width/2
+      return r.pos[0] + r.width/2|0
     };
     /**
      * @public
@@ -3487,7 +3325,7 @@
      * @function
      */
     _G.rectGetMidY=function(r){
-      return r.pos[1] + r.height/2
+      return r.pos[1] + r.height/2|0
     };
     /**
      * @public
@@ -3501,11 +3339,11 @@
      * @public
      * @function
      */
-    _G.containsPoint=function(r,x,y){
-      return x >= this.rectGetMinX(r) &&
-             x <= this.rectGetMaxX(r) &&
-             y >= this.rectGetMinY(r) &&
-             y <= this.rectGetMaxY(r)
+    _G.rectContainsPoint=function(R,x,y){
+      return x >= this.rectGetMinX(R) &&
+             x <= this.rectGetMaxX(R) &&
+             y >= this.rectGetMinY(R) &&
+             y <= this.rectGetMaxY(R)
     };
     /**
      * @public
@@ -3523,8 +3361,8 @@
      * @function
      */
     _G.rectUnionsRect=function(r1,r2){
-      let x= Math.min(r1.pos[0],r2.pos[0]);
-      let y= Math.min(r1.pos[1],r2.pos[1]);
+      const x= Math.min(r1.pos[0],r2.pos[0]);
+      const y= Math.min(r1.pos[1],r2.pos[1]);
       return new Rect(x,y,
                       Math.max(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
                       Math.max(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
@@ -3534,13 +3372,12 @@
      * @function
      */
     _G.rectIntersectsRect=function(r1,r2){
-      let x= Math.max(r1.pos[0],r2.pos[0]);
-      let y= Math.max(r1.pos[1],r2.pos[1]);
+      const x= Math.max(r1.pos[0],r2.pos[0]);
+      const y= Math.max(r1.pos[1],r2.pos[1]);
       return new Rect(x,y,
                       Math.min(r1.pos[0]+r1.width, r2.pos[0]+r2.width)-x,
                       Math.min(r1.pos[1]+r1.height, r2.pos[1]+r2.height)-y)
     };
-
     //------------------------------------------------------------------------
     // 2d collision using Separating Axis Theorem.
     // see https://github.com/jriecken/sat-js
@@ -3552,12 +3389,12 @@
     function _findProjRange(points, axis){
       let min = Infinity;
       let max = -Infinity;
-      for(let dot,i=0; i < points.length; ++i){
-        dot = _V.vecDot(points[i],axis);
+      for(let dot,i=0; i<points.length; ++i){
+        dot= _V.vecDot(points[i],axis);
         if(dot < min) min = dot;
         if(dot > max) max = dot;
       }
-      return _V.takeV2(min,max)
+      return _V.take(min,max)
     }
     /**
      * @private
@@ -3566,81 +3403,89 @@
     function _voronoiRegion(line, point){
       let dp = _V.vecDot(point,line);
       let len2 = _V.vecLen2(line);
-      // If pt is beyond the start of the line, left voronoi region
-      // If pt is beyond the end of the line, right voronoi region
-      return dp < 0 ? LEFT_VORONOI : (dp > len2 ? RIGHT_VORONOI : MID_VORONOI)
+      //If pt is beyond the start of the line, left voronoi region
+      //If pt is beyond the end of the line, right voronoi region
+      return dp<0 ? LEFT_VORONOI : (dp>len2 ? RIGHT_VORONOI : MID_VORONOI)
     }
     /**
      * @private
      * @function
      */
     function _testSAT(aPos,aPoints, bPos,bPoints, axis, resolve){
-      let vAB= _V.vecSub(bPos,aPos); // B relative to A
-      let projectedOffset = _V.vecDot(vAB,axis);
       let [minA,maxA] =_findProjRange(aPoints, axis);
       let [minB,maxB] =_findProjRange(bPoints, axis);
-      // move B's range to its position relative to A.
-      minB += projectedOffset;
-      maxB += projectedOffset;
-      let gap;
-      if(minA > maxB || minB > maxA){
-        gap=true;
-      } else if(resolve){
+      //B relative to A; A--->B
+      let vAB= _V.vecSub(bPos,aPos);
+      let proj= _V.vecDot(vAB,axis);
+      //move B's range to its position relative to A.
+      minB += proj;
+      maxB += proj;
+      _V.reclaim(vAB);
+      if(minA>maxB || minB>maxA){
+        return true
+      }
+      if(resolve){
         let overlap = 0;
-        // A starts left of B
-        if(minA < minB){
+        //A starts left of B
+        if(minA<minB){
           resolve.AInB = false;
-          // A ends before B does. We have to pull A out of B
+          //A ends before B does, have to pull A out of B
           if(maxA < maxB){
-            overlap = maxA - minB;
+            overlap= maxA - minB;
             resolve.BInA = false;
           }else{
-            // B is fully inside A.  Pick the shortest way out.
+            //B is fully inside A.  Pick the shortest way out.
             let [d1,d2] = [maxA - minB, maxB - minA];
             overlap = d1 < d2 ? d1 : -d2;
           }
-        // B starts left than A
+        //B starts left than A
         }else{
           resolve.BInA = false;
-          // B ends before A ends. We have to push A out of B
-          if(maxA > maxB){
+          //B ends before A ends, have to push A out of B
+          if(maxA>maxB){
             overlap = minA - maxB;
             resolve.AInB = false;
           }else{
-            // A is fully inside B.  Pick the shortest way out.
+            //A is fully inside B.  Pick the shortest way out.
             let [d1,d2] = [maxA - minB, maxB - minA];
             overlap = d1 < d2 ? d1 : -d2;
           }
         }
-        // If smallest amount of overlap, set it as the minimum overlap.
-        let absOverlap = Math.abs(overlap);
+        //if smallest amount of overlap, set it as the minimum overlap.
+        let absOverlap= Math.abs(overlap);
         if(absOverlap < resolve.overlap){
           resolve.overlap = absOverlap;
           _V.vecSet(resolve.overlapN,axis);
-          if(overlap < 0)
+          if(overlap<0)
             _V.vecFlipSelf(resolve.overlapN);
         }
       }
-      _V.dropV2(vAB);
-      return gap;
     }
     /**
      * @public
      * @function
      */
     _G.hitTestPointCircle=function(p, c){
-      let d2 = _V.vecLen2(_V.vecSub(p,c.pos));
+      const d2 = _V.vecLen2(_V.vecSub(p,c.pos));
       return d2 <= c.radius * c.radius;
     };
+    /**
+     * @private
+     * @var {Manifold}
+     */
     const _RES= new Manifold();
-    const _FAKE_POLY= new Box(0,0, 1, 1).toPolygon();
+    /**
+     * @private
+     * @var {Polygon}
+     */
+    const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
     /**
      * @public
      * @function
      */
     _G.hitTestPointPolygon=function(p, poly){
       _V.vecSet(_FAKE_POLY.pos,p);
-      let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
+      let res= _G.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
       return res ? _RES.AInB : false;
     };
     /**
@@ -3663,7 +3508,7 @@
         resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
         resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
       }
-      _V.dropV2(vAB);
+      _V.reclaim(vAB);
       return status;
     }
     /**
@@ -3690,8 +3535,8 @@
       let vPC= _V.vecSub(circle.pos,polygon.pos);
       let r2 = circle.radius * circle.radius;
       let cps = polygon.calcPoints;
-      let edge = _V.takeV2();
-      let point;// = _V.takeV2();
+      let edge = _V.take();
+      let point;// = _V.take();
       // for each edge in the polygon:
       for(let len=cps.length,i=0; i < len; ++i){
         let next = i === len-1 ? 0 : i+1;
@@ -3720,7 +3565,7 @@
             let dist = _V.vecLen(point);
             if(dist > circle.radius){
               // No intersection
-              _V.dropV2(vPC,edge,point,point2);
+              _V.reclaim(vPC,edge,point,point2);
               return false;
             } else if(resolve){
               // intersects, find the overlap.
@@ -3729,7 +3574,7 @@
               overlap = circle.radius - dist;
             }
           }
-          _V.dropV2(point2);
+          _V.reclaim(point2);
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
           _V.vecSet(edge,polygon.edges[next]);
@@ -3740,7 +3585,7 @@
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.vecLen(point);
             if(dist > circle.radius){
-              _V.dropV2(vPC,edge,point);
+              _V.reclaim(vPC,edge,point);
               return false;
             } else if(resolve){
               resolve.BInA = false;
@@ -3757,7 +3602,7 @@
           let distAbs = Math.abs(dist);
           // if the circle is on the outside of the edge, there is no intersection.
           if(dist > 0 && distAbs > circle.radius){
-            _V.dropV2(vPC,normal,point);
+            _V.reclaim(vPC,normal,point);
             return false;
           } else if(resolve){
             overlapN = normal;
@@ -3782,7 +3627,7 @@
         resolve.B = circle;
         _V.vecMulSelf(_V.vecSet(resolve.overlapV,resolve.overlapN),resolve.overlap);
       }
-      _V.dropV2(vPC,edge,point);
+      _V.reclaim(vPC,edge,point);
       return true;
     }
     /**
@@ -3888,7 +3733,7 @@
                            require("./math"),
                            require("./vec2"))
   }else{
-    global["io/czlab/mcfud/geo2d"]=_module
+    gscope["io/czlab/mcfud/geo2d"]=_module
   }
 
 })(this);
@@ -3907,7 +3752,7 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4023,7 +3868,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module()
   }else{
-    global["io/czlab/mcfud/qtree"]=_module
+    gscope["io/czlab/mcfud/qtree"]=_module
   }
 
 })(this);
@@ -4044,14 +3889,14 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
   "use strict";
   /**
    * @private
    * @function
    */
   function _module(Core){
-    if(!Core) Core=global["io/czlab/mcfud/core"]();
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
     const _N={};
     //const PINF = 1000000;
@@ -4160,7 +4005,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/negamax"]=_module
+    gscope["io/czlab/mcfud/negamax"]=_module
   }
 
 })(this);
@@ -4180,7 +4025,7 @@
 //
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
-;(function(global){
+;(function(gscope){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -4188,10 +4033,20 @@
    * @private
    * @function
    */
-  function _module(){
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    const {is,u:_}=Core;
+    /**
+     * @private
+     * @function
+     */
     function _f(s){
-      return s.startsWith("P")
-    }
+      return s.startsWith("P") }
+
+    /**
+     * @private
+     * @function
+     */
     function rstr(len,ch){
       let out="";
       while(len>0){
@@ -4200,6 +4055,10 @@
       }
       return out;
     }
+    /**
+     * @private
+     * @function
+     */
     function ex_thrown(expected,e){
       let out=t_bad;
       if(e){
@@ -4211,15 +4070,23 @@
       }
       return out;
     }
-    function ensure_eq(env,form,expected){
+    /**
+     * @private
+     * @function
+     */
+    function ensure_eq(env,form){
       let out;
       try{
-        out = form.call(env)===expected ? t_ok : t_bad;
+        out = form.call(env) ? t_ok : t_bad;
       }catch(e){
         out= t_bad;
       }
       return out;
     }
+    /**
+     * @private
+     * @function
+     */
     function ensure_ex(env,form,error){
       let out;
       try{
@@ -4230,21 +4097,28 @@
       }
       return out;
     }
-    const t_bad="Failed";
-    const t_ok="Passed";
-    const _T={
+    /**
+     * @private
+     * @var {string}
+     */
+    const [t_bad,t_ok]=["Failed", "Passed"];
+    /**
+     * @private
+     * @var {object}
+     */
+    const _$={
       deftest(name){
         let iniz=null;
         let finz=null;
         let arr=null;
         let env=null;
         let x={
-          ensure_eq(n,w,f){
-            arr.push([n,w,f]);
+          ensure(n,f){
+            arr.push([1,n,f]);
             return x;
           },
-          ensure_ex(n,f){
-            arr.push([n,f]);
+          eerror(n,f){
+            arr.push([911,n,f]);
             return x;
           },
           begin(f){
@@ -4255,28 +4129,29 @@
           },
           end(f){
             finz=f;
-            return function(){
+            let F=function(){
               iniz && iniz(env);
               let out=[];
               for(let r,a,i=0;i<arr.length;++i){
                 a=arr[i];
                 r="";
-                switch(a.length){
-                  case 3: r=ensure_eq(env,a[2],a[1]); break;
-                  case 2: r=ensure_ex(env,a[1],"any"); break;
+                switch(a[0]){
+                  case 1: r=ensure_eq(env,a[2]); break;
+                  case 911: r=ensure_ex(env,a[2],"any"); break;
                 }
                 if(r)
-                  out.push(`${r}: ${a[0]}`);
+                  out.push(`${r}: ${a[1]}`);
               }
               arr.length=0;
               finz && finz(env);
               return out;
-            }
+            };
+            return (F.title=name) && F;
           }
         };
         return x;
       },
-      runtest(title,test){
+      runtest(test,title){
         const mark= Date.now();
         const res=test();
         const mark2= Date.now();
@@ -4287,7 +4162,7 @@
         const diff=mark2-mark;
         const out= [
           rstr(78,"+"),
-          title,
+          title||test.title,
           new Date().toString(),
           rstr(78,"+"),
           res.join("\n"),
@@ -4298,16 +4173,14 @@
         return out;
       }
     };
-    return _T;
+    return _$;
   }
-
-
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"))
   }else{
-    global["io/czlab/mcfud/test"]= _module
+    gscope["io/czlab/mcfud/test"]= _module
   }
 
 })(this);
