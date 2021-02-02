@@ -27,8 +27,7 @@
      * @private
      * @function
      */
-    function _f(s){
-      return s.startsWith("P") }
+    function _f(s){ return !s.startsWith("F") }
 
     /**
      * @private
@@ -64,7 +63,15 @@
     function ensure_eq(env,form){
       let out;
       try{
-        out = form.call(env) ? t_ok : t_bad;
+        out= form.call(env);
+        if(out === 709394){
+          out=t_skip;
+        }else if(out){
+          out=t_ok;
+        }else{
+          out=t_bad;
+        }
+        //out = form.call(env) ? t_ok : t_bad;
       }catch(e){
         out= t_bad;
       }
@@ -88,7 +95,7 @@
      * @private
      * @var {string}
      */
-    const [t_bad,t_ok]=["Failed", "Passed"];
+    const [t_skip,t_bad,t_ok]=["Skippd", "Failed", "Passed"];
     /**
      * @private
      * @var {object}
