@@ -19,14 +19,13 @@
    * @function
    */
   function _module(UseOBJ=false,Core=null){
-    class V2Obj{ constructor(){ this.x=this.y=0 } }
+    class V2Obj{ constructor(){ this.x=0;this.y=0 } }
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
-    function _cobj() { return new V2Obj() }
-    function _carr() { return [0,0] }
-    const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= [];
     const PLEN=96;
+    function _CTOR(){
+      return UseOBJ ? new V2Obj() : [0,0] }
+    let _POOL=_.fill(PLEN,_CTOR);
     /**Put stuff back into the pool.
      * @private
      * @function
@@ -36,7 +35,9 @@
         a=args[i];
         if(_POOL.length<PLEN){
           if((UseOBJ && a instanceof V2Obj) ||
-             (!UseOBJ && a && a.length===2)) _POOL.push(a)
+            (!UseOBJ && a && a.length===2)) {
+            _POOL.push(a);
+          }
         }else{break}
       }
     }
@@ -65,25 +66,32 @@
      * @private
      * @function
      */
-    function _assertArgs(a,b){
-      if(is.num(b)) b=a;
+    function _assertArgs(a,b,hint){
+      if(hint===0){
+        //b's type must be same as arg[0]
+      }else if(is.num(b)) {b=a}
       UseOBJ ? _.assert(a instanceof V2Obj && b instanceof V2Obj)
-             : _.assert(a.length===2&&a.length===b.length);
+             : _.assert(a.length===2&&is.vec(b)&&a.length===b.length);
       return true;
     }
     /**
      * @private
      * @function
      */
-    function _vecXXX(op,a,b,local){
+    function _vecXXX(op,a,b,c,local){
       let out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
       let n= is.num(b);
+      if(is.num(c)){
+        _.assert(is.num(b),"wanted number");
+      }else if(n){
+        c=b;
+      }
       if(UseOBJ){
         out.x=op(a.x, n?b:b.x);
-        out.y=op(a.y, n?b:b.y);
+        out.y=op(a.y, n?c:b.y);
       }else{
         out[0]=op(a[0], n?b:b[0]);
-        out[1]=op(a[1], n?b:b[1]);
+        out[1]=op(a[1], n?c:b[1]);
       }
       return out;
     }
@@ -98,10 +106,7 @@
       const y_= a[1] - cy;
       const x= cx + (x_*cos - y_*sin);
       const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a[0] = x;
-        a[1] = y;
-      }else{
+      if(local){ a[0] = x; a[1] = y; }else{
         a= _take(x,y);
       }
       return a;
@@ -117,10 +122,7 @@
       const y_= a.y - cy;
       const x= cx + (x_*cos - y_*sin);
       const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a.x = x;
-        a.y = y;
-      }else{
+      if(local){ a.x = x; a.y = y; }else{
         a= _take(x,y);
       }
       return a;
@@ -145,6 +147,7 @@
         _assertArgs(p2,p2);
         return _take(-p1 * p2[1], p1 * p2[0])
       }
+      _.assert(false,"cross(): bad args");
     }
     /**2d cross product, data-type=object.
      * @private
@@ -163,41 +166,49 @@
       if(is.num(p1) && p2 instanceof V2Obj){
         return _take(-p1 * p2.y, p1 * p2.x)
       }
+      _.assert(false,"cross(): bad args");
     }
     /**The object to export.
      * @private
      * @var {object}
      */
     const _$={
+      /** internal, for testing only */
+      _switchMode(bObj,size=16){
+        UseOBJ=bObj;
+        _POOL=_.fill(size||PLEN,_CTOR); },
+      /** internal, for testing only */
+      _checkPoolSize(){ return _POOL.length },
       take:_take,
       reclaim:_drop,
-      vec2(x,y){ return _take(x,y) },
+      vec(x,y){ return _take(x,y) },
       /** A+B */
-      add(a,b){ return _vecXXX(_4ops["+"],a,b) },
+      add(a,b,c){ return _vecXXX(_4ops["+"],a,b,c) },
       /** A= A+B */
-      add$(a,b){ return _vecXXX(_4ops["+"],a,b,1) },
+      add$(a,b,c){ return _vecXXX(_4ops["+"],a,b,c,1) },
       /** A-B */
-      sub(a,b){ return _vecXXX(_4ops["-"],a,b) },
+      sub(a,b,c){ return _vecXXX(_4ops["-"],a,b,c) },
       /** A=A-B */
-      sub$(a,b){ return _vecXXX(_4ops["-"],a,b,1) },
+      sub$(a,b,c){ return _vecXXX(_4ops["-"],a,b,c,1) },
       /** A*B */
-      mul(a,b){ return _vecXXX(_4ops["*"],a,b) },
+      mul(a,b,c){ return _vecXXX(_4ops["*"],a,b,c) },
       /** A=A*B */
-      mul$(a,b){ return _vecXXX(_4ops["*"],a,b,1) },
+      mul$(a,b,c){ return _vecXXX(_4ops["*"],a,b,c,1) },
       /** A/B */
-      div(a,b){ return _vecXXX(_4ops["/"],a,b) },
+      div(a,b,c){ return _vecXXX(_4ops["/"],a,b,c) },
       /** A=A/B */
-      div$(a,b){ return _vecXXX(_4ops["/"],a,b,1) },
+      div$(a,b,c){ return _vecXXX(_4ops["/"],a,b,c,1) },
       /** Dot product of vectors, cos(t) = a·b / (|a| * |b|) */
       dot(a,b){
-        if(_assertArgs(a,b))
+        if(_assertArgs(a,b,0))
           return UseOBJ ? (a.x*b.x + a.y*b.y)
                         : (a[0]*b[0] + a[1]*b[1])
       },
       /** vectorAB is calculated by doing B-A */
-      makeVecAB(a,b){
-        return UseOBJ ? _take(b.x-a.x,b.y-a.y)
-                      : _take(b[0]-a[0],b[1]-a[1])
+      vecAB(a,b){
+        if(_assertArgs(a,b,0))
+          return UseOBJ ? _take(b.x-a.x,b.y-a.y)
+                        : _take(b[0]-a[0],b[1]-a[1])
       },
       /** length square */
       len2(a){ return this.dot(a,a) },
@@ -242,7 +253,7 @@
       },
       /** Copy `src` into `des` */
       set(des,src){
-        _assertArgs(des,src);
+        _assertArgs(des,src,0);
         if(UseOBJ){
           des.x=src.x;
           des.y=src.y;
@@ -255,27 +266,27 @@
       /** */
       clone(v){ return this.set(_CTOR(),v) },
       /** Copy values(args) into `des` */
-      copy(des,...args){
-        _.assert(args.length===2) && _assertArgs(des,des);
+      copy(des,x,y){
+        _.assert(is.num(x)&&is.num(y),"wanted numbers");
         if(UseOBJ){
-          des.x=args[0];
-          des.y=args[1];
+          des.x=x;
+          des.y=y;
         }else{
-          des[0]=args[0];
-          des[1]=args[1];
+          des[0]=x;
+          des[1]=y;
         }
         return des;
       },
       /** Rotate a vector around a pivot */
       rot(a,rot,pivot){
-        _assertArgs(a, pivot||a);
+        _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
         const s= Math.sin(rot);
         return UseOBJ ? _v2rot_obj(a,c,s,pivot) : _v2rot_arr(a,c,s,pivot);
       },
       /** A=rot(A) */
       rot$(a,rot,pivot){
-        _assertArgs(a, pivot||a);
+        _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
         const s= Math.sin(rot);
         return UseOBJ ? _v2rot_obj(a,c,s,pivot,1)
@@ -284,7 +295,7 @@
       /** 2d cross product */
       cross(p1,p2){ return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2) },
       /**
-       * Angle between these 2 vectors.
+       * Angle (in radians) between these 2 vectors.
        * a.b = cos(t)*|a||b|
        */
       angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
@@ -320,9 +331,11 @@
       },
       /** Find the perpedicular vector */
       perp(a,b){ return this.sub(a, this.proj(a,b)) },
-      /** Reflect a normal */
-      reflect(src,normal){
-        return this.sub(src, this.mul(normal, 2*this.dot(src,normal)))
+      /** Reflect a ray, normal must be normalized */
+      reflect(ray,surface_normal){
+        //ray of light hitting a surface, find the reflected ray
+        //reflect= ray - 2(ray.surface_normal)surface_normal
+        return this.sub(ray, this.mul(surface_normal, 2*this.dot(ray,surface_normal)))
       },
       /** Negate a vector */
       flip(v){ return this.mul(v, -1) },
@@ -330,18 +343,22 @@
       flip$(v){ return this.mul$(v, -1) },
       /** Move a bunch of points */
       translate(pos,...args){
+        _assertArgs(pos,pos);
         let b,a=false;
         if(args.length===1 && is.vec(args[0])){
           args=args[0];
           a=true;
         }
-        b=args.length===1&&!a;
-        if(UseOBJ){
-          return b ? this.vec2(pos.x+args[0].x,pos.y+args[0].y)
-                   : args.map(p=> this.vec2(pos.x+p.x,pos.y+p.y))
-        }else{
-          return b ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
-                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
+        if(args.length>0){
+          _assertArgs(pos,args[0],0);
+          b=args.length===1&&!a;
+          if(UseOBJ){
+            return b ? this.vec(pos.x+args[0].x,pos.y+args[0].y)
+                     : args.map(p=> this.vec(pos.x+p.x,pos.y+p.y))
+          }else{
+            return b ? this.vec(pos[0]+args[0][0],pos[1]+args[0][1])
+                     : args.map(p=> this.vec(pos[0]+p[0],pos[1]+p[1]))
+          }
         }
       }
     };

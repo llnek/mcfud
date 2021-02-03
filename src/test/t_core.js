@@ -14,20 +14,18 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 "use strict";
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const Core=require("../main/core.js");
 const Test=require("../main/test.js");
 const {u:_,is,EventBus}=Core;
-function tearDown(){
-  //console.log("tearDown called()");
-}
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+function tearDown(){ 0&&console.log("tearDown called()") }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Test.runtest(
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Test.deftest("Core.u").
+Test.deftest("Core").
   begin(env=>{
-    //console.log("setup called()");
+    0&&console.log("setup called()");
     env.window={
       location:{ origin: "https://www.google.com" },
       hack:911,//to test some browser related stuff
