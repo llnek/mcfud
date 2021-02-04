@@ -24,7 +24,6 @@
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
-    const _C={};
     /**
      * Find the offset.
      * @private
@@ -48,7 +47,7 @@
      */
     function _getch(ch){
       for(let i=0;i<VISCHS_LEN;++i){
-        if(charat(i)===ch)
+        if(_charat(i)===ch)
           return i;
       }
       return -1
@@ -72,43 +71,39 @@
       return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
     }
     /**
-     * Encrypt source by shifts.
-     * @public
-     * @function
+     * @private
+     * @var {object}
      */
-    _C.encrypt=function(src, shift){
-      if(shift===0){ return src }
-      function _f(shift,delta,cpos){
-        return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos)
+    const _$={
+      /** Encrypt source by shifts. */
+      encrypt(src, shift){
+        if(shift===0){ return src }
+        function _f(shift,delta,cpos){
+          return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos) }
+        let out=[];
+        let p,d=_calcDelta(shift);
+        src.split("").forEach(c=>{
+          p=_getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
+      },
+      /** Decrypt text by shifts. */
+      decrypt(cipherText,shift){
+        if(shift===0){ return cipherText }
+        function _f(shift,delta,cpos) {
+          return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos) }
+        let p,out=[];
+        let d= _calcDelta(shift);
+        cipherText.split("").forEach(c=>{
+          p= _getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
       }
-      let out=[];
-      let d=_calcDelta(shift);
-      src.split().forEach(c => {
-        let p=_getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      })
-      return out.join("")
-    };
-    /**
-     * Decrypt text by shifts.
-     * @public
-     * @function
-     */
-    _C.decrypt=function(cipherText,shift){
-      if(shift===0){ return cipherText }
-      function _f(shift,delta,cpos) {
-        return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos)
-      }
-      let p,out=[];
-      let d= _calcDelta(shift);
-      cipherText.split("").forEach(c => {
-        p= _getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      });
-      return out.join("")
     };
 
-    return _C;
+    return _$;
   }
 
   //export--------------------------------------------------------------------

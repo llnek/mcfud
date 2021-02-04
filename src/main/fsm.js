@@ -16,28 +16,37 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function _module(){
-    const _R={
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    /**
+     * @private
+     * @var {object}
+     */
+    const _$={
       fsm(defn){
         let _state=defn.initState();
         return {
-          state(){ return _state },
+          /** the current state */
+          state(){
+            return _state },
+          /** run the current state `code` */
           process(){
-            let fromStateObj = defn[_state];
+            const fromStateObj=defn[_state];
             if(fromStateObj)
               fromStateObj.run && fromStateObj.run();
           },
-          trigger(event){
-            let fromStateObj = defn[_state];
-            event=event||"change";
-            let tx = fromStateObj &&
-                     fromStateObj.transitions[event];
+          /** apply an event */
+          trigger(event="change"){
+            const fromStateObj= defn[_state];
+            const tx= fromStateObj &&
+                      fromStateObj.transitions[event];
+            //react to this event
             if(tx){
-              let nextState = tx.target;
-              let nextStateObj = defn[nextState];
+              const nextState = tx.target;
+              const nextStateObj = defn[nextState];
               if(nextStateObj){
-                fromStateObj.egress && fromStateObj.egress();
-                nextStateObj.ingress && nextStateObj.ingress();
+                fromStateObj.exit && fromStateObj.exit();
+                nextStateObj.enter && nextStateObj.enter();
                 tx.action && tx.action();
                 return (_state = nextState);
               }
@@ -46,18 +55,19 @@
         }
       }
     };
-    return _R;
+    return _$;
   }
-
-  /**
+  /**Sample definition syntax/format.
    * @private
    * @var {object}
    */
   const sample={
+    /** provides the initial state of this FSM */
     initState(){ return "happy"},
+    /** follow by a list of state definitions */
     "happy":{
-      ingress(){ console.log("happy: entering") },
-      egress(){ console.log("happy: exiting") },
+      enter(){ console.log("happy: entering") },
+      exit(){ console.log("happy: exiting") },
       transitions:{
         "rain":{
           target: "sad",
@@ -65,9 +75,9 @@
         }
       }
     },
-    "on":{
-      ingress(){ console.log("sad: entering") },
-      egress(){ console.log("sad: exiting") },
+    "sad":{
+      enter(){ console.log("sad: entering") },
+      exit(){ console.log("sad: exiting") },
       transitions:{
         "sun":{
           target: "happy",
@@ -79,7 +89,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/fsm"]=_module
   }
