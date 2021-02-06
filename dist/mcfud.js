@@ -887,6 +887,21 @@
       prettyNumber(num, digits=2){
         return this.strPadLeft(Number(num).toString(), digits, "0")
       },
+      prettyMillis(ms){
+        let h,m,s= MFL(ms/1000);
+        m=MFL(s/60);
+        ms=ms-s*1000;
+        s=s-m*60;
+        h= MFL(m/60);
+        m=m-h*60;
+        let out=[];
+        out.push(`${s}.${ms} secs`);
+        if(m>0 || h>0)
+          out.push(`${m} mins, `);
+        if(h>0)
+          out.push(`${h} hrs, `);
+        return out.reverse().join("");
+      },
       /**
        * Remove some arguments from the front.
        * @function
@@ -1026,6 +1041,9 @@
             });
           });
         },
+        reset(){
+          _tree.clear()
+        },
         unsub(subject,cb,ctx){
           let event=subject[0],
               target=subject[1] || NULL;
@@ -1089,109 +1107,47 @@
    */
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const EPSILON= 0.0000000001;
+    //const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
     const {is,u:_}= Core;
-    const _M={EPSILON:EPSILON};
-    /**
-     * @public
-     * @function
-     */
-    _M.lerp=function(startv, endv, t){
-      return (1 - t) * startv + t * endv
-    };
-    /**
-     * Proper modulo.
-     * @public
-     * @function
-     */
-    _M.xmod=function(x,N){
-      return x < 0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
-    };
-    /**
-     * @public
-     * @function
-     */
-    _M.clamp=function(min,max,v){
-      return v<min ? min : (v>max ? max : v)
-    };
-    /**
-     * @function
-     * @public
-     */
-    _M.sqr=function(a){ return a*a };
-    /**
-     * @public
-     * @function
-     */
-    _M.fuzzyEq=function(a,b){
-      return Math.abs(a-b) < EPSILON
-    };
-    /**
-     * @public
-     * @function
-     */
-    _M.fuzzyZero=function(n){
-      return this.fuzzyEq(n, 0.0)
-    };
-    /**
-     * @private
-     * @function
-     */
     function _mod_deg(deg){
       return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI
     }
-    /**
-     * Radian to degree.
-     *
-     * @function
-     * @public
-     */
-    _M.radToDeg=function(r){
-      return _mod_deg(DEG_2PI * r/TWO_PI)
-    };
-    /**
-     * Degree to radian.
-     *
-     * @public
-     * @function
-     */
-    _M.degToRad=function(d){
-      return TWO_PI * _mod_deg(d)/DEG_2PI
-    };
-    /**
-     * Hypotenuse squared.
-     * @public
-     * @function
-     */
-    _M.pythag2=function(x,y){ return x*x + y*y };
-    /**
-     * Hypotenuse.
-     * @public
-     * @function
-     */
-    _M.pythag=function(x,y){ return Math.sqrt(x*x + y*y) };
-    /**
-     * Modulo of the next increment.
-     * @function
-     * @public
-     */
-    _M.wrap=function(i,len){ return (i+1) % len };
-    /**
-     * Is it more a or b?
-     * @public
-     * @function
-     */
-    _M.biasGreater=function(a,b){
-      const biasRelative= 0.95;
-      const biasAbsolute= 0.01;
-      return a >= (b*biasRelative + a*biasAbsolute)
+    const _$={
+      /** liner interpolation */
+      lerp(startv, endv, t){
+        return (1-t) * startv + t * endv
+      },
+      /** Proper modulo. */
+      xmod(x,N){
+        return x<0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
+      },
+      clamp(min,max,v){
+        return v<min ? min : (v>max ? max : v)
+      },
+      sqr(a){ return a*a },
+      fuzzyEq(a,b){ return _.feq(a,b) },
+      fuzzyZero(n){ return _.feq0(n) },
+      radToDeg(r){ return _mod_deg(DEG_2PI * r/TWO_PI) },
+      degToRad(d){ return TWO_PI * _mod_deg(d)/DEG_2PI },
+      /** Hypotenuse squared. */
+      pythag2(x,y){ return x*x + y*y },
+      /** Hypotenuse. */
+      pythag(x,y){ return Math.sqrt(x*x + y*y) },
+      /** Modulo of the next increment. */
+      wrap(i,len){ return (i+1) % len },
+      /** Is it more a or b? */
+      biasGreater(a,b){
+        const biasRelative= 0.95;
+        const biasAbsolute= 0.01;
+        return a >= (b*biasRelative + a*biasAbsolute)
+      }
     };
 
-    return _M;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
@@ -1226,14 +1182,13 @@
    * @function
    */
   function _module(UseOBJ=false,Core=null){
-    class V2Obj{ constructor(){ this.x=this.y=0 } }
+    class V2Obj{ constructor(){ this.x=0;this.y=0 } }
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
-    function _cobj() { return new V2Obj() }
-    function _carr() { return [0,0] }
-    const _CTOR= UseOBJ ? _cobj : _carr;
-    const _POOL= [];
     const PLEN=96;
+    function _CTOR(){
+      return UseOBJ ? new V2Obj() : [0,0] }
+    let _POOL=_.fill(PLEN,_CTOR);
     /**Put stuff back into the pool.
      * @private
      * @function
@@ -1243,7 +1198,9 @@
         a=args[i];
         if(_POOL.length<PLEN){
           if((UseOBJ && a instanceof V2Obj) ||
-             (!UseOBJ && a && a.length===2)) _POOL.push(a)
+            (!UseOBJ && a && a.length===2)) {
+            _POOL.push(a);
+          }
         }else{break}
       }
     }
@@ -1272,25 +1229,32 @@
      * @private
      * @function
      */
-    function _assertArgs(a,b){
-      if(is.num(b)) b=a;
+    function _assertArgs(a,b,hint){
+      if(hint===0){
+        //b's type must be same as arg[0]
+      }else if(is.num(b)) {b=a}
       UseOBJ ? _.assert(a instanceof V2Obj && b instanceof V2Obj)
-             : _.assert(a.length===2&&a.length===b.length);
+             : _.assert(a.length===2&&is.vec(b)&&a.length===b.length);
       return true;
     }
     /**
      * @private
      * @function
      */
-    function _vecXXX(op,a,b,local){
+    function _vecXXX(op,a,b,c,local){
       let out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
       let n= is.num(b);
+      if(is.num(c)){
+        _.assert(is.num(b),"wanted number");
+      }else if(n){
+        c=b;
+      }
       if(UseOBJ){
         out.x=op(a.x, n?b:b.x);
-        out.y=op(a.y, n?b:b.y);
+        out.y=op(a.y, n?c:b.y);
       }else{
         out[0]=op(a[0], n?b:b[0]);
-        out[1]=op(a[1], n?b:b[1]);
+        out[1]=op(a[1], n?c:b[1]);
       }
       return out;
     }
@@ -1305,10 +1269,7 @@
       const y_= a[1] - cy;
       const x= cx + (x_*cos - y_*sin);
       const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a[0] = x;
-        a[1] = y;
-      }else{
+      if(local){ a[0] = x; a[1] = y; }else{
         a= _take(x,y);
       }
       return a;
@@ -1324,10 +1285,7 @@
       const y_= a.y - cy;
       const x= cx + (x_*cos - y_*sin);
       const y= cy + (x_ * sin + y_ * cos);
-      if(local){
-        a.x = x;
-        a.y = y;
-      }else{
+      if(local){ a.x = x; a.y = y; }else{
         a= _take(x,y);
       }
       return a;
@@ -1352,6 +1310,7 @@
         _assertArgs(p2,p2);
         return _take(-p1 * p2[1], p1 * p2[0])
       }
+      _.assert(false,"cross(): bad args");
     }
     /**2d cross product, data-type=object.
      * @private
@@ -1370,41 +1329,49 @@
       if(is.num(p1) && p2 instanceof V2Obj){
         return _take(-p1 * p2.y, p1 * p2.x)
       }
+      _.assert(false,"cross(): bad args");
     }
     /**The object to export.
      * @private
      * @var {object}
      */
     const _$={
+      /** internal, for testing only */
+      _switchMode(bObj,size=16){
+        UseOBJ=bObj;
+        _POOL=_.fill(size||PLEN,_CTOR); },
+      /** internal, for testing only */
+      _checkPoolSize(){ return _POOL.length },
       take:_take,
       reclaim:_drop,
-      vec2(x,y){ return _take(x,y) },
+      vec(x,y){ return _take(x,y) },
       /** A+B */
-      add(a,b){ return _vecXXX(_4ops["+"],a,b) },
+      add(a,b,c){ return _vecXXX(_4ops["+"],a,b,c) },
       /** A= A+B */
-      add$(a,b){ return _vecXXX(_4ops["+"],a,b,1) },
+      add$(a,b,c){ return _vecXXX(_4ops["+"],a,b,c,1) },
       /** A-B */
-      sub(a,b){ return _vecXXX(_4ops["-"],a,b) },
+      sub(a,b,c){ return _vecXXX(_4ops["-"],a,b,c) },
       /** A=A-B */
-      sub$(a,b){ return _vecXXX(_4ops["-"],a,b,1) },
+      sub$(a,b,c){ return _vecXXX(_4ops["-"],a,b,c,1) },
       /** A*B */
-      mul(a,b){ return _vecXXX(_4ops["*"],a,b) },
+      mul(a,b,c){ return _vecXXX(_4ops["*"],a,b,c) },
       /** A=A*B */
-      mul$(a,b){ return _vecXXX(_4ops["*"],a,b,1) },
+      mul$(a,b,c){ return _vecXXX(_4ops["*"],a,b,c,1) },
       /** A/B */
-      div(a,b){ return _vecXXX(_4ops["/"],a,b) },
+      div(a,b,c){ return _vecXXX(_4ops["/"],a,b,c) },
       /** A=A/B */
-      div$(a,b){ return _vecXXX(_4ops["/"],a,b,1) },
+      div$(a,b,c){ return _vecXXX(_4ops["/"],a,b,c,1) },
       /** Dot product of vectors, cos(t) = a·b / (|a| * |b|) */
       dot(a,b){
-        if(_assertArgs(a,b))
+        if(_assertArgs(a,b,0))
           return UseOBJ ? (a.x*b.x + a.y*b.y)
                         : (a[0]*b[0] + a[1]*b[1])
       },
       /** vectorAB is calculated by doing B-A */
-      makeVecAB(a,b){
-        return UseOBJ ? _take(b.x-a.x,b.y-a.y)
-                      : _take(b[0]-a[0],b[1]-a[1])
+      vecAB(a,b){
+        if(_assertArgs(a,b,0))
+          return UseOBJ ? _take(b.x-a.x,b.y-a.y)
+                        : _take(b[0]-a[0],b[1]-a[1])
       },
       /** length square */
       len2(a){ return this.dot(a,a) },
@@ -1449,7 +1416,7 @@
       },
       /** Copy `src` into `des` */
       set(des,src){
-        _assertArgs(des,src);
+        _assertArgs(des,src,0);
         if(UseOBJ){
           des.x=src.x;
           des.y=src.y;
@@ -1462,27 +1429,27 @@
       /** */
       clone(v){ return this.set(_CTOR(),v) },
       /** Copy values(args) into `des` */
-      copy(des,...args){
-        _.assert(args.length===2) && _assertArgs(des,des);
+      copy(des,x,y){
+        _.assert(is.num(x)&&is.num(y),"wanted numbers");
         if(UseOBJ){
-          des.x=args[0];
-          des.y=args[1];
+          des.x=x;
+          des.y=y;
         }else{
-          des[0]=args[0];
-          des[1]=args[1];
+          des[0]=x;
+          des[1]=y;
         }
         return des;
       },
       /** Rotate a vector around a pivot */
       rot(a,rot,pivot){
-        _assertArgs(a, pivot||a);
+        _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
         const s= Math.sin(rot);
         return UseOBJ ? _v2rot_obj(a,c,s,pivot) : _v2rot_arr(a,c,s,pivot);
       },
       /** A=rot(A) */
       rot$(a,rot,pivot){
-        _assertArgs(a, pivot||a);
+        _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
         const s= Math.sin(rot);
         return UseOBJ ? _v2rot_obj(a,c,s,pivot,1)
@@ -1491,7 +1458,7 @@
       /** 2d cross product */
       cross(p1,p2){ return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2) },
       /**
-       * Angle between these 2 vectors.
+       * Angle (in radians) between these 2 vectors.
        * a.b = cos(t)*|a||b|
        */
       angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
@@ -1527,9 +1494,11 @@
       },
       /** Find the perpedicular vector */
       perp(a,b){ return this.sub(a, this.proj(a,b)) },
-      /** Reflect a normal */
-      reflect(src,normal){
-        return this.sub(src, this.mul(normal, 2*this.dot(src,normal)))
+      /** Reflect a ray, normal must be normalized */
+      reflect(ray,surface_normal){
+        //ray of light hitting a surface, find the reflected ray
+        //reflect= ray - 2(ray.surface_normal)surface_normal
+        return this.sub(ray, this.mul(surface_normal, 2*this.dot(ray,surface_normal)))
       },
       /** Negate a vector */
       flip(v){ return this.mul(v, -1) },
@@ -1537,18 +1506,22 @@
       flip$(v){ return this.mul$(v, -1) },
       /** Move a bunch of points */
       translate(pos,...args){
+        _assertArgs(pos,pos);
         let b,a=false;
         if(args.length===1 && is.vec(args[0])){
           args=args[0];
           a=true;
         }
-        b=args.length===1&&!a;
-        if(UseOBJ){
-          return b ? this.vec2(pos.x+args[0].x,pos.y+args[0].y)
-                   : args.map(p=> this.vec2(pos.x+p.x,pos.y+p.y))
-        }else{
-          return b ? this.vec2(pos[0]+args[0][0],pos[1]+args[0][1])
-                   : args.map(p=> this.vec2(pos[0]+p[0],pos[1]+p[1]))
+        if(args.length>0){
+          _assertArgs(pos,args[0],0);
+          b=args.length===1&&!a;
+          if(UseOBJ){
+            return b ? this.vec(pos.x+args[0].x,pos.y+args[0].y)
+                     : args.map(p=> this.vec(pos.x+p.x,pos.y+p.y))
+          }else{
+            return b ? this.vec(pos[0]+args[0][0],pos[1]+args[0][1])
+                     : args.map(p=> this.vec(pos[0]+p[0],pos[1]+p[1]))
+          }
         }
       }
     };
@@ -1586,60 +1559,14 @@
    * @private
    * @function
    */
-  function _module(Core,_M){
+  function _module(Core){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
-    if(!_M) _M=gscope["io/czlab/mcfud/math"]();
-
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
+    const MFL=Math.floor;
     const {u:_, is}= Core;
-    const _X={
-      V3:function(x,y,z){
-        return [x||0,y||0,z||0]
-      },
-      vecDot:function(a,b){
-        return a[0]*b[0] + a[1]*b[1] + a[2]+b[2]
-      },
-      vecCross:function(a,b){
-        return this.V3(a.y * b.z - a.z * b.y,
-                       a.z * b.x - a.x * b.z,
-                       a.x * b.y - a.y * b.x)
-      },
-      vecLen2:function(a){
-        return this.vecDot(a,a)
-      },
-      vecLen:function(a){
-        return Math.sqrt(this.vecLen2(a))
-      },
-      vecUnit:function(a){
-        let d=this.vecLen(a);
-        let out=this.V3();
-        if(d>EPSILON){
-          out[0]=a[0]/d;
-          out[1]=a[1]/d;
-          out[2]=a[2]/d;
-        }
-        return out;
-      },
-      vecSub:function(a,b){
-        return is.num(b) ? this.V3(a[0]-b, a[1]-b, a[2]-b)
-                         : this.V3(a[0]-b[0], a[1]-b[1], a[2]-b[2])
-      },
-      vecAdd:function(a,b){
-        return is.num(b) ? this.V3(a[0]+b, a[1]+b, a[2]+b)
-                         : this.V3(a[0]+b[0], a[1]+b[1], a[2]+b[2])
-      },
-      vecMul:function(a,b){
-        return is.num(b) ? this.V3(a[0]*b, a[1]*b, a[2]*b)
-                         : this.V3(a[0]*b[0], a[1]*b[1], a[2]*b[2])
-      },
-      vecDiv:function(a,b){
-        return is.num(b) ? this.V3(a[0]/b, a[1]/b, a[2]/b)
-                         : this.V3(a[0]/b[0], a[1]/b[1], a[2]/b[2])
-      }
-    };
     /**
      * @private
      * @function
@@ -1647,7 +1574,7 @@
     function _arrayEq(a1,a2){
       //2 numeric arrays are equal?
       for(let i=0;i<a1.length;++i){
-        if(!_M.fuzzyEq(a1[i],a2[i]))
+        if(!_.feq(a1[i],a2[i]))
           return false;
       }
       return true
@@ -1665,769 +1592,349 @@
     function _cell(rows,cols,r,c){
       return (c-1) + ((r-1)*cols)
     }
-    /**
+    /**Cells are provided.
      * @private
      * @function
      */
     function _matnew(rows,cols,cells){
       return {dim: [rows,cols], cells: cells}
     }
-    /**
+    /**Cells are all zeroes.
      * @private
      * @function
      */
     function _new_mat(rows,cols){
-      return _matnew(rows,cols, _.fill(new Array(rows*cols),0))
+      return _matnew(rows,cols, _.fill(rows*cols,0))
     }
     /**
-     * @public
-     * @function
+     * @private
+     * @var {object}
      */
-    _X.matrix=function([rows,cols],...args){
-      let sz= rows*cols;
-      return args.length===0 ? _new_mat(rows,cols)
-                             : _.assert(sz===args.length) && _matnew(rows,cols,args)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _X.matIdentity=function(sz){
-      let out=_.fill(new Array(sz*sz),0);
-      for(let i=0;i<sz;++i)
-        out[_cell(sz,sz,i+1,i+1)] = 1;
-      return _matnew(sz, sz, out)
-    };
-    /**
-     * Matrix with zeroes.
-     * @public
-     * @function
-     */
-    _X.matZero=function(sz){
-      return _.assert(sz>0) &&
-             _matnew(sz,sz,_.fill(new Array(sz*sz),0))
-    };
-    /**
-     * A 2x2 matrix.
-     * @public
-     * @function
-     */
-    _X.mat2=function(_11,_12,_21,_22){
-      return this.matrix([2,2], _11,_12,_21,_22)
-    };
-    /**
-     * A 3x3 matrix.
-     * @public
-     * @function
-     */
-    _X.mat3=function(_11,_12,_13,_21,_22,_23,_31,_32,_33){
-      return this.matrix([3,3], _11,_12,_13,_21,_22,_23,_31,_32,_33)
-    };
-    /**
-     * A 4x4 matrix.
-     * @public
-     * @function
-     */
-    _X.mat4=function(_11,_12,_13,_14,_21,_22,_23,_24,
-                     _31,_32,_33,_34, _41,_42,_43,_44){
-      return this.matrix([4,4],
-                         _11,_12,_13,_14,_21,_22,_23,_24,
-                         _31,_32,_33,_34,_41,_42,_43,_44)
-    };
-    /**
-     * Matrices are equals.
-     * @public
-     * @function
-     */
-    _X.matEq=function(a,b){
-      return a.dim[0]===b.dim[0] &&
-             a.dim[1]===b.dim[1] ? _arrayEq(a.cells,b.cells) : false
-    };
-    /**
-     * Matrices are different.
-     * @public
-     * @function
-     */
-    _X.matNeq=function(a,b){ return !this.matEq(a,b) };
-    /**
-     * Transpose a matrix.
-     * @function
-     * @public
-     */
-    _X.matXpose=function(m){
-      let [rows,cols]= m.dim;
-      let sz=rows*cols;
-      let tmp=[];
-      for(let i=0;i<sz;++i)
-        tmp.push(m.cells[(i/rows) + cols*(i%rows)]);
-      return _matnew(cols,rows,tmp)
-    };
-    /**
-     * Inverse a 3x3 matrix - fast.
-     * @public
-     * @function
-     */
-    _X.mat3FastInverse=function(m){
-      return _.assert(m.dim[0]===3 && m.dim[1]===3) && this.matXpose(m)
-    };
-    /**
-     * Inverse a 4x4 matrx - fast.
-     * @public
-     * @function
-     */
-    _X.mat4FastInverse=function(m){
-      _assert(m.dim[0]===4&&m.dim[1]===4);
-      let out=this.matXpose(m);
-      let [rows,cols] =m.dim;
-      let p=_.partition(cols,m.cells);
-      let m1=p[0],m2=p[1],m3=p[2],m4=p[3];
-      let right=m1.slice(0,3);
-      let up=m2.slice(0,3);
-      let forward=m3.slice(0,3);
-      let position=m4.slice(0,3);
-      m.cells[_cell(4,4,1,4)]= 0;
-      m.cells[_cell(4,4,2,4)]= 0;
-      m.cells[_cell(4,4,3,4)]=0;
-      m.cells[_cell(4,4,4,1)]= - this.vecDot(right,position);
-      m.cells[_cell(4,4,4,2)]= - this.vecDot(up,position);
-      m.cells[_cell(4,4,4,3)]= - this.vecDot(forward,position);
-      return out;
-    };
-    /**
-     * Scalar multiply a matrix.
-     * @public
-     * @function
-     */
-    _X.matScale=function(m,n){
-      return _matnew(m.dim[0],m.dim[1],m.cells.map(x => x*n))
-    };
-    /**
-     * Multiply 2 matrices.
-     * @public
-     * @function
-     */
-    _X.matMult=function(a,b){
-      let [aRows,aCols]=a.dim;
-      let [bRows,bCols]=b.dim;
-      let aCells=a.cells;
-      let bCells=b.cells;
-      _.assert(aCols===bRows, "mismatch matrices");
-      let out=new Array(aRows*bCols);
-      for(let i=0; i<aRows; ++i)
-        for(let j=0; j<bCols; ++j){
-          out[j+i*bCols]=
-            _.range(bRows).reduce((acc,k) => {
-              return acc + aCells[k+i*aCols] * bCells[j+ k*bCols] },0);
+    const _$={
+      V4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
+      V3(x=0,y=0,z=0){ return [x,y,z] },
+      /* 3D dot product */
+      dot(a,b){
+        return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+      },
+      cross(a,b){
+        return this.V3(a[1] * b[2] - a[2] * b[1],
+                       a[2] * b[0] - a[0] * b[2],
+                       a[0] * b[1] - a[1] * b[0])
+      },
+      len2(a){ return this.dot(a,a) },
+      len(a){ return Math.sqrt(this.len2(a)) },
+      unit(a){
+        let d=this.len(a);
+        let out=this.V3();
+        if(!_.feq0(d)){
+          out[0]=a[0]/d;
+          out[1]=a[1]/d;
+          out[2]=a[2]/d;
         }
-      return _matnew(aRows,bCols,out)
-    };
-    /** Determinent.
-     *
-     * @public
-     * @function
-     */
-    _X.matDet=function(m){
-      let [rows,cols]=m.dim;
-      let tmp=[];
-      for(let c=0; c< cols;++c)
-        _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
-      return _.range(cols).reduce((acc,j) => {
-        let v=tmp[j];
-        return acc + m.cells[j] * (_odd(j) ? -v : v)
-      },0)
-    };
-    /**
-     * Matrix determinent.
-     * @public
-     * @function
-     */
-    _X.matDet2x2=function(m){
-      _.assert(m.cells.length===4);
-      return m.cells[0]*m.cells[3] - m.cells[1] * m.cells[2]
-    };
-    /**
-     * Extract a portion of a matrix.
-     * Get rid of a row and col.
-     * @public
-     * @function
-     */
-    _X.matCut=function(m,row,col){
-      let [rows,cols]=m.dim;
-      //change to zero indexed
-      let _row = row-1;
-      let _col= col-1;
-      let tmp=[];
-      for(let i=0; i<rows; ++i)
-        for(let j=0; j<cols; ++j){
-          if(!(i === _row || j === _col))
-            _.conj(tmp, m.cells[j+i*cols]);
+        return out;
+      },
+      sub(a,b){
+        return is.num(b) ? this.V3(a[0]-b, a[1]-b, a[2]-b)
+                         : this.V3(a[0]-b[0], a[1]-b[1], a[2]-b[2])
+      },
+      add(a,b){
+        return is.num(b) ? this.V3(a[0]+b, a[1]+b, a[2]+b)
+                         : this.V3(a[0]+b[0], a[1]+b[1], a[2]+b[2])
+      },
+      mul(a,b){
+        return is.num(b) ? this.V3(a[0]*b, a[1]*b, a[2]*b)
+                         : this.V3(a[0]*b[0], a[1]*b[1], a[2]*b[2])
+      },
+      div(a,b){
+        return is.num(b) ? this.V3(a[0]/b, a[1]/b, a[2]/b)
+                         : this.V3(a[0]/b[0], a[1]/b[1], a[2]/b[2])
+      },
+      matrix([rows,cols],...args){
+        const sz= rows*cols;
+        return args.length===0 ? _new_mat(rows,cols)
+                               : _.assert(sz===args.length) && _matnew(rows,cols,args)
+      },
+      matIdentity(sz){
+        const out=_.fill(sz*sz,0);
+        for(let i=0;i<sz;++i)
+          out[_cell(sz,sz,i+1,i+1)] = 1;
+        return _matnew(sz, sz, out)
+      },
+      matZero(sz){
+        return _.assert(sz>0) &&
+               _matnew(sz,sz,_.fill(sz*sz,0))
+      },
+      matRowMajors(m){
+        const [rows,cols]=m.dim;
+        return _.partition(cols,m.cells)
+      },
+      matColMajors(m){
+        const [rows,cols]=m.dim;
+        const out=[];
+        for(let a,c=0;c<cols;++c){
+          a=[];
+          for(let r=0;r<rows;++r){
+            a.push(m.cells[r*cols+c])
+          }
+          out.push(a);
         }
-      return _matnew(rows-1,cols-1, tmp)
-    };
-    /**
-     * Matrix minor.
-     * @public
-     * @function
-     */
-    _X.matMinor=function(m){
-      let [rows,cols]=m.dim;
-      let tmp=[];
-      for(let i=0; i< rows;++i)
-        for(let j=0; j<cols; ++j){
-          //mat-cut is 1-indexed
-          _.conj(tmp,this.matDet(this.matCut(m,i+1,j+1)));
+        return out;
+      },
+      /** A 2x2 matrix. */
+      mat2(_11,_12,_21,_22){
+        return this.matrix([2,2],_11,_12,_21,_22)
+      },
+      /** A 3x3 matrix. */
+      mat3(_11,_12,_13,_21,_22,_23,_31,_32,_33){
+        return this.matrix([3,3], _11,_12,_13,_21,_22,_23,_31,_32,_33)
+      },
+      /** A 4x4 matrix. */
+      mat4(_11,_12,_13,_14,_21,_22,_23,_24,
+           _31,_32,_33,_34, _41,_42,_43,_44){
+        return this.matrix([4,4],
+                           _11,_12,_13,_14,_21,_22,_23,_24,
+                           _31,_32,_33,_34,_41,_42,_43,_44)
+      },
+      /** Matrices are equal */
+      matEq(a,b){
+        return a.dim[0]===b.dim[0] &&
+               a.dim[1]===b.dim[1] ? _arrayEq(a.cells,b.cells) : false
+      },
+      /** Matrices are not equal */
+      matNEq(a,b){ return !this.matEq(a,b) },
+      /** Transpose a matrix */
+      matXpose(m){
+        const [rows,cols]= m.dim;
+        const sz=rows*cols;
+        const tmp=[];
+        for(let i=0;i<sz;++i)
+          tmp.push(m.cells[MFL(i/rows) + cols*(i%rows)]);
+        return _matnew(cols,rows,tmp)
+      },
+      /** Scalar multiply a matrix */
+      matScale(m,n){
+        return _matnew(m.dim[0],m.dim[1],m.cells.map(x=> x*n))
+      },
+      /** Multiply 2 matrices */
+      matMult(a,b){
+        let [aRows,aCols]=a.dim;
+        let [bRows,bCols]=b.dim;
+        let aCells=a.cells;
+        let bCells=b.cells;
+        _.assert(aCols===bRows, "mismatch matrices");
+        let out=new Array(aRows*bCols);
+        for(let i=0; i<aRows; ++i)
+          for(let j=0; j<bCols; ++j){
+            out[j+i*bCols]=
+              _.range(bRows).reduce((acc,k)=> {
+                return acc + aCells[k+i*aCols] * bCells[j+ k*bCols] },0);
+          }
+        return _matnew(aRows,bCols,out)
+      },
+      /** Determinent */
+      matDet(m){
+        let [rows,cols]=m.dim;
+        let tmp=[];
+        if(cols===2)
+          return this.matDet2x2(m);
+        for(let c=0; c< cols;++c)
+          _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
+        return _.range(cols).reduce((acc,j)=>{
+          let v=tmp[j];
+          return acc + m.cells[j] * (_odd(j) ? -v : v)
+        },0)
+      },
+      /** Matrix determinent */
+      matDet2x2(m){
+        _.assert(m.cells.length===4);
+        return m.cells[0]*m.cells[3] - m.cells[1] * m.cells[2]
+      },
+      /** Extract a portion of a matrix; get rid of a row and col */
+      matCut(m,row,col){
+        let [rows,cols]=m.dim;
+        //change to zero indexed
+        let _row = row-1;
+        let _col= col-1;
+        let tmp=[];
+        for(let i=0; i<rows; ++i)
+          for(let j=0; j<cols; ++j){
+            if(!(i === _row || j === _col))
+              _.conj(tmp, m.cells[j+i*cols]);
+          }
+        return _matnew(rows-1,cols-1, tmp)
+      },
+      /** Matrix minor */
+      matMinor(m){
+        let [rows,cols]=m.dim;
+        let tmp=[];
+        if(cols===2)
+          return this.matMinor2x2(m);
+        for(let i=0; i< rows;++i)
+          for(let j=0; j<cols; ++j){
+            //mat-cut is 1-indexed
+            _.conj(tmp,this.matDet(this.matCut(m,i+1,j+1)));
+          }
+        return _matnew(rows,cols,tmp)
+      },
+      matMinor2x2(m){
+        return _.assert(m.cells.length===4) &&
+               this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
+      },
+      /** Matrix co-factor */
+      matCofactor(m){
+        let minor=this.matMinor(m);
+        let [rows,cols]=minor.dim;
+        let tmp=minor.cells.slice();
+        for(let r=0;r<rows;++r)
+          for(let p,c=0;c<cols;++c){
+            p=r*cols+c;
+            if(_odd(r+c))
+              tmp[p]= -tmp[p];
+          }
+        return _matnew(rows,cols,tmp)
+      },
+      /** Matrix adjugate */
+      matAdjugate(m){
+        return this.matXpose(this.matCofactor(m))
+      },
+      /** Inverse a matrix */
+      _minv2x2(m){
+        let [rows,cols]=m.dim;
+        _.assert(m.cells.length===4&&rows===2&&cols===2);
+        let r,c=m.cells;
+        let det= c[0]*c[3] - c[1]*c[2];
+        if(_.feq0(det))
+          r=this.matIdentity(rows);
+        else{
+          let _det= 1/det;
+          r= this.mat2(c[3]*_det, -c[1] * _det,
+                       -c[2] * _det, c[0] * _det);
         }
-      return _matnew(rows,cols,tmp)
-    };
-    /**
-     * @public
-     * @function
-     */
-    _X.matMinor2x2=function(m){
-      return _.assert(m.cells.length===4) &&
-             this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
-    };
-    /**
-     * Matrix co-factor.
-     * @public
-     * @function
-     */
-    _X.matCofactor=function(m){
-      let minor=this.matMinor(m);
-      let [rows,cols]=minor.dim;
-      let tmp=m.cells.slice();
-      for(let len=rows*cols,i=0; i< len; ++i){
-        if(_odd(i))
-          tmp[i]= -tmp[i];
+        return r
+      },
+      /** Inverse a matrix*/
+      matInverse(m){
+        let [rows,cols]=m.dim;
+        if(cols===2)
+          return this._minv2x2(m);
+        let d= this.matDet(m);
+        return _.feq0(d) ? this.matIdentity(rows)
+                         : this.matScale(this.matAdjugate(m), 1/d)
+      },
+      /** Matrix from column major */
+      matFromColMajor(arr,numCols){
+        _.assert(arr.length%numCols===0);
+        let rows=arr.length/numCols,
+            out=_new_mat(rows,numCols);
+        for(let r,c,i=0;i<arr.length;++i){
+          r=i%rows;
+          c=MFL(i/rows);
+          out.cells[r*numCols+c]=arr[i];
+        }
+        return out;
+      },
+      /** Matrix to column major */
+      matToColMajor(m){
+        const [rows,cols]=m.dim;
+        const out=m.cells.slice();
+        for(let i=0,c=0;c<cols;++c)
+          for(let r=0;r<rows;++r){
+            out[i++]=m.cells[r*cols+c];
+          }
+        return {cells: out, depth:rows};
+      },
+      scale3D(V3){
+        let out=this.matIdentity(4);
+        out.cells[_cell(4,4,1,1)]=V3[0];
+        out.cells[_cell(4,4,2,2)]=V3[1];
+        out.cells[_cell(4,4,3,3)]=V3[2];
+        return out;
+      },
+      translate3D(V3){
+        let out=this.matIdentity(4);
+        out.cells[_cell(4,4,4,1)]=V3[0];
+        out.cells[_cell(4,4,4,2)]=V3[1];
+        out.cells[_cell(4,4,4,3)]=V3[2];
+        return out;
+      },
+      /** Rotation in 3D, order *important* */
+      rot3D(roll,pitch,yaw){
+        //x,y,z order is important, matrix not commutative
+        return this.matMult(this.zRot3D(yaw),
+                            this.matMult(this.yRot3D(pitch),
+                                         this.xRot3D(roll)));
+      },
+      /** Multiply matrix and  vector */
+      matVMult(m,v){
+        let cols=m.dim[1];
+        let rows=v.length;
+        _.assert(cols===rows);
+        let r= this.matMult(m, _matnew(rows, 1, v));
+        let c=r.cells;
+        r.cells=null;
+        return c
+      },
+      /** Rotate a 2x2 matrix, counter-clockwise */
+      rot2D(rot){
+        return this.mat2(COS(rot),-SIN(rot),SIN(rot),COS(rot))
+      },
+      /** Rotate on x-axis in 4D */
+      xRot3D(rad){
+        return this.mat4(1,0,0,0,
+                         0,COS(rad),-SIN(rad),0,
+                         0,SIN(rad),COS(rad),0,
+                         0,0,0,1)
+      },
+      /** Rotate on y-axis in 4D */
+      yRot3D(rad){
+        return this.mat4(COS(rad),0,SIN(rad),0,
+                         0,1, 0, 0,
+                         -SIN(rad), 0, COS(rad), 0,
+                         0,0,0,1)
+      },
+      /** Rotate in z-axis in 4D */
+      zRot3D(rad){
+        return this.mat4(COS(rad), -SIN(rad), 0, 0,
+                         SIN(rad),COS(rad), 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, 1)
+      },
+      /** True if m is an `identity` matrix */
+      isIdentity(m){
+        const [rows,cols]=m.dim;
+        if(rows===cols){
+          for(let v,r=0;r<rows;++r){
+            for(let c=0;c<cols;++c){
+              v=m.cells[r*cols+c];
+              if((r+1)===(c+1)){
+                if(v !== 1) return false;
+              }else if(v !== 0) return false;
+            }
+          }
+          return true;
+        }else{
+          return false;
+        }
+      },
+      /** Test if matrix is `orthogonal` */
+      isOrthogonal(m){
+        //Given a square matrixA, to check for its orthogonality steps are:
+        //Find the determinant of A. If, it is 1 then,
+        //find the inverse matrix of inv(A) and transpose of xpos(A),
+        //if xpose(A) X inv(A) === I
+        //then A will be orthogonal
+        let r,d= this.matDet(m);
+        return Math.abs(d)===1 &&
+               this.isIdentity(this.matMult(this.matXpose(m), this.matInverse(m)));
       }
-      return _matnew(rows,cols,tmp)
     };
-    /**
-     * Matrix adjugate.
-     * @public
-     * @function
-     */
-    _X.matAdjugate=function(m){
-      return this.matXpose(this.matCofactor(m))
-    };
-    /**
-     * Inverse matrix.
-     * @public
-     * @function
-     */
-    _X.matInverse2x2=function(m){
-      let [rows,cols]=m.dim;
-      _.assert(m.cells.length===4&&rows===2&&cols===2);
-      let r,c=m.cells;
-      let det= c[0]*c[3] - c[1]*c[2];
-      if(_M.fuzzyZero(det))
-        r=this.matIdentity(rows);
-      else{
-        let _det= 1/det;
-        r= this.mat2(c[3]*_det, -c[1] * _det,
-                     -c[2] * _det, c[0] * _det);
-      }
-      return r
-    };
-    /**
-     * @function
-     * @public
-     */
-    _X.matInverse=function(m){
-      let [rows,cols]=m.dim;
-      let d= this.matDet(m);
-      return _M.fuzzyZero(d) ? this.matIdentity(rows)
-                             : this.matScale(this.matAdjugate(m), 1/d)
-    };
-    /**
-     * Matrix from column major.
-     * @function
-     * @public
-     */
-    _X.matFromColMajor=function(m){
-      return this.matXpose(m)
-    };
-    /**
-     * Matrix to column major.
-     * @public
-     * @function
-     */
-    _X.matToColMajor=function(m){
-      return this.matXpose(m)
-    };
-    /**
-     * Translate a 3x3 matrix.
-     * @public
-     * @function
-     */
-    _X.mat4Txlate=function(v3){
-      let out= _.assert(v3.length===3) && this.matIdentity(4);
-      out.cells[_cell(4,4,4,1)]= v3[0];
-      out.cells[_cell(4,4,4,2)]= v3[1];
-      out.cells[_cell(4,4,4,3)]= v3[2];
-      return out
-    };
-    /**
-     * Matrix from matrix-translation.
-     *
-     * @public
-     * @function
-     * @param m a 3x3 matrix
-     * @returns 4x4 matrix
-     */
-    _X.matFromMX_3x3=function(m){
-      _.assert(m.cells.length===9);
-      let [rows,cols]=m.dim;
-      let p=_.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2];
-      return _matnew(rows+1,cols+1, r1.concat(0, r2, 0, r3, 0, [0,0,0,1]))
-    };
-    /**
-     * Get the translation of a matrix.
-     * @public
-     * @function
-     * @param m 4x4 matrix
-     * @returns 3d vector
-     */
-    _X.getTranslation4x4=function(m){
-      _.assert(m.cells.length===16);
-      let c=m.cells;
-      return this.V3(c[_cell(4,4,4,1)], c[_cell(4,4,4,2)], c[_cell(4,4,4,3)])
-    };
-    /**
-     * Matrix from vector-translation.
-     * @public
-     * @function
-     * @param v3 3d vector
-     * @returns 4x4 matrix
-     */
-    _X.matFromVX_V3=function(v3){
-      _.assert(v3.length===3);
-      let out=this.matIdentity(4);
-      let c=out.cells;
-      c[_cell(4,4,1,1)]= v3[0];
-      c[_cell(4,4,2,2)]= v3[1];
-      c[_cell(4,4,3,3)]= v3[2];
-      return out
-    };
-    /**
-     * Get scale from matrix-translation.
-     * @public
-     * @function
-     * @param m4 4x4 matrix
-     * @returns 3d vector
-     */
-    _X.getScaleFromMX_4x4=function(m4){
-      _.assert(m4.cells.length===16);
-      let [rows,cols]=m4.dim;
-      let p= _.partition(cols,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2];
-      return this.V3(r1[0], r2[1], r3[2])
-    };
-    /**
-     * Multiply matrix and  vector.
-     * @public
-     * @function
-     * @returns vector
-     */
-    _X.matVMult=function(m,v){
-      let cols=m.dim[1];
-      let rows=v.length;
-      _.assert(cols===rows);
-      let r= this.matMult(m, _matnew(rows, 1, v));
-      let c=r.cells;
-      r.cells=null;
-      return c
-    };
-    /**
-     * Rotate a 2x2 matrix, counter-clockwise
-     * @function
-     * @public
-     */
-    _X.rotation2x2=function(rot){
-      return this.mat2(COS(rot),-SIN(rot),SIN(rot),COS(rot))
-    };
-    /**
-     * 3D rotation.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.yawPitchRoll=function(yaw,pitch,roll){
-      return this.mat4(COS(roll) * COS(yaw) +
-                       SIN(roll)*SIN(pitch)*SIN(yaw),
-                       SIN(roll)*COS(pitch),
-                       COS(roll)* -SIN(yaw) +
-                       SIN(roll)*SIN(pitch)*COS(yaw),
-                       0,
-                       -SIN(roll)*COS(yaw) +
-                       COS(roll)*SIN(pitch)*SIN(yaw),
-                       COS(roll)*COS(pitch),
-                       SIN(roll)*SIN(yaw) +
-                       COS(roll)*SIN(pitch)*COS(yaw),
-                       0,
-                       COS(pitch)*SIN(yaw),
-                       -SIN(pitch),
-                       COS(pitch)*COS(yaw),
-                       0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on x-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.xRotation=function(rad){
-      return this.mat4(1,0,0,0,
-                       0,COS(rad),SIN(rad),0,
-                       0,-SIN(rad),COS(rad),0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on x-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.xRotation3x3=function(rad){
-      return this.mat3(1,0,0,
-                       0, COS(rad), SIN(rad),
-                       0, -SIN(rad), COS(rad))
-    };
-    /**
-     * Rotate on y-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.yRotation=function(rad){
-      return this.mat4(COS(rad),0,-SIN(rad),0,
-                       0,1, 0, 0,
-                       SIN(rad), 0, COS(rad), 0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on y-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.yRotation3x3=function(rad){
-      return this.mat3(COS(rad), 0, -SIN(rad),
-                       0, 1, 0,
-                       SIN(rad), 0, COS(rad))
-    };
-    /**
-     * Rotate in z-axis in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.zRotation=function(rad){
-      return this.mat4(COS(rad), SIN(rad), 0, 0,
-                       -SIN(rad),COS(rad), 0, 0,
-                       0, 0, 1, 0,
-                       0, 0, 0, 1)
-    };
-    /**
-     * Rotate in z-axis in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.zRotation3x3=function(rad){
-      return this.mat3(COS(rad),SIN(rad), 0,
-                       -SIN(rad),COS(rad), 0,
-                       0, 0, 1)
-    };
-    /**
-     * Rotation in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Rotation=function(pitch,yaw,roll){
-      return this.matMult(
-               this.matMult(this.zRotation(roll),
-                            this.xRotation(pitch)), this.yRotation(yaw))
-    };
-    /**
-     * Rotation in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.mat3Rotation=function(pitch,yaw,roll){
-      return this.matMult(
-               this.matMult(this.zRotation3x3(roll),
-                            this.xRotation3x3(pitch)),this.yRotation3x3(yaw))
-    };
-    /**
-     * Orthogonal of matrix.
-     * @public
-     * @function
-     * @param m 4x4 matrix
-     * @returns 4x4 matrix
-     */
-    _X.matOrthogonal4x4=function(m){
-      _.assert(m.cells.length===16);
-      let [rows,cols]=m.dim;
-      let p= _.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2], r4=p[3];
-      let xAxis=r1.slice(0,3);
-      let yAxis=r2.slice(0,3);
-      let zAxis= this.vecCross(xAxis,yAxis);
-      let _x= this.vecCross(yAxis,zAxis);
-      let _y= this.vecCross(zAxis,xAxis);
-      let _z= this.vecCross(xAxis,yAxis);
-      return this.mat4(_x[0],_x[1],_x[2],r1[3],
-                       _y[0],_y[1],_y[2],r2[3],
-                       _z[0],_z[1],_z[2],r3[3],
-                       r4[0],r4[1],r4[2],r4[3])
-    };
-    /**
-     * @public
-     * @function
-     * @param m 3x3 matrix
-     * @returns 3x3 matrix
-     */
-    _X.matOrthogonal3x3=function(m){
-      _.assert(m.cells.length===9);
-      let [rows,cols]=m.dim;
-      let p= _.partition(cols,m.cells);
-      let r1=p[0], r2=p[1], r3=p[2];
-      let xAxis=r1;//this.V3(r1[0],r1[1],r1[2]);
-      let yAxis=r2;//this.V3(r2[0],r2[1],r2[2]);
-      let zAxis= this.vecCross(xAxis,yAxis);
-      let _x= this.vecCross(yAxis,zAxis);
-      let _y= this.vecCross(zAxis,xAxis);
-      let _z= this.vecCross(xAxis,yAxis);
-      return this.mat3(_x[0],_x[1],_x[2],
-                       _y[0],_y[1],_y[2],
-                       _z[0],_z[1],_z[2])
-    };
-    /**
-     * Rotate on this axis by this angle in 4D.
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4AxisAngle=function(axis ,rad){
-      _.assert(axis.length===3);
-      let x=axis[0],y=axis[1],z=axis[2];
-      let d= this.vecLen(axis);
-      let c=COS(rad);
-      let s=SIN(rad);
-      let t= 1-c;
-      if(!_M.fuzzyEq(d,1)){
-        let ilen= 1/d;
-        x *= ilen;
-        y *= ilen;
-        z *= ilen;
-      }
-      return this.mat4(c+t*x*x,
-                       t*x*y+s*z,
-                       t*x*z-s*y,
-                       0,
-                       t*x*y-s*z,
-                       c + t*y*y,
-                       t*y*z+s*x,
-                       0,
-                       t*x*z+s*y,
-                       t*y*z-s*x,
-                       c + t*z*z,
-                       0,
-                       0,0,0,1)
-    };
-    /**
-     * Rotate on this axis by this angle in 3D.
-     * @public
-     * @function
-     * @returns 3x3 matrix
-     */
-    _X.axisAngle3x3=function(axis,rad){
-      _.assert(axis.length===3);
-      let x=axis[0],y=axis[1],z=axis[2];
-      let c=COS(rad);
-      let s=SIN(rad);
-      let t= 1-c;
-      let d= this.vecLen(axis);
-      if(!_M.fuzzyEq(d,1)){
-        let ilen=1/d;
-        x *= ilen;
-        y *= ilen;
-        z *= ilen;
-      }
-      return this.mat3(c + t*x*x,
-                       t*x*y + s*z,
-                       t*x*z - s*y,
-                       t*x*y - s*z,
-                       c + t*y*y,
-                       t*y*z + s*x,
-                       t*x*z + s*y,
-                       t*y*z - s*x,
-                       c + t*z*z)
-    };
-    /**
-     * Multiply vector and 4x4 matrix.
-     * @function
-     * @public
-     * @returns 3d vector
-     */
-    _X.matMultV3M4=function(v3,m4){
-      _.assert(v3.length===3&&m4.cells.length===16);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(4,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2],r4=p[3];
-      return this.V3(x*r1[0] + y*r2[0] + z*r3[0] + 1*r4[0],
-                     x*r1[1] + y*r2[1] + z*r3[1] + 1*r4[1],
-                     x*r1[2] + y*r2[2] + z*r3[2] + 1*r4[2])
-    };
-    /**
-     * Multiply vector and 4x4 matrix.
-     * @public
-     * @function
-     * @returns 3d vector
-     */
-    _X.mat3MultVX_4x4=function(v3,m4){
-      _.assert(v3.length===3&&m4.cells.length===16);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(4,m4.cells);
-      let r1=p[0],r2=p[1],r3=p[2],r4=p[3];
-      return [x*r1[0] + y*r2[0] + z*r3[0] + 0*r4[0],
-              x*r1[1] + y*r2[1] + z*r3[1] + 0*r4[1],
-              x*r1[2] + y*r2[2] + z*r3[2] + 0*r4[2]]
-    };
-    /**
-     * Multiply vector and 3x3 matrix.
-     * * @public
-     * @function
-     * @returns 3d vector
-     */
-    _X.mat3MultVX_3x3=function(v3,m3){
-      _.assert(v3.length===3&&m3.cells.length===9);
-      let x=v3[0],y=v3[1],z=v3[2];
-      let p=_.partition(3,m3.cells);
-      let r1=p[0],r2=p[1],r3=p[2];
-      return [this.vecDot(v3, this.V3(r1[0],r2[0],r3[0])),
-              this.vecDot(v3, this.V3(r1[1],r2[1],r3[1])),
-              this.vecDot(v3, this.V3(r1[2],r2[2],r3[2]))]
-    };
-    /**
-     * Transform a 4x4 matrix.
-     * @public
-     * @function
-     * @param eulerRotation 3d vector
-     * @returns 4x4 matrix
-     */
-    _X.mat4TxformViaRotation=function(scale,eulerRotation,translate){
-      _.assert(eulerRotation.length===3);
-      let x=eulerRotation[0];
-      let y=eulerRotation[1];
-      let z=eulerRotation[2];
-      return this.matMult(
-        this.matMult(this.matFromVX(scale),
-                     this.mat4Rotation(x,y,z)),
-        this.mat4Txlate(translate))
-    };
-    /**
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4TxformViaAxisAngle=function(scale,rotationAxis, rotationAngle,translate){
-      return this.matMult(
-        this.matMult(this.matFromVX(scale),
-                     this.mat4AxisAngle(rotationAxis,
-                                        rotationAngle)),
-        this.mat4Txlate(translate))
-    };
-    /**
-     * View of a 4D matrix.
-     * @public
-     * @function
-     */
-    _X.mat4LookAt=function(pos,target,up){
-      let fwd= this.vecUnit(this.vecSub(target,pos));
-      let right= this.vecUnit(this.vecCross(up,fwd));
-      let newUp= this.vecCross(fwd,right);
-      return this.mat4(right[0],newUp[0],fwd[0],0,
-                       right[1],newUp[1],fwd[1],0,
-                       right[2],newUp[2],fwd[2],0,
-                       - this.vecDot(right,pos),
-                       - this.vecDot(newUp,pos),
-                       - this.vecDot(fwd,pos), 1)
-    };
-    /**
-     * 4D projection.
-     * https://msdn.microsoft.com/en-us/library/windows/desktop/bb147302(v=vs.85).aspx
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Proj=function(fov,aspect,zNear,zFar){
-      let tanHalfFov= TAN(fov*0.5);
-      let fovY=1/tanHalfFov;//cot(fov/2)
-      let fovX=fovY/aspect; //cot(fov/2) / aspect
-      let r33= zFar / (zFar - zNear);// far/range
-      let ret= this.matIdentity(4);
-      ret.cells[_cell(4,4,1,1)]= fovX;
-      ret.cells[_cell(4,4,2,2)]=fovY;
-      ret.cells[_cell(4,4,3,3)]= r33;
-      ret.cells[_cell(4,4,3,4)]= 1;
-      ret.cells[_cell(4,4,4,3)]= -zNear*r33; //-near * (far / range)
-      ret.cells[_cell(4,4,4,4)]=0;
-      return ret
-    };
-    /**
-     * Orthogonal to this 4x4 matrix.
-     * Derived following: http://www.songho.ca/opengl/gl_projectionmatrix.html
-     * Above was wrong, it was OpenGL style, our matrices are DX style
-     * Correct impl:
-     * https://msdn.microsoft.com/en-us/library/windows/desktop/bb205347(v=vs.85).aspx
-     * @public
-     * @function
-     * @returns 4x4 matrix
-     */
-    _X.mat4Ortho=function(left,right,bottom,top,zNear,zFar){
-      let _11= (right-left)/2;
-      let _22= (top-bottom)/2;
-      let _33= (zFar-zNear)/1;
-      let _41= (left+right)/(left-right);
-      let _42= (top+bottom)/(bottom-top);
-      let _43= zNear/(zNear-zFar);
-      return this.mat4(_11,0,0,0,
-                       0,_22,0, 0,
-                       0, 0, _33, 0,
-                       _41, _42, _43, 1)
-    };
-    /**
-     * Decompose matrix.
-     * @public
-     * @function
-     * @param rot1 3x3 matrix
-     * @returns 3d vector
-     */
-    _X.matDecompose3x3=function(rot1){
-      let rot= this.matXpose(rot1);
-      let p= _.partition(3, rot);
-      let r1=p[0],r2=p[1],r3=p[2];
-      let sy= Math.sqrt(r1[0]*r1[0] + r2[0]*r2[0]);
-      let singular= sy< 1e-6;
-      return !singular ? this.V3(ATAN2(r3[1],r3[2]),
-                                 ATAN2(-r3[0],sy),
-                                 ATAN2(r2[0],r1[0]))
-                       : this.V3(ATAN2(-r2[2],r2[1]), ATAN2(-r3[0],sy), 0)
-    };
-
-    return _X;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"),
-                           require("./math"))
+    module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/matrix"]=_module
   }
@@ -2462,7 +1969,6 @@
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
-    const _C={};
     /**
      * Find the offset.
      * @private
@@ -2486,7 +1992,7 @@
      */
     function _getch(ch){
       for(let i=0;i<VISCHS_LEN;++i){
-        if(charat(i)===ch)
+        if(_charat(i)===ch)
           return i;
       }
       return -1
@@ -2510,43 +2016,39 @@
       return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
     }
     /**
-     * Encrypt source by shifts.
-     * @public
-     * @function
+     * @private
+     * @var {object}
      */
-    _C.encrypt=function(src, shift){
-      if(shift===0){ return src }
-      function _f(shift,delta,cpos){
-        return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos)
+    const _$={
+      /** Encrypt source by shifts. */
+      encrypt(src, shift){
+        if(shift===0){ return src }
+        function _f(shift,delta,cpos){
+          return shift<0 ? _rotr(delta,cpos) : _rotl(delta,cpos) }
+        let out=[];
+        let p,d=_calcDelta(shift);
+        src.split("").forEach(c=>{
+          p=_getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
+      },
+      /** Decrypt text by shifts. */
+      decrypt(cipherText,shift){
+        if(shift===0){ return cipherText }
+        function _f(shift,delta,cpos) {
+          return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos) }
+        let p,out=[];
+        let d= _calcDelta(shift);
+        cipherText.split("").forEach(c=>{
+          p= _getch(c);
+          out.push(p<0 ? c : _f(shift,d,p));
+        });
+        return out.join("");
       }
-      let out=[];
-      let d=_calcDelta(shift);
-      src.split().forEach(c => {
-        let p=_getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      })
-      return out.join("")
-    };
-    /**
-     * Decrypt text by shifts.
-     * @public
-     * @function
-     */
-    _C.decrypt=function(cipherText,shift){
-      if(shift===0){ return cipherText }
-      function _f(shift,delta,cpos) {
-        return shift< 0 ? _rotl(delta,cpos) : _rotr(delta,cpos)
-      }
-      let p,out=[];
-      let d= _calcDelta(shift);
-      cipherText.split("").forEach(c => {
-        p= _getch(c);
-        out.push(p<0 ? c : _f(shift,d,p));
-      });
-      return out.join("")
     };
 
-    return _C;
+    return _$;
   }
 
   //export--------------------------------------------------------------------
@@ -2577,28 +2079,37 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function _module(){
-    const _R={
+  function _module(Core){
+    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    /**
+     * @private
+     * @var {object}
+     */
+    const _$={
       fsm(defn){
         let _state=defn.initState();
         return {
-          state(){ return _state },
+          /** the current state */
+          state(){
+            return _state },
+          /** run the current state `code` */
           process(){
-            let fromStateObj = defn[_state];
+            const fromStateObj=defn[_state];
             if(fromStateObj)
               fromStateObj.run && fromStateObj.run();
           },
-          trigger(event){
-            let fromStateObj = defn[_state];
-            event=event||"change";
-            let tx = fromStateObj &&
-                     fromStateObj.transitions[event];
+          /** apply an event */
+          trigger(event="change"){
+            const fromStateObj= defn[_state];
+            const tx= fromStateObj &&
+                      fromStateObj.transitions[event];
+            //react to this event
             if(tx){
-              let nextState = tx.target;
-              let nextStateObj = defn[nextState];
+              const nextState = tx.target;
+              const nextStateObj = defn[nextState];
               if(nextStateObj){
-                fromStateObj.egress && fromStateObj.egress();
-                nextStateObj.ingress && nextStateObj.ingress();
+                fromStateObj.exit && fromStateObj.exit();
+                nextStateObj.enter && nextStateObj.enter();
                 tx.action && tx.action();
                 return (_state = nextState);
               }
@@ -2607,18 +2118,19 @@
         }
       }
     };
-    return _R;
+    return _$;
   }
-
-  /**
+  /**Sample definition syntax/format.
    * @private
    * @var {object}
    */
   const sample={
+    /** provides the initial state of this FSM */
     initState(){ return "happy"},
+    /** follow by a list of state definitions */
     "happy":{
-      ingress(){ console.log("happy: entering") },
-      egress(){ console.log("happy: exiting") },
+      enter(){ console.log("happy: entering") },
+      exit(){ console.log("happy: exiting") },
       transitions:{
         "rain":{
           target: "sad",
@@ -2626,9 +2138,9 @@
         }
       }
     },
-    "on":{
-      ingress(){ console.log("sad: entering") },
-      egress(){ console.log("sad: exiting") },
+    "sad":{
+      enter(){ console.log("sad: entering") },
+      exit(){ console.log("sad: exiting") },
       transitions:{
         "sun":{
           target: "happy",
@@ -2640,7 +2152,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/fsm"]=_module
   }
@@ -4033,15 +3545,17 @@
    * @private
    * @function
    */
-  function _module(Core){
+  function _module(Core,Colors){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+    if(!Colors){
+      throw "Fatal: No Colors!";
+    }
     const {is,u:_}=Core;
     /**
      * @private
      * @function
      */
-    function _f(s){
-      return s.startsWith("P") }
+    function _f(s){ return !s.startsWith("F") }
 
     /**
      * @private
@@ -4074,39 +3588,71 @@
      * @private
      * @function
      */
-    function ensure_eq(env,form){
-      let out;
-      try{
-        out = form.call(env) ? t_ok : t_bad;
-      }catch(e){
-        out= t_bad;
-      }
-      return out;
+    function ensure_eq(env,name,form){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          if(out instanceof Promise){
+            out.then(function(res){
+              resolve(`${res?t_ok:t_bad}: ${name}`);
+            });
+          }else{
+            out= out ? (out===709394?t_skip:t_ok) : t_bad;
+            resolve(`${out}: ${name}`);
+          }
+        }catch(e){
+          out= t_bad;
+          resolve(`${out}: ${name}`);
+        }
+      });
     }
     /**
      * @private
      * @function
      */
-    function ensure_ex(env,form,error){
-      let out;
-      try{
-        form.call(env);
-        out=ex_thrown(error,null);
-      }catch(e){
-        out=ex_thrown(error,e);
-      }
-      return out;
+    function ensure_ex(env,name,form,error){
+      return new Promise((resolve,reject)=>{
+        let out;
+        try{
+          out=form.call(env);
+          out=out===709394?t_ok:ex_thrown(error,null);
+        }catch(e){
+          out=ex_thrown(error,e);
+        }
+        resolve(`${out}: ${name}`);
+      });
     }
     /**
      * @private
      * @var {string}
      */
-    const [t_bad,t_ok]=["Failed", "Passed"];
+    const [t_skip,t_bad,t_ok]=["Skippd", "Failed", "Passed"];
     /**
      * @private
      * @var {object}
      */
     const _$={
+      prn(r){
+        const ok= r.passed.length;
+        const sum=r.total;
+        const perc=ok/sum*100;
+        console.log(Colors.white(rstr(78,"+")));
+        console.log(Colors.white.bold(r.title));
+        console.log(Colors.white(r.date));
+        console.log(Colors.white(rstr(78,"+")));
+        if(r.passed.length>0)
+          console.log(Colors.green(r.passed.join("\n")));
+        if(r.skippd.length>0)
+          console.log(Colors.grey(r.skippd.join("\n")));
+        if(r.failed.length>0)
+          console.log(Colors.magenta(r.failed.join("\n")));
+        console.log(Colors.white(rstr(78,"=")));
+        console.log(Colors.yellow(["Passed: ",ok,"/",sum," [",perc|0,"%]"].join("")));
+        console.log(Colors.magenta(`Failed: ${sum-ok}`));
+        console.log(Colors.white(["cpu-time: ",_.prettyMillis(r.duration)].join("")));
+        console.log(Colors.white(rstr(78,"=")));
+      },
       deftest(name){
         let iniz=null;
         let finz=null;
@@ -4130,47 +3676,60 @@
           end(f){
             finz=f;
             let F=function(){
-              iniz && iniz(env);
-              let out=[];
-              for(let r,a,i=0;i<arr.length;++i){
-                a=arr[i];
-                r="";
-                switch(a[0]){
-                  case 1: r=ensure_eq(env,a[2]); break;
-                  case 911: r=ensure_ex(env,a[2],"any"); break;
+              return new Promise((RR,j)=>{
+                iniz && iniz(env);
+                let _prev,out=[];
+                for(let p,a,i=0;i<arr.length;++i){
+                  a=arr[i];
+                  switch(a[0]){
+                    case 1: p=ensure_eq(env,a[1],a[2]); break;
+                    case 911: p=ensure_ex(env,a[1],a[2],"any"); break; }
+                  if(!_prev){_prev=p}else{
+                    _prev= _prev.then(function(msg){
+                      out.push(msg);
+                      return p;
+                    });
+                  }
                 }
-                if(r)
-                  out.push(`${r}: ${a[1]}`);
-              }
-              arr.length=0;
-              finz && finz(env);
-              return out;
+                if(_prev){
+                  _prev.then(function(msg){
+                    out.push(msg);
+                    arr.length=0;
+                    finz && finz(env);
+                    RR(out);
+                  });
+                }
+              });
             };
             return (F.title=name) && F;
           }
         };
         return x;
       },
+      _run(test){
+        return new Promise((resolve,reject)=>{
+          test().then(function(arr){
+            resolve(arr);
+          });
+        });
+      },
       runtest(test,title){
         const mark= Date.now();
-        const res=test();
-        const mark2= Date.now();
-        const sum= res.length;
-        const good= res.filter(_f);
-        const ok=good.length;
-        const perc= (ok/sum)*100;
-        const diff=mark2-mark;
-        const out= [
-          rstr(78,"+"),
-          title||test.title,
-          new Date().toString(),
-          rstr(78,"+"),
-          res.join("\n"),
-          rstr(78,"="),
-          ["Passed: ",ok,"/",sum," [",perc|0,"%]"].join(""),
-          `Failed: ${sum-ok}`,
-          ["cpu-time: ",diff,"ms"].join("")].join("\n");
-        return out;
+        return this._run(test).then(function(res){
+          const mark2= Date.now();
+          const out={
+            title: title||test.title,
+            date: new Date().toString(),
+            total: res.length,
+            duration: mark2-mark,
+            passed: res.filter(s=>s[0]==="P"),
+            skippd: res.filter(s=>s[0]==="S"),
+            failed: res.filter(s=>s[0]==="F")
+          };
+          return new Promise((resolve,j)=>{
+            resolve(out);
+          });
+        });
       }
     };
     return _$;
@@ -4178,7 +3737,7 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"))
+    module.exports=_module(require("./core"), require("colors/safe"))
   }else{
     gscope["io/czlab/mcfud/test"]= _module
   }

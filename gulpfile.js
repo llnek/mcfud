@@ -4,6 +4,7 @@ const uglify = require('gulp-terser');
 const notify = require('gulp-notify');
 const concat = require('gulp-concat');
 const rename = require('gulp-rename');
+const jsdoc=require("gulp-jsdoc3");
 const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
@@ -30,6 +31,11 @@ gulp.task("bundleJS", function(){
         .pipe(uglify()) //this will uglify/minify uglify.js
         .pipe(rename("mcfud.min.js")) //this will rename concat.js to uglify.js
         .pipe(gulp.dest("dist")); //this will save uglify.js into destination Directory defined above
+});
+
+gulp.task('doc', function (cb) {
+    gulp.src(['README.md', './src/main/**/*.js'], {read: false})
+        .pipe(jsdoc(cb));
 });
 
 gulp.task("default", gulp.series("bundleJS"), function(){
