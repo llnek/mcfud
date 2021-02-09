@@ -42,7 +42,7 @@ Test.deftest("Core").
   ensure("v2,p2",()=>{ return _.v2(2,3)[1]===3 && _.v2()[0]===0 && _.p2(3,2).x===3 && _.p2().y===0 }).
   ensure("numOrZero",()=>{ return _.numOrZero(7)===7 && _.numOrZero("yes")===0 }).
   ensure("or",()=>{ let x; return _.or(x,6)===6 && _.or(7,5)===7 && _.or(null,5)===null }).
-  ensure("toNumber",()=>{ return _.toNumber("33")===33 && _.toNumber("w",5)===5 }).
+  ensure("toNum",()=>{ return _.toNum("33")===33 && _.toNum("w",5)===5 }).
   ensure("splitVerStr",()=>{
     return _.splitVerStr("3.2.1").join("") === "321" &&
            _.splitVerStr("3").join("") === "300" && _.splitVerStr("3.6").join("") === "360"

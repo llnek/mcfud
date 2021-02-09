@@ -22,7 +22,7 @@
     doco=window.document
   }
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**
+  /**Module's Main
    * @private
    * @function
    */
@@ -34,10 +34,12 @@
     function isFun(obj){ return toStr.call(obj) == "[object Function]" }
     function isVec(obj){ return toStr.call(obj) == "[object Array]" }
     function isMap(obj){ return toStr.call(obj) == "[object Map]" }
+    function isSet(obj){ return toStr.call(obj) == "[object Set]" }
     function isStr(obj){ return toStr.call(obj) == "[object String]" }
     function isNum(obj){ return toStr.call(obj) == "[object Number]" }
     function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
     function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
+    function isUndef(o){ return o===undefined }
     let PRNG= seed_rand?seed_rand():new Math.seedrandom();
     function _randXYInclusive(min,max){
       return MFL(PRNG() * (max-min+1) + min)
@@ -80,18 +82,9 @@
     const EPSILON= 0.0000000001;
     /**
      * @private
-     * @var {object}
-     */
-    const _$={};
-    /**
-     * @private
      * @var {number}
       */
     let _seqNum= 0;
-    /**
-     * @private
-     * @function
-     */
     function _everyF(F,_1,args){
       let b=F(_1);
       switch(args.length){
@@ -102,83 +95,221 @@
       default: return b && args.every(x => F(x));
       }
     }
+
     /**
-     * @private
-     * @var {object}
+     * @module mcfud/core
+     */
+    const _$={};
+
+    /**
+     * @namespace module:mcfud/core.is
      */
     const is={
+      /**
+       * Check if input(s) are type `function`.
+       * @memberof module:mcfud/core.is
+       * @param {*} f anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       fun(f,...args){ return _everyF(isFun,f,args) },
+      /**
+       * Check if input(s) are type `string`.
+       * @memberof module:mcfud/core.is
+       * @param {*} s anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       str(s,...args){ return _everyF(isStr,s,args) },
-      void0(obj){ return obj === void 0 },
-      undef(obj){ return obj === undefined },
-      some(obj){ return _.size(obj) > 0 },
-      none(obj){ return _.size(obj) === 0 },
+      //void0(obj){ return obj === void 0 },
+      /**
+       * Check if input(s) are type `undefined`.
+       * @memberof module:mcfud/core.is
+       * @param {*} obj anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
+      undef(o,...args){ return _everyF(isUndef,o,args) },
+      /**
+       * Check if input(s) are type `Map`.
+       * @memberof module:mcfud/core.is
+       * @param {*} m anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       map(m,...args){ return _everyF(isMap,m,args) },
+      /**
+       * Check if input(s) are type `number`.
+       * @memberof module:mcfud/core.is
+       * @param {*} n anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       num(n,...args){ return _everyF(isNum,n,args) },
+      /**
+       * Check if input(s) are type `array`.
+       * @memberof module:mcfud/core.is
+       * @param {*} v anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       vec(v,...args){ return _everyF(isVec,v,args) },
+      /**
+       * Check if input(s) are type `object`.
+       * @memberof module:mcfud/core.is
+       * @param {*} o anything
+       * @param {...*} args more of anything
+       * @return {boolean}
+       */
       obj(o,...args){ return _everyF(isObj,o,args) },
+      /**
+       * True if this collection is `not empty`.
+       * @memberof module:mcfud/core.is
+       * @param {object|array|Map} o value
+       * @return {boolean}
+       */
+      some(obj){ return _.size(obj) > 0 },
+      /**
+       * True if this collection is `empty`.
+       * @memberof module:mcfud/core.is
+       * @param {object|array|Map} o value
+       * @return {boolean}
+       */
+      none(obj){ return _.size(obj) === 0 },
+      /**
+       * True if this property belongs to this object.
+       * @memberof module:mcfud/core.is
+       * @param {object} o value
+       * @param {string} p name of the property
+       * @return {boolean}
+       */
       own(o,p){ return Object.prototype.hasOwnProperty.call(o,p) }
     };
+
     /**
-     * @private
-     * @var {object}
+     * @namespace module:mcfud/core._
      */
     const _={
-      /** Re-seed a random */
+      /**Re-seed the internal prng object.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       srand(){ PRNG= seed_rand?seed_rand():new Math.seedrandom() },
-      /** Fuzzy zero */
+      /**Check if this float approximates zero.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @return {boolean}
+       */
       feq0(a){ return Math.abs(a) < EPSILON },
-      /** Fuzzy equals */
+      /**Check if these 2 floats are equal.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @param {number} b
+       * @return {boolean}
+       */
       feq(a, b){ return Math.abs(a-b) < EPSILON },
       /** Fuzzy greater_equals */
       //fgteq(a,b){ return a>b || this.feq(a,b) },
       /** Fuzzy less_equals */
       //flteq(a,b){ return a<b || this.feq(a,b) },
-      /** Serialize to JSON */
+      /**Serialize input to JSON.
+       * @memberof module:mcfud/core._
+       * @param {*} o anything
+       * @return {string} JSON string
+       */
       pack(o){ return JSON.stringify(o) },
-      /** Deserialize from JSON */
+      /**Deserialize from JSON.
+       * @memberof module:mcfud/core._
+       * @param {string} input
+       * @return {*} valid js data
+       */
       unpack(s){ return JSON.parse(s) },
-      /** Put values into array */
+      /**Put x,y into an array.
+       * @memberof module:mcfud/core._
+       * @param {number} x
+       * @param {number} y
+       * @return {number[]} [x,y]
+       */
       v2(x=0,y=0){ return [x,y] },
-      /** 2D point(x,y) */
+      /**Put x,y into an object.
+       * @memberof module:mcfud/core._
+       * @param {number} x
+       * @param {number} y
+       * @return {object} {x,y}
+       */
       p2(x=0,y=0){ return {x: x, y: y} },
-      /** Return it if it's a number else 0 */
+      /**If input isn't a number return 0 else return input.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @return {number}
+       */
       numOrZero(n){ return isNaN(n) ? 0 : n },
-      /** Return b if a doesn't exist else a */
+      /**If `a` is undefined, return b else return a.
+       * @memberof module:mcfud/core._
+       * @param {*} a
+       * @param {*} b
+       * @return {*}
+       */
       or(a,b){ return a===undefined?b:a },
-      /** Convert input into number, if not return the default */
-      toNumber(s,dft){
+      /**Convert input into a number, if not return the default.
+       * @memberof module:mcfud/core._
+       * @param {string} input
+       * @param {number} dft
+       * @return {number}
+       */
+      toNum(s,dft){
         const n=parseFloat(s);
         return (isNaN(n) && isNum(dft)) ? dft : n;
       },
-      /** Break version string into Major.Minor.Patch */
+      /**Break version string into `Major.Minor.Patch`.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {number[]} [major,minor,patch]
+       */
       splitVerStr(s){
         const arr=(""+(s || "")).split(".").filter(s=> s.length>0);
-        return [this.toNumber(arr[0],0),
-                this.toNumber(arr[1],0),
-                this.toNumber(arr[2],0)]
+        return [this.toNum(arr[0],0),
+                this.toNum(arr[1],0),
+                this.toNum(arr[2],0)]
       },
-      /** Compare 2 versions like a standard comparator */
-      cmpVerStrs(V1,V2){
-        let v1= this.splitVerStr(""+V1);
-        let v2= this.splitVerStr(""+V2);
-        if(v1[0] > v2[0]) return 1;
-        else if(v1[0] < v2[0]) return -1;
-        if(v1[1] > v2[1]) return 1;
-        else if(v1[1] < v2[1]) return -1;
-        if(v1[2] > v2[2]) return 1;
-        else if(v1[2] < v2[2]) return -1;
+      /**Compare 2 version strings like a standard comparator.
+       * @memberof module:mcfud/core._
+       * @param {string} v1
+       * @param {string} v2
+       * @return {number} -1 is less, +1 is greater, 0 is same.
+       */
+      cmpVerStrs(v1,v2){
+        let a1= this.splitVerStr(""+v1);
+        let a2= this.splitVerStr(""+v2);
+        if(a1[0] > a2[0]) return 1;
+        else if(a1[0] < a2[0]) return -1;
+        if(a1[1] > a2[1]) return 1;
+        else if(a1[1] < a2[1]) return -1;
+        if(a1[2] > a2[2]) return 1;
+        else if(a1[2] < a2[2]) return -1;
         return 0;
       },
-      /** */
+      /**
+      * @ignore
+      */
       pdef(obj){
         return (obj.configurable=true) && (obj.enumerable=true) && obj
       },
-      /** Look for files matching any one of these extensions */
+      /**Look for files matching any one of these extensions
+       * @memberof module:mcfud/core._
+       * @param {string[]} list of file paths
+       * @param {string[]} list of file extensions
+       * @return {string[]} matching files
+       */
       findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s,1)) > -1)
       },
-      /** Chop input into chunks of `count` items */
+      /**Chop input into chunks of `count` items.
+       * @memberof module:mcfud/core._
+       * @param {number} count number of items in each chunk
+       * @param {any[]} arr list of items
+       * @return {any[][]}
+       */
       partition(count,arr){
         const out=[];
         for(let row,j,i=0;;){
@@ -194,12 +325,21 @@
         }
         return out;
       },
-      /** Returns keys of object or Map. */
-      keys(obj){
-        return isMap(obj) ? Array.from(obj.keys())
-                          : (isObj(obj) ? Object.keys(obj) : [])
+      /**Returns keys of object or Map.
+       * @memberof module:mcfud/core._
+       * @param {object|Map} o
+       * @return {string[]}
+       */
+      keys(o){
+        return isMap(o) ? Array.from(o.keys())
+                        : (isObj(o) ? Object.keys(o) : [])
       },
-      /** Clone object/Map but exclude these keys */
+      /**Clone object/Map but exclude these keys.
+       * @memberof module:mcfud/core._
+       * @param {object|Map} c
+       * @param {string[]} keys to exclude
+       * @return {object|Map}
+       */
       selectNotKeys(c,keys){
         _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
@@ -207,7 +347,12 @@
         this.doseq(c,(v,k)=> (!keys.includes(k)) && this.assoc(out,k,v));
         return out;
       },
-      /** Choose these keys from object/map */
+      /**Choose these keys from object/map.
+       * @memberof module:mcfud/core._
+       * @param {object|Map} c
+       * @param {string[]} keys to copy
+       * @return {object|Map}
+       */
       selectKeys(c,keys){
         _preOr([[isMap,c],[isObj,c]],"map/object");
         const out= isMap(c) ? new Map() : {};
@@ -218,58 +363,123 @@
         });
         return out;
       },
-      /** assert the condition is false */
+      /**Assert that the condition is not true.
+       * @memberof module:mcfud/core._
+       * @param {any} a boolean expression
+       * @param {...any} anything
+       * @throws Error if condition is true
+       * @return {boolean} true
+       */
       assertNot(cond,...args){
         return this.assert(!cond,...args)
       },
-      /** assert the condition is true */
+      /**Assert that the condition is true.
+       * @memberof module:mcfud/core._
+       * @param {any} a boolean expression
+       * @param {...any} anything
+       * @throws Error if condition is false
+       * @return {boolean} true
+       */
       assert(cond,...args){
         if(!cond)
           throw args.length===0 ? "Assertion!" : args.join("");
         return true;
       },
-      /** true if target has none of these keys */
+      /**Check if target has none of these keys.
+       * @memberof module:mcfud/core._
+       * @param {string[]} keys to test
+       * @param {object|Map} target
+       * @return {boolean}
+       */
       noSuchKeys(keys,target){
         return !this.some(this.seq(keys),k=> this.has(target,k)?k:null)
         //if(r) console.log("keyfound="+r);
         //return !r;
       },
-      /** a random int between min and max */
-      randInt2: _randXYInclusive,
-      /** a random float between min and max-1 */
+      /**Get a random int between min and max (inclusive).
+       * @memberof module:mcfud/core._
+       * @param {number} min
+       * @param {number} max
+       * @return {number}
+       */
+      randInt2(min,max){ return _randXYInclusive(min,max) },
+      /**Get a random float between min and max.
+       * @memberof module:mcfud/core._
+       * @param {number} min
+       * @param {number} max
+       * @return {number}
+       */
       randFloat(min, max){
         return min + PRNG() * (max-min)
       },
-      /** a random float between -1 and 1 */
+      /**Get a random float between -1 and 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       randMinus1To1(){ return 2*(PRNG()-0.5) },
-      /** a random int between 0 and num */
+      /**Get a random int between 0 and num.
+       * @memberof module:mcfud/core._
+       * @param {number} num
+       * @return {number}
+       */
       randInt(num){ return MFL(PRNG()*num) },
-      /** a random float between 0 and 1 */
-      rand(){ return PRNG() },
-      /** randomly choose -1 or 1 */
+      /**Get a random float between 0 and 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
+      rand(js=false){ return js? Math.random(): PRNG() },
+      /**Randomly choose -1 or 1.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
-      /** true if obj is subclass of type */
+      /**Check if obj is a sub-class of this parent-class.
+       * @memberof module:mcfud/core._
+       * @param {class} type
+       * @param {object} obj
+       * @return {boolean}
+       */
       inst(type,obj){ return obj instanceof type },
-      /** Calculate hashCode of this string, like java hashCode */
+      /**Calculate the hashCode of this string, like java's hashCode.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {number}
+       */
       hashCode(s){
         let n=0;
         for(let i=0; i<s.length; ++i)
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
-      /** Randomly choose an item from this array */
+      /**Randomly choose an item from this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} arr
+       * @return {any}
+       */
       randItem(arr){
         if(arr && arr.length>0)
           return arr.length===1 ? arr[0]
                                 : arr[MFL(PRNG()*arr.length)]
       },
-      /** true if string represents a percentage value */
+      /**Check if string represents a percentage value.
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @return {boolean}
+       */
       isPerc(s){
         return isStr(s) && s.match(/^([0-9])(\.?[0-9]+|[0-9]*)%$/)
       },
-      /** true if number is even */
-      isEven:isEven,
-      /** Creates a javascript Map */
+      /**Check if number is even.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @return {boolean}
+       */
+      isEven(n){ return isEven(n) },
+      /**Creates a javascript Map.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialize the Map
+       * @return {Map}
+       */
       jsMap(...args){
         _pre(isEven,args.length,"even n# of args");
         let out=new Map();
@@ -279,7 +489,11 @@
         }
         return out;
       },
-      /** Creates a javascript object */
+      /**Creates a javascript object.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialie the object
+       * @return {object}
+       */
       jsObj(...args){
         _pre(isEven,args.length,"even n# of args");
         let out={};
@@ -289,68 +503,143 @@
         }
         return out;
       },
-      /** Creates a javascript array */
+      /**Creates a javascript array.
+       * @memberof module:mcfud/core._
+       * @param {...any} args data to initialize array
+       * @return {array}
+       */
       jsVec(...args){ return args.length===0 ? [] : args.slice() },
-      /** Returns the last index */
+      /**Get the last index.
+       * memberof module:mcfud/core._
+       * @param {array} c
+       * @return {number} -1 if c is empty or not an array
+       */
       lastIndex(c){ return (isVec(c) && c.length>0) ? c.length-1 : -1 },
-      /** Returns the first element */
+      /**Get the first element.
+       * @memberof module:mcfud/core._
+       * @param {array} c
+       * @return {any} undefined if c is empty or not an array
+       */
       first(c){ if(isVec(c) && c.length>0) return c[0] },
-      /** Returns the last element */
+      /**Get the last element.
+       * @memberof module:mcfud/core._
+       * @param {array} c
+       * @return {any} undefined if c is empty or not an array
+       */
       last(c){ if(isVec(c) && c.length>0) return c[c.length-1] },
+      /**
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.first}
+       */
       head(c){ return this.first(c) },
+      /**
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.last}
+       */
       tail(c){ return this.last(c) },
-      /** floor a number */
+      /**Get the floor of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       floor(v){ return Math.floor(v) },
-      /** ceiling a number */
+      /**Get the ceiling of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       ceil(v){ return Math.ceil(v) },
-      /** absolute value */
+      /**Get the absolute value of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       abs(v){ return Math.abs(v) },
-      /** square root number */
+      /**Get the square root of a number.
+       * @memberof module:mcfud/core._
+       * @param {number} v
+       * @return {number}
+       */
       sqrt(v){ return Math.sqrt(v) },
-      /** choose min from 2 */
+      /**Choose min value from these numbers.
+       * @memberof module:mcfud/core._
+       * @param {...number} args
+       * @return {number}
+       */
       min(...args){ return Math.min(...args) },
-      /** choose max from 2 */
+      /**Choose max value from these numbers.
+       * @memberof module:mcfud/core._
+       * @param {...number} args
+       * @return {number}
+       */
       max(...args){ return Math.max(...args) },
-      /** Take a slice of an array */
+      /**Take a slice of an array.
+       * @memberof module:mcfud/core._
+       * @param {array} a source
+       * @param {number} i start index
+       * @return {array}
+       */
       slice(a,i){ return Slicer.call(a, i) },
-      /** true only if every item in list equals v */
+      /**Check if *every* item in the list equals v.
+       * @memberof module:mcfud/core._
+       * @param {array} c
+       * @param {any|function} v
+       * @return {boolean}
+       */
       every(c,v){
         _pre(isVec,c,"array");
         for(let i=0;i<c.length;++i){
           if(isFun(v)){
             if(!v(c[i])) return false;
-          }else{
-            if(c[i] !== v) return false;
-          }
+          }else if(c[i] !== v) return false;
         }
         return c.length>0;
       },
-      /** true only if no item in list equals v */
+      /**Check if *every* item in the list not-equals v.
+       * @memberof module:mcfud/core._
+       * @param {array} c
+       * @param {any|function} v
+       * @return {boolean}
+       */
       notAny(c,v){
         _pre(isVec,c,"array");
         for(let i=0;i<c.length;++i){
           if(isFun(v)){
             if(v(c[i])) return false;
-          }else{
-            if(c[i] === v) return false;
-          }
+          }else if(c[i] === v) return false;
         }
         return c.length>0;
       },
-      /** Copy all or some items from `from` to `to` */
-      copy(to,from=[]){
-        _preAnd([[isVec,to],[isVec,from]],"arrays");
-        const len= Math.min(to.length,from.length);
-        for(let i=0;i<len;++i) to[i]=from[i];
-        return to;
+      /**Copy all or some items from `src` to `des`.
+       * Does not *grow* the `des` array.
+       * @memberof module:mcfud/core._
+       * @param {array} des
+       * @param {array} src
+       * @return {array}
+       */
+      copy(des,src=[]){
+        _preAnd([[isVec,des],[isVec,src]],"arrays");
+        const len= Math.min(des.length,src.length);
+        for(let i=0;i<len;++i) des[i]=src[i];
+        return des;
       },
-      /** Append all or some items from `from` to `to` */
-      append(to,from=[]){
-        _preAnd([[isVec,to],[isVec,from]],"arrays");
-        for(let i=0;i<from.length;++i) to.push(from[i]);
-        return to;
+      /**Append all or some items from `src` to `des`.
+       * @memberof module:mcfud/core._
+       * @param {array} des
+       * @param {array} src
+       * @return {array}
+       */
+      append(des,src=[]){
+        _preAnd([[isVec,des],[isVec,src]],"arrays");
+        for(let i=0;i<src.length;++i) des.push(src[i]);
+        return des;
       },
-      /** Fill array with v or v() */
+      /**Fill array with v.
+       * @memberof module:mcfud/core._
+       * @param {number|array} a if number, creates array of `a` size
+       * @param {number|function} v
+       * @return {array}
+       */
       fill(a,v){
         if(isNum(a)){a= new Array(a)}
         if(isVec(a)){
@@ -359,19 +648,37 @@
         }
         return a;
       },
-      /** Return the size of object/map/array/string */
-      size(obj){
-        return (isVec(obj)||isStr(obj)) ? obj.length
-                          : isMap(obj) ? obj.size
-                                       : obj ? this.keys(obj).length : 0
+      /**Get the size of this input.
+       * @memberof module:mcfud/core._
+       * @param {object|array|string|Map|Set} o
+       * @return {number}
+       */
+      size(o){
+        return (isVec(o)||isStr(o)) ? o.length
+                                    : (isSet(o)||isMap(o)) ? o.size
+                                       : o ? this.keys(o).length : 0
       },
-      /** Next sequence number */
+      /**Get the next sequence number.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       nextId(){ return ++_seqNum },
-      /** Time in milliseconds */
+      /**Get the current time in millis.
+       * @memberof module:mcfud/core._
+       * @return {number}
+       */
       now(){ return Date.now() },
-      /** Find file extension */
+      /**Find the file extension.
+       * @memberof module:mcfud/core._
+       * @param {string} path
+       * @return {string}
+       */
       fileExt(path){ return _fext(path) },
-      /** Find file name, no extension */
+      /**Find the file name, no extension.
+       * @memberof module:mcfud/core._
+       * @param {string} path
+       * @return {string}
+       */
       fileBase(path){
         let name,res,pos=path.indexOf("?");
         if(pos>0) path=path.substring(0,pos);
@@ -385,7 +692,14 @@
         }
         return name;
       },
-      /** return a list of numbers from start to end - like a Range object */
+      /**Create a list of numbers from start to end,
+       * like a `Range` object.
+       * @memberof module:mcfud/core._
+       * @param {number} start
+       * @param {number} stop
+       * @param {number} step
+       * @return {number[]}
+       */
       range(start,stop,step=1){
         if(arguments.length===1){
           stop=start; start=0; step=1; }
@@ -400,8 +714,13 @@
         }
         return res;
       },
-      /** Shuffle items */
-      shuffle(obj){
+      /**Shuffle items in this array.
+       * @memberof module:mcfud/core._
+       * @param {array} obj
+       * @param {boolean} inplace true by default
+       * @return {array}
+       */
+      shuffle(obj,inplace=true){
         _pre(isVec,obj,"array");
         const res=Slicer.call(obj,0);
         for(let x,j,i= res.length-1; i>0; --i){
@@ -410,9 +729,13 @@
           res[i] = res[j];
           res[j] = x;
         }
-        return this.copy(obj,res);
+        return inplace?this.copy(obj,res):res;
       },
-      /** Return only the distinct items */
+      /**Get the distinct items only.
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @return {array}
+       */
       uniq(arr){
         _pre(isVec,arr,"array");
         if(false){
@@ -424,21 +747,34 @@
           });
           return res;
         }
+        //faster?
         return Array.from(new Set(arr));
       },
-      /** functional map but return same type as `obj` */
+      /**Functional map but return same type as `obj`.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} obj
+       * @param {function} fn
+       * @param {any} target context for `fn`
+       * @return {object|map|array}
+       */
       map(obj, fn, target){
         _pre(isColl,obj,"array/map/object");
         if(isVec(obj)){
           return obj.map(fn,target);
         }else{
-          const res={};
+          const res=isMap(obj)?new Map():{};
           this.doseq(obj,(v,k)=>{
-            res[k]=fn.call(target, v,k,obj) });
+            this.assoc(res,k,fn.call(target,v,k,obj))})
           return res;
         }
       },
-      /** `find` with extra args */
+      /**`find` with extra arguments.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {function} fn
+       * @param {any} target
+       * @return {array} [key,value] or undefined
+       */
       find(coll,fn,target){
         let res,
             cont=true,
@@ -451,7 +787,13 @@
         });
         return res;
       },
-      /** `some` with extra args */
+      /**`some` with extra arguments.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {function} fn
+       * @param {any} target
+       * @return {any} undefined if not found
+       */
       some(coll,fn,target){
         let res,
             cont=true,
@@ -464,37 +806,69 @@
         });
         return res;
       },
-      /** Each item in the array is an object, invoke obj.method with extra args */
+      /**Each item in the array is an object,
+      * invoke obj.method with extra args.
+      * @memberof module:mcfud/core._
+      * @param {array} arr
+      * @param {string} key method-name
+      * @return {undefined}
+      */
       invoke(arr,key){
         let args=Slicer.call(arguments,2);
         isVec(arr) &&
           //invoke the method on each object
           arr.forEach(o=> o[key].apply(o, args));
       },
-      /** Run function after some delay */
+      /**Run function after some delay.
+       * @memberof module:mcfud/core._
+       * @param {number} wait
+       * @param {function} f
+       * @return {number} timeout id
+       */
       delay(wait,f){ return setTimeout(f,wait) },
-      /** Create a once/repeat timer */
+      /**Create a once/repeat timer.
+       * @memberof module:mcfud/core._
+       * @param {function} f
+       * @param {number} delay
+       * @param {boolean} repeat default false
+       * @return {object} timer handle, use handle.id to cancel
+       */
       timer(f,delay=0,repeat=false){
         return{
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
         }
       },
-      /** clear a timer */
+      /**Cancel a timer.
+       * @memberof module:mcfud/core._
+       * @param {object} handle
+       * @return {undefined}
+       */
       clear(handle){
-        if(handle)
+        if(handle && handle.id)
           handle.repeat ? clearInterval(handle.id)
                         : clearTimeout(handle.id)
       },
-      /** Iterate a collection in reverse */
+      /**Iterate a collection(array) in reverse.
+       * @memberof module:mcfud/core._
+       * @param {array} coll
+       * @param {function} fn
+       * @param {any} target
+       * @return {undefined}
+       */
       rseq(coll,fn,target){
         _pre(isVec,coll,"array");
-        if(coll.length>0){
+        if(coll.length>0)
           for(let i=coll.length-1;i>=0;--i)
             fn.call(target, coll[i],i,coll)
-        }
       },
-      /** Iterate a collection */
+      /**Iterate a collection.
+       * @memberof module:mcfud/core._
+       * @param {object|map|array} coll
+       * @param {function} fn
+       * @param {any} target
+       * @return {undefined}
+       */
       doseq(coll,fn,target){
         if(isVec(coll)){
           coll.forEach(fn,target)
@@ -504,12 +878,20 @@
           Object.keys(coll).forEach(k=> fn.call(target, coll[k], k, coll))
         }
       },
-      /** Iterate collection but ignore nulls/undefs */
+      /**Iterate but ignore nulls/undefs.
+       * @memberof module:mcfud/core._
+       * @see {@link module:mcfud/core._.doseqEx}
+       */
       doseqEx(coll,fn,target){
         this.doseq(coll,(v,k)=>
           v!==undefined&&v!==null&&fn.call(target,v,k,coll))
       },
-      /** Remove a key from collection */
+      /**Remove a key from collection.
+       * @memberof module:mcfud/core._
+       * @param {map|object} coll
+       * @param {string} key
+       * @return {any} previous value
+       */
       dissoc(coll,key){
         if(arguments.length>2){
           let prev,i=1;
@@ -528,14 +910,25 @@
           return prev;
         }
       },
-      /** Return the value of property `key` */
+      /**Get the value of property `key`.
+       * @memberof module:mcfud/core._
+       * @param {object|map} coll
+       * @param {string} key
+       * @return {any} undefined if not found
+       */
       get(coll,key){
         if(key !== undefined){
           if(isMap(coll)) return coll.get(key);
           else if(coll) return coll[key];
         }
       },
-      /** Set property `key` */
+      /**Assign value to property `key`.
+       * @memberof module:mcfud/core._
+       * @param {map|object} coll
+       * @param {string} key
+       * @param {any} value
+       * @return {any} previous value
+       */
       assoc(coll,key,value){
         if(arguments.length>3){
           if(((arguments.length-1)%2) !== 0)
@@ -558,33 +951,58 @@
           return prev;
         }
       },
-      /** Remove item from array */
-      disj(coll,obj){
-        const i = coll ? coll.indexOf(obj) : -1;
+      /**Remove an item from this array.
+       * @memberof module:mcfud/core._
+       * @param {array} coll
+       * @param {any} item
+       * @return {boolean}
+       */
+      disj(coll,item){
+        const i = coll ? coll.indexOf(item) : -1;
         if(i > -1) coll.splice(i,1);
         return i > -1;
       },
-      /** Append item to array */
-      conj(coll,...objs){
+      /**Append item to array.
+       * @memberof module:mcfud/core._
+       * @param {array} coll
+       * @param {...any} items
+       * @return {array}
+       */
+      conj(coll,...items){
         if(coll)
-          objs.forEach(o=> coll.push(o));
+          items.forEach(o=> coll.push(o));
         return coll;
       },
-      /** Make input into array */
+      /**Make input-string into array.
+       * @memberof module:mcfud/core._
+       * @param {string} arg
+       * @param {string|regex} sep
+       * @return {array}
+       */
       seq(arg,sep=/[,; \t\n]+/){
         if(typeof arg === "string")
           arg= arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isVec(arg)){arg = [arg]}
         return arg;
       },
-      /** true if collection has property `key` */
+      /**Check if collection has property `key`.
+       * @memberof module:mcfud/core._
+       * @param {array|map|object} coll
+       * @param {any} key
+       * @return {boolean}
+       */
       has(coll,key){
         return arguments.length===1 ? false
           : isMap(coll) ? coll.has(key)
           : isVec(coll) ? coll.indexOf(key) !== -1
           : isObj(coll) ? is.own(coll, key) : false;
       },
-      /** Add these keys to `des` only if the key is missing */
+      /**Add keys to `des` only if that key is absent.
+       * @memberof module:mcfud/core._
+       * @param {map|object} des
+       * @param {object} additions
+       * @return {map|object}
+       */
       patch(des,additions){
         _pre(isObj,(des=des||{}),"object");
         if(additions)
@@ -594,17 +1012,30 @@
           });
         return des;
       },
-      /** Deep clone */
+      /**Deep clone.
+       * @memberof module:mcfud/core._
+       * @param {any} obj
+       * @return {any} obj's clone
+       */
       clone(obj){
         return obj ? this.unpack(this.pack(obj)) : obj
       },
-      /** Merge others into `des` */
+      /**Merge other objects into `des`.
+       * @memberof module:mcfud/core._
+       * @param {object} des
+       * @param {...object} args
+       * @return {object}
+       */
       inject(des,...args){
         des=des || {};
         args.forEach(s=> s && Object.assign(des,s));
         return des;
       },
-      /** Deep copy array/array of arrays */
+      /**Deep copy of array/nested arrays.
+       * @memberof module:mcfud/core._
+       * @param {array} v
+       * @return {array}
+       */
       deepCopyArray(v){
         _pre(isVec,v,"array");
         const out = [];
@@ -613,21 +1044,21 @@
         return out;
       },
       /**
-       * Merge 2 objects together.
-       * @function
-       * @param {Object} original
-       * @param {Object} extended
-       * @return {Object} a new object
+       * Deep merge of 2 objects.
+       * @memberof module:mcfud/core._
+       * @param {object} original
+       * @param {object} extended
+       * @return {object} a new object
       */
       mergeEx(original, extended){
         return this.merge(this.merge({}, original), extended)
       },
       /**
-       * Merge 2 objects in place.
-       * @function
-       * @param {Object} original
-       * @param {Object} extended
-       * @return {Object} the modified original object
+       * Deep merge of 2 objects in-place.
+       * @memberof module:mcfud/core._
+       * @param {object} original
+       * @param {object} extended
+       * @return {object} the modified original object
       */
       merge(original, extended){
         let key,ext;
@@ -831,7 +1262,12 @@
         debounced.pending = pending
         return debounced
       },
-      /** Return a function that will return the negation of original func */
+      /**Create a function that will
+      * return the negation of original func.
+      * @memberof module:mcfud/core._
+      * @param {function} func
+      * @return {function} a wrapped function
+      */
       negate(func){
         _pre(isFun,func,"function");
         return function(...args){
@@ -840,11 +1276,11 @@
       },
       /**
        * Maybe pad a string (right side.)
-       * @function
-       * @param {String} str
-       * @param {Number} len
-       * @param {String} s
-       * @return {String}
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @param {number} len
+       * @param {string} s
+       * @return {string}
       */
       strPadRight(str, len, s){
         return (len -= str.length)>0 ?
@@ -852,11 +1288,11 @@
       },
       /**
        * Maybe pad a string (left side.)
-       * @function
-       * @param {String} str
-       * @param {Number} len
-       * @param {String} s
-       * @return {String}
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @param {number} len
+       * @param {string} s
+       * @return {string}
       */
       strPadLeft(str, len, s){
         return (len -= str.length)>0 ?
@@ -864,28 +1300,39 @@
       },
       /**
        * Safely split a string, null and empty strings are removed.
-       * @function
-       * @param {String} s
-       * @param {String} sep
-       * @return {Array.String}
+       * @memberof module:mcfud/core._
+       * @param {string} s
+       * @param {string} sep
+       * @return {string[]}
       */
       safeSplit(s, sep){
         return (s||"").trim().split(sep).filter(z=> z.length>0)
       },
-      /** Capitalize the first char */
+      /**Capitalize the first char.
+       * @memberof module:mcfud/core._
+       * @param {string} str
+       * @return {string}
+       */
       capitalize(str){
         return str.charAt(0).toUpperCase() + str.slice(1)
       },
       /**
        * Maybe pad the number with zeroes.
-       * @function
-       * @param {Number} num
-       * @param {Number} digits
-       * @return {String}
+       * @memberof module:mcfud/core._
+       * @param {number} num
+       * @param {number} digits
+       * @return {string}
       */
       prettyNumber(num, digits=2){
         return this.strPadLeft(Number(num).toString(), digits, "0")
       },
+      /**
+       * Pretty print millis in nice
+       * hour,minutes,seconds format.
+       * @memberof module:mcfud/core._
+       * @param {number} ms
+       * @return {string}
+       */
       prettyMillis(ms){
         let h,m,s= MFL(ms/1000);
         m=MFL(s/60);
@@ -903,27 +1350,42 @@
       },
       /**
        * Remove some arguments from the front.
-       * @function
-       * @param {Javascript.arguments} args
-       * @param {Number} num
-       * @return {Array} remaining arguments
+       * @memberof module:mcfud/core._
+       * @param {arguments} args
+       * @param {number} num
+       * @return {array} remaining arguments
       */
       dropArgs(args, num){
         return args.length>num ? Slicer.call(args, num) : []
       },
-      /** true if url is secure */
+      /**Check if url is secure.
+       * @memberof module:mcfud/core._
+       * @return {boolean}
+       */
       isSSL(){
         return window && window.location && window.location.protocol.indexOf("https") >= 0
       },
-      /** true if url is mobile */
+      /**Check if url is mobile.
+       * @memberof module:mcfud/core._
+       * @param {object} navigator
+       * @return {boolean}
+       */
       isMobile(navigator){
         return navigator && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
       },
-      /** true if browser is safari */
+      /**Check if browser is safari.
+       * @memberof module:mcfud/core._
+       * @param {object} navigator
+       * @return {boolean}
+       */
       isSafari(navigator){
         return navigator && /Safari/.test(navigator.userAgent) && /Apple Computer/.test(navigator.vendor)
       },
-      /** true if cross-origin */
+      /**Check if url is cross-origin.
+       * @memberof module:mcfud/core._
+       * @param {string} url
+       * @return {boolean}
+       */
       isCrossOrigin(url) {
         let wnd=window;
         if(arguments.length===2 &&
@@ -936,35 +1398,84 @@
             return o != wnd.location.origin;
           }
         }
-      }
-    };
-    //browser only--------------------------------------------------------------
-    if(doco){
-      _.addEvent=function(event,target,cb,arg){
+      },
+      /**
+       * Add an event listener to this target.
+       * @memberof module:mcfud/core._
+       * @param {string} event
+       * @param {any} target
+       * @param {callback} cb
+       * @param {any} arg
+       */
+      addEvent(event,target,cb,arg){
         if(isVec(event) && arguments.length===1)
           event.forEach(e=> this.addEvent.apply(this, e));
-        else
-          target.addEventListener(event,cb,arg);
-      };
-      _.delEvent=function(event,target,cb,arg){
+        else if(isFun(target.addEventListener)){
+          target.addEventListener(event,cb,arg)
+        }
+      },
+      /**Remove this event listener from this target.
+       * @memberof module:mcfud/core._
+       * @param {string} event
+       * @param {any} target
+       * @param {callback} cb
+       * @param {any} arg
+       */
+      delEvent(event,target,cb,arg){
         if(isVec(event) && arguments.length===1)
           event.forEach(e => this.delEvent.apply(this, e));
-        else
-          target.removeEventListener(event,cb,arg);
-      };
-    }
+        else if(isFun(target.removeEventListener)){
+          target.removeEventListener(event,cb,arg)
+        }
+      }
+    };
+
     /**
-     * @private
-     * @var {object}
+     * @namespace module:mcfud/core.dom
      */
     const dom={
+      /**Get a list of the document's elements that
+       * match the specified selector(s).
+       * @memberof module:mcfud/core.dom
+       * @param {string} sel a valid CSS selector
+       * @return {NodeList}
+       */
       qSelector(sel){ return doco.querySelectorAll(sel) },
+      /**Get the element whose id property
+       * matches the specified string.
+       * @memberof module:mcfud/core.dom
+       * @param {string} id
+       * @return {Element} undefined if not found
+       */
       qId(id){ return doco.getElementById(id) },
+      /**Get the parent node.
+       * @memberof module:mcfud/core.dom
+       * @param {Node}
+       * @return {Node} undefined if not found
+       */
       parent(e){ if(e) return e.parentNode },
+      /**Adds a node to the parent, will be added to the end.
+       * @memberof module:mcfud/core.dom
+       * @param {Node} par
+       * @param {Node}
+       * @return {Node} the child
+       */
       conj(par,child){ return par.appendChild(child) },
+      /**Get a live HTMLCollection of elements with the given tag name.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {string} ns namespaceURI
+       * @return {HTMLCollection}
+       */
       byTag(tag, ns){
         return !isStr(ns) ? doco.getElementsByTagName(id)
                           : doco.getElementsByTagNameNS(ns,tag) },
+      /**Get or set attributes on this element.
+       * @memberof module:mcfud/core.dom
+       * @param {Element} e
+       * @param {object|string} attrs
+       * @return {Element} e
+       */
       attrs(e, attrs){
         if(!isObj(attrs) && attrs){
           if(arguments.length > 2)
@@ -975,6 +1486,12 @@
           _.doseq(attrs, (v,k)=> e.setAttribute(k,v));
         return e;
       },
+      /**Get or set CSS styles on this element.
+       * @memberof module:mcfud/core.dom
+       * @param {Element} e
+       * @param {object|string} styles
+       * @return {Element} e
+       */
       css(e, styles){
         if(!isObj(styles) && styles){
           if(arguments.length > 2)
@@ -985,18 +1502,39 @@
           _.doseq(styles, (v,k)=> e.style[k]=v);
         return e;
       },
+      /**Insert a container node between the child and it's current parent,
+       * for example, par <- child will become par <- wrapper <- child.
+       * @memberof module:mcfud/core.dom
+       * @param {Node} child
+       * @param {Node} wrapper
+       * @return {Node} wrapper
+       */
       wrap(child,wrapper){
         const p=child.parentNode;
         wrapper.appendChild(child);
         p.appendChild(wrapper);
         return wrapper;
       },
+      /**Create a new element, and maybe assign attributes/styles.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {object} attributes
+       * @param {object} styles
+       * @return {Element}
+       */
       newElm(tag, attrs, styles){
         const e = doco.createElement(tag);
         this.attrs(e,attrs);
         this.css(e,styles);
         return e;
       },
+      /**Create a new text node, and maybe assign attributes/styles.
+       * @memberof module:mcfud/core.dom
+       * @param {string} tag
+       * @param {object} attributes
+       * @param {object} styles
+       * @return {Node}
+       */
       newTxt(tag, attrs, styles){
         const e = doco.createTextNode(tag);
         this.attrs(e,attrs);
@@ -1004,72 +1542,110 @@
         return e;
       }
     };
-    /**
-     * @private
-     * @function
-     */
-    const EventBus=function(){
-      let _tree= _.jsMap();
-      let NULL={};
-      let ZA=[];
-      return{
-        sub(subject,cb,ctx,extras){
-          let event=subject[0],
-              target=subject[1];
-          //handle multiple events in one string
-          _.seq(event).forEach(e=>{
-            if(!cb) cb=e;
-            if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-            if(!cb) throw "Error: no callback for sub()";
-            if(!_tree.has(e)) _tree.set(e, _.jsMap());
-            let m= _tree.get(e);
-            target=target||NULL;
-            !m.has(target) && m.set(target,[]);
-            m.get(target).push([cb,ctx,extras]);
-          });
-        },
-        pub(subject,...args){
-          let m,t,
-              event=subject[0],
-              target=subject[1] || NULL;
-          _.seq(event).forEach(e=>{
-            t=_tree.get(e);
-            m= t && t.get(target);
-            m && m.forEach(s=>{
-              s[0].apply(s[1],args.concat(s[2] || ZA));
-            });
-          });
-        },
-        reset(){
-          _tree.clear()
-        },
-        unsub(subject,cb,ctx){
-          let event=subject[0],
-              target=subject[1] || NULL;
-          let t,m, es=_.seq(event);
-          es.forEach(e=>{
-            t= _tree.get(e);
-            m= t && t.get(target);
-            if(m){
-              if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
-              if(!cb){
-                //t.delete(target);
-              }
-              else
-                for(let i= m.length-1;i>=0;--i)
-                    if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
-            }
-          });
-        }
-      };
-    };
 
-    return{
-      is: is,
-      u: _,
-      dom: doco?dom:{},
-      EventBus: EventBus
-    };
+    /**
+     * @ignore
+     */
+    const NULL={};
+    /**
+     * @ignore
+     */
+    const ZA=[];
+    /**
+     * @memberof module:mcfud/core
+     * @class
+     */
+    class CEventBus{
+      /**
+       * @constructor
+       */
+      constructor(){
+        this._tree=new Map()
+      }
+      /**
+       * Subscribe to an event.
+       * @param {tuple} [event,target]
+       * @param {callback} cb
+       * @param {any} ctx
+       * @param {array} extras
+       */
+      sub(subject,cb,ctx,extras){
+        let event=subject[0],
+            target=subject[1];
+        //handle multiple events in one string
+        _.seq(event).forEach(e=>{
+          if(!cb) cb=e;
+          if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+          if(!cb) throw "Error: no callback for sub()";
+          if(!this._tree.has(e)) this._tree.set(e, _.jsMap());
+          let m= this._tree.get(e);
+          target=target||NULL;
+          !m.has(target) && m.set(target,[]);
+          m.get(target).push([cb,ctx,extras]);
+        });
+      }
+      /**
+       * Trigger an event.
+       * @param {tuple} [event,target]
+       * @param {...any} args
+       */
+      pub(subject,...args){
+        let m,t,
+            event=subject[0],
+            target=subject[1] || NULL;
+        _.seq(event).forEach(e=>{
+          t=this._tree.get(e);
+          m= t && t.get(target);
+          m && m.forEach(s=>{
+            s[0].apply(s[1],args.concat(s[2] || ZA));
+          });
+        });
+      }
+      /**
+       * Remove all subscribers.
+       */
+      reset(){
+        this._tree.clear()
+      }
+      /**
+       * Unsubscribe to an event.
+       * @param {tuple} [event,target]
+       * @param {callback} cb
+       * @param {any} ctx
+       */
+      unsub(subject,cb,ctx){
+        let event=subject[0],
+            target=subject[1] || NULL;
+        let t,m, es=_.seq(event);
+        es.forEach(e=>{
+          t= this._tree.get(e);
+          m= t && t.get(target);
+          if(m){
+            if(isStr(cb)) { ctx=ctx || target; cb=ctx[cb]; }
+            if(!cb){
+              //t.delete(target);
+            }
+            else
+              for(let i= m.length-1;i>=0;--i)
+                  if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
+          }
+        });
+      }
+    }
+
+    /**Create a pub/sub event manager.
+     * @memberof module:mcfud/core
+     * @return {module:mcfud/core.CEventBus}
+     */
+    function EventBus(){ return new CEventBus() }
+
+    //browser only--------------------------------------------------------------
+    if(doco){ _.dom=dom }
+    _$.EventBus=EventBus;
+    _$.is=is;
+    _$.u=_;
+
+    return _$;
   }
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

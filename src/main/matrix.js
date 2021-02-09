@@ -66,7 +66,9 @@
       return _matnew(rows,cols, _.fill(rows*cols,0))
     }
 
-    /** @module matrix */
+    /**
+     * @module matrix
+     */
     const _$={
       V4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
       V3(x=0,y=0,z=0){ return [x,y,z] },
