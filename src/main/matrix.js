@@ -26,108 +26,92 @@
     const TAN= Math.tan;
     const MFL=Math.floor;
     const {u:_, is}= Core;
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _arrayEq(a1,a2){
       //2 numeric arrays are equal?
       for(let i=0;i<a1.length;++i){
-        if(!_.feq(a1[i],a2[i]))
-          return false;
-      }
+        if(!_.feq(a1[i],a2[i])) return false; }
       return true
     }
-    /**
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _odd(n){ return n%2 !== 0 }
-    /**
-     * Index where matrix is mapped to 1D array.
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _cell(rows,cols,r,c){
+      //index where matrix is mapped to 1D array.
       return (c-1) + ((r-1)*cols)
     }
-    /**Cells are provided.
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _matnew(rows,cols,cells){
       return {dim: [rows,cols], cells: cells}
     }
-    /**Cells are all zeroes.
-     * @private
-     * @function
-     */
+
+    /** @ignore */
     function _new_mat(rows,cols){
       return _matnew(rows,cols, _.fill(rows*cols,0))
     }
 
     /**
-     * @module matrix
+     * @module mcfud/matrix
      */
     const _$={
+      /** @ignore */
       V4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
+      /**Create a 3D vector.
+       * @memberof module:mcfud/matrix
+       * @param {number} x
+       * @param {number} y
+       * @param {number} z
+       * @return {number[]} [x,y,z]
+       */
       V3(x=0,y=0,z=0){ return [x,y,z] },
-      /**
-       * Dot product of 3D vectors.
-       * @function
+      /**Dot product of 3D vectors.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
        * @return {number}
-       * @memberof module:matrix
       */
       dot(a,b){
         return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
       },
-      /**
-       * Cross product of 3D vectors.
-       * @memberof module:matrix
-       * @function
+      /**Cross product of 2 3D vectors.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
-       * @return {number[]}
+       * @return {number[]} 3D vector
        */
       cross(a,b){
         return this.V3(a[1] * b[2] - a[2] * b[1],
                        a[2] * b[0] - a[0] * b[2],
                        a[0] * b[1] - a[1] * b[0])
       },
-      /**
-       * The length of this vector, squared.
-       * @memberof module:matrix
-       * @function
+      /**The length of this vector, squared.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @return {number}
        */
       len2(a){ return this.dot(a,a) },
-      /**
-       * The length of this vector.
-       * @memberof module:matrix
-       * @function
+      /**The length of this vector.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @return {number}
        */
       len(a){ return Math.sqrt(this.len2(a)) },
-      /**
-       * Normalize this vector, if possible.
-       * @memberof module:matrix
-       * @function
+      /**Normalize this vector, if possible.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
-       * @return {number[]|undefined} a unit vector
+       * @return {number[]} undefined if error
        */
       unit(a){
         let d=this.len(a);
         if(!_.feq0(d))
           return [a[0]/d, a[1]/d, a[2]/d];
       },
-      /**
-       * Vector operation A - B.
-       * @memberof module:matrix
-       * @function
+      /**Vector operation A - B.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
        * @return {number[]}
@@ -136,10 +120,8 @@
         return is.num(b) ? this.V3(a[0]-b, a[1]-b, a[2]-b)
                          : this.V3(a[0]-b[0], a[1]-b[1], a[2]-b[2])
       },
-      /**
-       * Vector operation A + B.
-       * @memberof module:matrix
-       * @function
+      /**Vector operation A + B.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
        * @return {number[]}
@@ -148,10 +130,8 @@
         return is.num(b) ? this.V3(a[0]+b, a[1]+b, a[2]+b)
                          : this.V3(a[0]+b[0], a[1]+b[1], a[2]+b[2])
       },
-      /**
-       * Vector operation A x B.
-       * @memberof module:matrix
-       * @function
+      /**Vector operation A x B.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
        * @return {number[]}
@@ -160,10 +140,8 @@
         return is.num(b) ? this.V3(a[0]*b, a[1]*b, a[2]*b)
                          : this.V3(a[0]*b[0], a[1]*b[1], a[2]*b[2])
       },
-      /**
-       * Vector operation A / B.
-       * @memberof module:matrix
-       * @function
+      /**Vector operation A / B.
+       * @memberof module:mcfud/matrix
        * @param {number[]} a
        * @param {number[]} b
        * @return {number[]}
@@ -172,25 +150,21 @@
         return is.num(b) ? this.V3(a[0]/b, a[1]/b, a[2]/b)
                          : this.V3(a[0]/b[0], a[1]/b[1], a[2]/b[2])
       },
-      /**
-       * Create a matrix.
-       * @memberof module:matrix
-       * @function
-       * @param {number[]} dim dimension of the matrix
-       * @param {...number} args values for the matrix (row major)
-       * @return {object} a new matrix
+      /**Create a matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number[]} [rows,cols]
+       * @param {...number} args values for the matrix (row-major)
+       * @return {object} new matrix {dim,cells}
        */
       matrix([rows,cols],...args){
         const sz= rows*cols;
         return args.length===0 ? _new_mat(rows,cols)
                                : _.assert(sz===args.length) && _matnew(rows,cols,args)
       },
-      /**
-       * Create an `Identity` matrix.
-       * memberof module:matrix
-       * @function
+      /**Create an `Identity` matrix.
+       * memberof module:mcfud/matrix
        * @param {number} sz  size of the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matIdentity(sz){
         const out=_.assert(sz>0) &&
@@ -199,48 +173,40 @@
           out[_cell(sz,sz,i+1,i+1)] = 1;
         return _matnew(sz, sz, out);
       },
-      /**
-       * Create a matrix of zeroes.
-       * memberof module:matrix
-       * @function
+      /**Create a matrix of zeroes.
+       * memberof module:mcfud/matrix
        * @param {number} sz  size of the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matZero(sz){
         return _.assert(sz>0) &&
                _matnew(sz,sz,_.fill(sz*sz,0))
       },
-      /**
-       * Get the rows of this matrix.
-       *
-       * For example, if the matrix is
+      /**Get the rows of this matrix,
+       * for example, if the matrix is
        * [1 0 0
        *  0 1 0
        *  0 0 1] then the rows majors are
        *  [1 0 0], [0 1 0], [0 0 1]
        *
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {Array[]}
+       * @return {number[][]}
        */
       matRowMajors(m){
         const [rows,cols]=m.dim;
         return _.partition(cols,m.cells)
       },
-      /**
-       * Get the cols of this matrix.
-       *
-       * For example, if the matrix is
+      /**Get the cols of this matrix,
+       * for example, if the matrix is
        * [1 2 3
        *  4 5 6
        *  7 8 9] then the column majors are
        *  [1 4 7], [2 5 8], [7 8 9]
        *
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {Array[]}
+       * @return {number[][]}
        */
       matColMajors(m){
         const [rows,cols]=m.dim;
@@ -254,25 +220,19 @@
         }
         return out;
       },
-      /**
-       * Create a 2x2 matrix.
-       *
-       * @memberof module:matrix
-       * @function
+      /**Create a 2x2 matrix.
+       * @memberof module:mcfud/matrix
        * @param {number} _11
        * @param {number} _12
        * @param {number} _21
        * @param {number} _22
-       * @return {object}
+       * @return {object} new matrix
        */
       mat2(_11,_12,_21,_22){
         return this.matrix([2,2],_11,_12,_21,_22)
       },
-      /**
-       * Create a 3x3 matrix.
-       *
-       * @memberof module:matrix
-       * @function
+      /**Create a 3x3 matrix.
+       * @memberof module:mcfud/matrix
        * @param {number} _11
        * @param {number} _12
        * @param {number} _13
@@ -282,16 +242,13 @@
        * @param {number} _31
        * @param {number} _32
        * @param {number} _33
-       * @return {object}
+       * @return {object} new matrix
        */
       mat3(_11,_12,_13,_21,_22,_23,_31,_32,_33){
         return this.matrix([3,3], _11,_12,_13,_21,_22,_23,_31,_32,_33)
       },
-      /**
-       * Create a 4x4 matrix.
-       *
-       * @memberof module:matrix
-       * @function
+      /**Create a 4x4 matrix.
+       * @memberof module:mcfud/matrix
        * @param {number} _11
        * @param {number} _12
        * @param {number} _13
@@ -308,7 +265,7 @@
        * @param {number} _42
        * @param {number} _43
        * @param {number} _44
-       * @return {object}
+       * @return {object} new matrix
        */
       mat4(_11,_12,_13,_14,_21,_22,_23,_24,
            _31,_32,_33,_34, _41,_42,_43,_44){
@@ -316,10 +273,8 @@
                            _11,_12,_13,_14,_21,_22,_23,_24,
                            _31,_32,_33,_34,_41,_42,_43,_44)
       },
-      /**
-       * Check if these 2 matrices are equal.
-       * @memberof module:matrix
-       * @function
+      /**Check if these 2 matrices are equal.
+       * @memberof module:mcfud/matrix
        * @param {object} a matrix A
        * @param {object} b matrix B
        * @return {boolean}
@@ -328,13 +283,10 @@
         return a.dim[0]===b.dim[0] &&
                a.dim[1]===b.dim[1] ? _arrayEq(a.cells,b.cells) : false
       },
-      /**
-       * Transpose this matrix.
-       *
-       * @memberof module:matrix
-       * @function
+      /**Transpose this matrix.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matXpose(m){
         const [rows,cols]= m.dim;
@@ -344,23 +296,20 @@
           tmp.push(m.cells[MFL(i/rows) + cols*(i%rows)]);
         return _matnew(cols,rows,tmp)
       },
-      /**
-       * Multiply this matrix with a scalar value.
-       * @memberof module:matrix
-       * @function
+      /**Multiply this matrix with a scalar value.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @param {number} n scalar
-       * @return {object}
+       * @return {object} new matrix
        */
       matScale(m,n){
         return _matnew(m.dim[0],m.dim[1],m.cells.map(x=> x*n))
       },
       /** Multiply these 2 matrices.
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} a matrix A
        * @param {object} b matrix B
-       * @return {object}
+       * @return {object} new matrix
        */
       matMult(a,b){
         let [aRows,aCols]=a.dim;
@@ -378,8 +327,7 @@
         return _matnew(aRows,bCols,out)
       },
       /**Find the `Determinent` this matrix.
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @return {number}
        */
@@ -395,19 +343,18 @@
           return acc + m.cells[j] * (_odd(j) ? -v : v)
         },0)
       },
+      /** @ignore */
       _matDet2x2(m){
         _.assert(m.cells.length===4);
         return m.cells[0]*m.cells[3] - m.cells[1] * m.cells[2]
       },
       /** Extract a portion of a matrix by
        * getting rid of a row and col.
-       *
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @param {number} row the row to cut (1-indexed)
        * @param {number} col the col to cut (1-indexed)
-       * @return {object}
+       * @return {object} new matrix
        */
       matCut(m,row,col){
         let [rows,cols]=m.dim;
@@ -426,10 +373,9 @@
        *  A "minor" is the determinant of the square matrix
        *  formed by deleting one row and one column from
        *  some larger square matrix.
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matMinor(m){
         let [rows,cols]=m.dim;
@@ -444,6 +390,7 @@
           }
         return _matnew(rows,cols,tmp)
       },
+      /** @ignore */
       _matMinor2x2(m){
         return _.assert(m.cells.length===4) &&
                this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
@@ -452,11 +399,9 @@
        * The cofactor is a signed minor.
        * The cofactor of aij is denoted by Aij and is defined as
        * Aij = (-1)^(i+j) Mij
-       *
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m
-       * @return {object}
+       * @return {object} new matrix
        */
       matCofactor(m){
         let minor=this.matMinor(m);
@@ -470,19 +415,16 @@
           }
         return _matnew(rows,cols,tmp)
       },
-      /**
-       * Find the adjugate of a square matrix.
-       *
+      /**Find the adjugate of a square matrix.
        * An `Adjugate` is the transpose of its cofactor matrix.
-       * @memberof module:matrix
-       * @function
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matAdjugate(m){
         return this.matXpose(this.matCofactor(m))
       },
-      /** Inverse a matrix */
+      /** @ignore */
       _minv2x2(m){
         let [rows,cols]=m.dim;
         _.assert(m.cells.length===4&&rows===2&&cols===2);
@@ -497,11 +439,10 @@
         }
         return r
       },
-      /** Find the `Inverse` of this matrix.
-       * @memberof module:matrix
-       * @function
+      /**Find the `Inverse` of this matrix.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {object}
+       * @return {object} new matrix
        */
       matInv(m){
         let [rows,cols]=m.dim;
@@ -511,12 +452,10 @@
         return _.feq0(d) ? this.matIdentity(rows)
                          : this.matScale(this.matAdjugate(m), 1/d)
       },
-      /** Matrix from column major */
-      /**
-       * @memberof module:matrix
-       * @function
-       * @param {Array[]} list of column values
-       * @return {object}
+      /**Matrix from column majors.
+       * @memberof module:mcfud/matrix
+       * @param {number[][]} list of column values
+       * @return {object} new matrix
        */
       matFromColMajor(arr){
         let numCols= arr.length,
@@ -530,11 +469,10 @@
         }
         return out;
       },
-      /** Get the list of `Column Major` vectors from this matrix.
-       * @memberof module:matrix
-       * @function
+      /**Get the list of `Column Major` vectors from this matrix.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
-       * @return {object}
+       * @return {object} {cells,depth}
        */
       matToColMajor(m){
         const [rows,cols]=m.dim;
@@ -545,12 +483,10 @@
           }
         return {cells: out, depth:rows};
       },
-      /** Create a 3D scale matrix.
-       *
-       * @memberof module:matrix
-       * @function
-       * @param {number[]} V3 x,y,z values
-       * @return {object}
+      /**Create a 3D scale matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number[]} V3 3D vector
+       * @return {object} new matrix
        */
       scale3D(V3){
         let out=this.matIdentity(4);
@@ -559,12 +495,10 @@
         out.cells[_cell(4,4,3,3)]=V3[2];
         return out;
       },
-      /** Create a 3D translation matrix.
-       *
-       * @memberof module:matrix
-       * @function
-       * @param {number[]} V3 x,y,z values
-       * @return {object}
+      /**Create a 3D translation matrix.
+       * @memberof module:mcfud/matrix
+       * @param {number[]} V3 3d vector
+       * @return {object} new matrix
        */
       translate3D(V3){
         let out=this.matIdentity(4);
@@ -573,14 +507,12 @@
         out.cells[_cell(4,4,4,3)]=V3[2];
         return out;
       },
-      /** Create a 3D rotation matrix.
-       *  rotation order *IMPORTANT*
-       * @memberof module:matrix
-       * @function
+      /**Create a 3D rotation matrix, rotation order *IMPORTANT*
+       * @memberof module:mcfud/matrix
        * @param {number} roll x rotation in radians.
        * @param {number} pitch y rotation in radians.
        * @param {number} yaw z rotation in radians.
-       * @return {object}
+       * @return {object} new matrix
        */
       rot3D(roll,pitch,yaw){
         //x,y,z order is important, matrix not commutative
@@ -588,12 +520,11 @@
                             this.matMult(this.yRot3D(pitch),
                                          this.xRot3D(roll)));
       },
-      /** Multiply matrix and  vector.
-       * @memberof module:matrix
-       * @function
+      /**Multiply matrix and  vector.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @param {number[]} v the vector
-       * @return {number[]}
+       * @return {number[]} vector
        */
       matVMult(m,v){
         let cols=m.dim[1];
@@ -604,20 +535,18 @@
         r.cells=null;
         return c
       },
-      /** Rotate a 2x2 matrix, counter-clockwise.
-       * @memberof module:matrix
-       * @function
+      /**Rotate a 2x2 matrix, counter-clockwise.
+       * @memberof module:mcfud/matrix
        * @param {number} rot in radians
-       * @return {object}
+       * @return {object} new matrix
        */
       rot2D(rot){
         return this.mat2(COS(rot),-SIN(rot),SIN(rot),COS(rot))
       },
-      /** Rotate on x-axis.
-       * @memberof module:matrix
-       * @function
+      /**Rotate on x-axis.
+       * @memberof module:mcfud/matrix
        * @param {number} rad value in radians
-       * @return {object}
+       * @return {object} new matrix
        */
       xRot3D(rad){
         return this.mat4(1,0,0,0,
@@ -625,11 +554,10 @@
                          0,SIN(rad),COS(rad),0,
                          0,0,0,1)
       },
-      /** Rotate on y-axis.
-       * @memberof module:matrix
-       * @function
+      /**Rotate on y-axis.
+       * @memberof module:mcfud/matrix
        * @param {number} rad value in radians
-       * @return {object}
+       * @return {object} new matrix
        */
       yRot3D(rad){
         return this.mat4(COS(rad),0,SIN(rad),0,
@@ -637,11 +565,10 @@
                          -SIN(rad), 0, COS(rad), 0,
                          0,0,0,1)
       },
-      /** Rotate on z-axis.
-       * @memberof module:matrix
-       * @function
+      /**Rotate on z-axis.
+       * @memberof module:mcfud/matrix
        * @param {number} rad value in radians
-       * @return {object}
+       * @return {object} new matrix
        */
       zRot3D(rad){
         return this.mat4(COS(rad), -SIN(rad), 0, 0,
@@ -649,9 +576,8 @@
                          0, 0, 1, 0,
                          0, 0, 0, 1)
       },
-      /** True if m is an `identity` matrix.
-       * @memberof module:matrix
-       * @function
+      /**Check if m is an `identity` matrix.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @return {boolean}
        */
@@ -671,9 +597,8 @@
           return false;
         }
       },
-      /** True if matrix is `orthogonal`.
-       * @memberof module:matrix
-       * @function
+      /**Check if matrix is `orthogonal`.
+       * @memberof module:mcfud/matrix
        * @param {object} m the matrix
        * @return {boolean}
        */

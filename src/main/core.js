@@ -27,8 +27,9 @@
    * @function
    */
   function _module(){
-    const [Slicer,toStr]=[Array.prototype.slice, Object.prototype.toString];
-    const MFL=Math.floor;
+    const MFL=Math.floor,
+          Slicer=Array.prototype.slice,
+          toStr=Object.prototype.toString;
     function isObj(obj){ return toStr.call(obj) == "[object Object]" }
     function isNil(obj){ return toStr.call(obj) == "[object Null]" }
     function isFun(obj){ return toStr.call(obj) == "[object Function]" }
@@ -38,35 +39,47 @@
     function isStr(obj){ return toStr.call(obj) == "[object String]" }
     function isNum(obj){ return toStr.call(obj) == "[object Number]" }
     function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
-    function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
     function isUndef(o){ return o===undefined }
+    function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
+
+    /**
+     * @private
+     * @var {function}
+     */
     let PRNG= seed_rand?seed_rand():new Math.seedrandom();
+
+    /** @ignore */
     function _randXYInclusive(min,max){
-      return MFL(PRNG() * (max-min+1) + min)
-    }
+      return MFL(PRNG() * (max-min+1) + min) }
+
+    /** @ignore */
     function _preAnd(conds,msg){
       for(let c,i=0;i<conds.length;++i){
         c=conds[i];
         if(!c[0](c[1]))
-          throw new TypeError(`wanted ${msg}`);
-      }
+          throw new TypeError(`wanted ${msg}`) }
       return true;
     }
+
+    /** @ignore */
     function _preOr(conds,msg){
       for(let c,i=0;i<conds.length;++i){
         c=conds[i];
         if(c[0](c[1])){return true}
       }
-      throw new TypeError(`wanted ${msg}`);
-    }
+      throw new TypeError(`wanted ${msg}`); }
+
+    /** @ignore */
     function _pre(f,arg,msg){
-      if(!f(arg))
-        throw new TypeError(`wanted ${msg}`);
-      return true;
-    }
-    //regexes handling file paths
+      if(!f(arg)){
+        throw new TypeError(`wanted ${msg}`) } else {return true} }
+
+    //-- regex handling file names
     const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
+    //-- regex handling file extensions
     const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
+
+    /** @ignore */
     function _fext(path,incdot){
       let t=FEXT.exec(path);
       if(t && t[1]){
@@ -75,16 +88,20 @@
       }else{ t="" }
       return t;
     }
+
     /**
      * private
      * @var {number}
      */
     const EPSILON= 0.0000000001;
+
     /**
      * @private
      * @var {number}
-      */
+     */
     let _seqNum= 0;
+
+    /** @ignore */
     function _everyF(F,_1,args){
       let b=F(_1);
       switch(args.length){
@@ -105,81 +122,71 @@
      * @namespace module:mcfud/core.is
      */
     const is={
-      /**
-       * Check if input(s) are type `function`.
+      /**Check if input(s) are type `function`.
        * @memberof module:mcfud/core.is
-       * @param {*} f anything
-       * @param {...*} args more of anything
+       * @param {any} f anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       fun(f,...args){ return _everyF(isFun,f,args) },
-      /**
-       * Check if input(s) are type `string`.
+      /**Check if input(s) are type `string`.
        * @memberof module:mcfud/core.is
-       * @param {*} s anything
-       * @param {...*} args more of anything
+       * @param {any} s anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       str(s,...args){ return _everyF(isStr,s,args) },
       //void0(obj){ return obj === void 0 },
-      /**
-       * Check if input(s) are type `undefined`.
+      /**Check if input(s) are type `undefined`.
        * @memberof module:mcfud/core.is
-       * @param {*} obj anything
-       * @param {...*} args more of anything
+       * @param {any} obj anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       undef(o,...args){ return _everyF(isUndef,o,args) },
-      /**
-       * Check if input(s) are type `Map`.
+      /**Check if input(s) are type `Map`.
        * @memberof module:mcfud/core.is
-       * @param {*} m anything
-       * @param {...*} args more of anything
+       * @param {any} m anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       map(m,...args){ return _everyF(isMap,m,args) },
-      /**
-       * Check if input(s) are type `number`.
+      /**Check if input(s) are type `number`.
        * @memberof module:mcfud/core.is
-       * @param {*} n anything
-       * @param {...*} args more of anything
+       * @param {any} n anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       num(n,...args){ return _everyF(isNum,n,args) },
-      /**
-       * Check if input(s) are type `array`.
+      /**Check if input(s) are type `array`.
        * @memberof module:mcfud/core.is
-       * @param {*} v anything
-       * @param {...*} args more of anything
+       * @param {any} v anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       vec(v,...args){ return _everyF(isVec,v,args) },
-      /**
-       * Check if input(s) are type `object`.
+      /**Check if input(s) are type `object`.
        * @memberof module:mcfud/core.is
-       * @param {*} o anything
-       * @param {...*} args more of anything
+       * @param {any} o anything
+       * @param {...any} args more of anything
        * @return {boolean}
        */
       obj(o,...args){ return _everyF(isObj,o,args) },
-      /**
-       * True if this collection is `not empty`.
+      /**Check if this collection is `not empty`.
        * @memberof module:mcfud/core.is
-       * @param {object|array|Map} o value
+       * @param {object|array|map} o
        * @return {boolean}
        */
-      some(obj){ return _.size(obj) > 0 },
-      /**
-       * True if this collection is `empty`.
+      some(o){ return _.size(o) > 0 },
+      /**Check if this collection is `empty`.
        * @memberof module:mcfud/core.is
-       * @param {object|array|Map} o value
+       * @param {object|array|map} o
        * @return {boolean}
        */
-      none(obj){ return _.size(obj) === 0 },
-      /**
-       * True if this property belongs to this object.
+      none(o){ return _.size(o) === 0 },
+      /**Check if this property belongs to this object.
        * @memberof module:mcfud/core.is
-       * @param {object} o value
+       * @param {object} o
        * @param {string} p name of the property
        * @return {boolean}
        */
@@ -214,44 +221,44 @@
       //flteq(a,b){ return a<b || this.feq(a,b) },
       /**Serialize input to JSON.
        * @memberof module:mcfud/core._
-       * @param {*} o anything
+       * @param {any} o anything
        * @return {string} JSON string
        */
       pack(o){ return JSON.stringify(o) },
       /**Deserialize from JSON.
        * @memberof module:mcfud/core._
        * @param {string} input
-       * @return {*} valid js data
+       * @return {any} valid js data
        */
       unpack(s){ return JSON.parse(s) },
-      /**Put x,y into an array.
+      /**Package x,y as a tuple.
        * @memberof module:mcfud/core._
        * @param {number} x
        * @param {number} y
        * @return {number[]} [x,y]
        */
       v2(x=0,y=0){ return [x,y] },
-      /**Put x,y into an object.
+      /**Package x,y as an object.
        * @memberof module:mcfud/core._
        * @param {number} x
        * @param {number} y
        * @return {object} {x,y}
        */
       p2(x=0,y=0){ return {x: x, y: y} },
-      /**If input isn't a number return 0 else return input.
+      /**Unless n is a number, return it else 0.
        * @memberof module:mcfud/core._
        * @param {number} n
-       * @return {number}
+       * @return {number} n or 0
        */
       numOrZero(n){ return isNaN(n) ? 0 : n },
-      /**If `a` is undefined, return b else return a.
+      /**Unless a is defined, return it else b.
        * @memberof module:mcfud/core._
-       * @param {*} a
-       * @param {*} b
-       * @return {*}
+       * @param {any} a
+       * @param {any} b
+       * @return {any} a or b
        */
       or(a,b){ return a===undefined?b:a },
-      /**Convert input into a number, if not return the default.
+      /**Coerce input into a number, if not return the default.
        * @memberof module:mcfud/core._
        * @param {string} input
        * @param {number} dft
@@ -272,7 +279,7 @@
                 this.toNum(arr[1],0),
                 this.toNum(arr[2],0)]
       },
-      /**Compare 2 version strings like a standard comparator.
+      /**Compare 2 version strings, like a standard comparator.
        * @memberof module:mcfud/core._
        * @param {string} v1
        * @param {string} v2
@@ -295,7 +302,7 @@
       pdef(obj){
         return (obj.configurable=true) && (obj.enumerable=true) && obj
       },
-      /**Look for files matching any one of these extensions
+      /**Look for files matching any one of these extensions.
        * @memberof module:mcfud/core._
        * @param {string[]} list of file paths
        * @param {string[]} list of file extensions
@@ -325,20 +332,20 @@
         }
         return out;
       },
-      /**Returns keys of object or Map.
+      /**Get keys of object/map.
        * @memberof module:mcfud/core._
-       * @param {object|Map} o
+       * @param {object|map} o
        * @return {string[]}
        */
       keys(o){
         return isMap(o) ? Array.from(o.keys())
                         : (isObj(o) ? Object.keys(o) : [])
       },
-      /**Clone object/Map but exclude these keys.
+      /**Clone object/map but exclude these keys.
        * @memberof module:mcfud/core._
-       * @param {object|Map} c
+       * @param {object|map} c
        * @param {string[]} keys to exclude
-       * @return {object|Map}
+       * @return {object|map}
        */
       selectNotKeys(c,keys){
         _preOr([[isMap,c],[isObj,c]],"map/object");
@@ -349,9 +356,9 @@
       },
       /**Choose these keys from object/map.
        * @memberof module:mcfud/core._
-       * @param {object|Map} c
+       * @param {object|map} c
        * @param {string[]} keys to copy
-       * @return {object|Map}
+       * @return {object|map}
        */
       selectKeys(c,keys){
         _preOr([[isMap,c],[isObj,c]],"map/object");
@@ -388,7 +395,7 @@
       /**Check if target has none of these keys.
        * @memberof module:mcfud/core._
        * @param {string[]} keys to test
-       * @param {object|Map} target
+       * @param {object|map} target
        * @return {boolean}
        */
       noSuchKeys(keys,target){
@@ -478,15 +485,13 @@
       /**Creates a javascript Map.
        * @memberof module:mcfud/core._
        * @param {...any} args data to initialize the Map
-       * @return {Map}
+       * @return {map}
        */
       jsMap(...args){
         _pre(isEven,args.length,"even n# of args");
         let out=new Map();
         for(let i=0;i<args.length;){
-          out.set(args[i],args[i+1]);
-          i+=2;
-        }
+          out.set(args[i],args[i+1]); i+=2; }
         return out;
       },
       /**Creates a javascript object.
@@ -498,32 +503,30 @@
         _pre(isEven,args.length,"even n# of args");
         let out={};
         for(let i=0;i<args.length;){
-          out[args[i]]=args[i+1];
-          i+=2;
-        }
+          out[args[i]]=args[i+1]; i+=2; }
         return out;
       },
       /**Creates a javascript array.
        * @memberof module:mcfud/core._
        * @param {...any} args data to initialize array
-       * @return {array}
+       * @return {any[]}
        */
       jsVec(...args){ return args.length===0 ? [] : args.slice() },
       /**Get the last index.
        * memberof module:mcfud/core._
-       * @param {array} c
+       * @param {any[]} c
        * @return {number} -1 if c is empty or not an array
        */
       lastIndex(c){ return (isVec(c) && c.length>0) ? c.length-1 : -1 },
       /**Get the first element.
        * @memberof module:mcfud/core._
-       * @param {array} c
+       * @param {any[]} c
        * @return {any} undefined if c is empty or not an array
        */
       first(c){ if(isVec(c) && c.length>0) return c[0] },
       /**Get the last element.
        * @memberof module:mcfud/core._
-       * @param {array} c
+       * @param {any[]} c
        * @return {any} undefined if c is empty or not an array
        */
       last(c){ if(isVec(c) && c.length>0) return c[c.length-1] },
@@ -575,14 +578,14 @@
       max(...args){ return Math.max(...args) },
       /**Take a slice of an array.
        * @memberof module:mcfud/core._
-       * @param {array} a source
+       * @param {any[]} a source
        * @param {number} i start index
-       * @return {array}
+       * @return {any[]}
        */
       slice(a,i){ return Slicer.call(a, i) },
       /**Check if *every* item in the list equals v.
        * @memberof module:mcfud/core._
-       * @param {array} c
+       * @param {any[]} c
        * @param {any|function} v
        * @return {boolean}
        */
@@ -613,9 +616,9 @@
       /**Copy all or some items from `src` to `des`.
        * Does not *grow* the `des` array.
        * @memberof module:mcfud/core._
-       * @param {array} des
-       * @param {array} src
-       * @return {array}
+       * @param {any[]} des
+       * @param {any[]} src
+       * @return {any[]}
        */
       copy(des,src=[]){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
@@ -625,9 +628,9 @@
       },
       /**Append all or some items from `src` to `des`.
        * @memberof module:mcfud/core._
-       * @param {array} des
-       * @param {array} src
-       * @return {array}
+       * @param {any[]} des
+       * @param {any[]} src
+       * @return {any[]}
        */
       append(des,src=[]){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
@@ -636,21 +639,20 @@
       },
       /**Fill array with v.
        * @memberof module:mcfud/core._
-       * @param {number|array} a if number, creates array of `a` size
+       * @param {number|any[]} a if number, creates array of `a` size
        * @param {number|function} v
-       * @return {array}
+       * @return {any[]}
        */
       fill(a,v){
         if(isNum(a)){a= new Array(a)}
-        if(isVec(a)){
+        if(isVec(a))
           for(let i=0;i<a.length;++i)
             a[i]= isFun(v) ? v() : v;
-        }
         return a;
       },
       /**Get the size of this input.
        * @memberof module:mcfud/core._
-       * @param {object|array|string|Map|Set} o
+       * @param {object|array|string|map|set} o
        * @return {number}
        */
       size(o){
@@ -716,9 +718,9 @@
       },
       /**Shuffle items in this array.
        * @memberof module:mcfud/core._
-       * @param {array} obj
+       * @param {any[]} obj
        * @param {boolean} inplace true by default
-       * @return {array}
+       * @return {any[]}
        */
       shuffle(obj,inplace=true){
         _pre(isVec,obj,"array");
@@ -733,8 +735,8 @@
       },
       /**Get the distinct items only.
        * @memberof module:mcfud/core._
-       * @param {array} arr
-       * @return {array}
+       * @param {any[]} arr
+       * @return {any[]}
        */
       uniq(arr){
         _pre(isVec,arr,"array");
@@ -753,7 +755,7 @@
       /**Functional map but return same type as `obj`.
        * @memberof module:mcfud/core._
        * @param {object|map|array} obj
-       * @param {function} fn
+       * @param {callback} fn
        * @param {any} target context for `fn`
        * @return {object|map|array}
        */
@@ -771,7 +773,7 @@
       /**`find` with extra arguments.
        * @memberof module:mcfud/core._
        * @param {object|map|array} coll
-       * @param {function} fn
+       * @param {callback} fn
        * @param {any} target
        * @return {array} [key,value] or undefined
        */
@@ -790,7 +792,7 @@
       /**`some` with extra arguments.
        * @memberof module:mcfud/core._
        * @param {object|map|array} coll
-       * @param {function} fn
+       * @param {callback} fn
        * @param {any} target
        * @return {any} undefined if not found
        */
@@ -809,9 +811,8 @@
       /**Each item in the array is an object,
       * invoke obj.method with extra args.
       * @memberof module:mcfud/core._
-      * @param {array} arr
+      * @param {object[]} arr
       * @param {string} key method-name
-      * @return {undefined}
       */
       invoke(arr,key){
         let args=Slicer.call(arguments,2);
@@ -822,27 +823,26 @@
       /**Run function after some delay.
        * @memberof module:mcfud/core._
        * @param {number} wait
-       * @param {function} f
+       * @param {callback} f
        * @return {number} timeout id
        */
       delay(wait,f){ return setTimeout(f,wait) },
       /**Create a once/repeat timer.
        * @memberof module:mcfud/core._
-       * @param {function} f
+       * @param {callback} f
        * @param {number} delay
        * @param {boolean} repeat default false
        * @return {object} timer handle, use handle.id to cancel
        */
       timer(f,delay=0,repeat=false){
-        return{
+        return {
           repeat: !!repeat,
           id: repeat ? setInterval(f,delay) : setTimeout(f,delay)
-        }
+        };
       },
       /**Cancel a timer.
        * @memberof module:mcfud/core._
        * @param {object} handle
-       * @return {undefined}
        */
       clear(handle){
         if(handle && handle.id)
@@ -851,10 +851,9 @@
       },
       /**Iterate a collection(array) in reverse.
        * @memberof module:mcfud/core._
-       * @param {array} coll
-       * @param {function} fn
+       * @param {any[]} coll
+       * @param {callback} fn
        * @param {any} target
-       * @return {undefined}
        */
       rseq(coll,fn,target){
         _pre(isVec,coll,"array");
@@ -865,9 +864,8 @@
       /**Iterate a collection.
        * @memberof module:mcfud/core._
        * @param {object|map|array} coll
-       * @param {function} fn
+       * @param {callback} fn
        * @param {any} target
-       * @return {undefined}
        */
       doseq(coll,fn,target){
         if(isVec(coll)){
@@ -880,7 +878,7 @@
       },
       /**Iterate but ignore nulls/undefs.
        * @memberof module:mcfud/core._
-       * @see {@link module:mcfud/core._.doseqEx}
+       * @see {@link module:mcfud/core._.doseq}
        */
       doseqEx(coll,fn,target){
         this.doseq(coll,(v,k)=>
@@ -953,9 +951,9 @@
       },
       /**Remove an item from this array.
        * @memberof module:mcfud/core._
-       * @param {array} coll
+       * @param {any[]} coll
        * @param {any} item
-       * @return {boolean}
+       * @return {boolean} true if removed
        */
       disj(coll,item){
         const i = coll ? coll.indexOf(item) : -1;
@@ -964,9 +962,9 @@
       },
       /**Append item to array.
        * @memberof module:mcfud/core._
-       * @param {array} coll
+       * @param {any[]} coll
        * @param {...any} items
-       * @return {array}
+       * @return {any[]} coll
        */
       conj(coll,...items){
         if(coll)
@@ -977,7 +975,7 @@
        * @memberof module:mcfud/core._
        * @param {string} arg
        * @param {string|regex} sep
-       * @return {array}
+       * @return {any[]}
        */
       seq(arg,sep=/[,; \t\n]+/){
         if(typeof arg === "string")
@@ -1033,8 +1031,8 @@
       },
       /**Deep copy of array/nested arrays.
        * @memberof module:mcfud/core._
-       * @param {array} v
-       * @return {array}
+       * @param {any[]} v
+       * @return {any[]}
        */
       deepCopyArray(v){
         _pre(isVec,v,"array");
@@ -1043,8 +1041,7 @@
           out[i]= isVec(v[i]) ? this.deepCopyArray(v[i]) : v[i];
         return out;
       },
-      /**
-       * Deep merge of 2 objects.
+      /**Deep merge of 2 objects.
        * @memberof module:mcfud/core._
        * @param {object} original
        * @param {object} extended
@@ -1053,8 +1050,7 @@
       mergeEx(original, extended){
         return this.merge(this.merge({}, original), extended)
       },
-      /**
-       * Deep merge of 2 objects in-place.
+      /**Deep merge of 2 objects in-place.
        * @memberof module:mcfud/core._
        * @param {object} original
        * @param {object} extended
@@ -1263,7 +1259,7 @@
         return debounced
       },
       /**Create a function that will
-      * return the negation of original func.
+      * flip the result of original func.
       * @memberof module:mcfud/core._
       * @param {function} func
       * @return {function} a wrapped function
@@ -1274,8 +1270,7 @@
           return !func.apply(this, args)
         }
       },
-      /**
-       * Maybe pad a string (right side.)
+      /**Maybe pad a string (right side.)
        * @memberof module:mcfud/core._
        * @param {string} str
        * @param {number} len
@@ -1286,8 +1281,7 @@
         return (len -= str.length)>0 ?
           str+new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) : str
       },
-      /**
-       * Maybe pad a string (left side.)
+      /**Maybe pad a string (left side.)
        * @memberof module:mcfud/core._
        * @param {string} str
        * @param {number} len
@@ -1298,8 +1292,7 @@
         return (len -= str.length)>0 ?
           new Array(Math.ceil(len/s.length)+1).join(s).substr(0, len) + str : str
       },
-      /**
-       * Safely split a string, null and empty strings are removed.
+      /**Safely split a string, null and empty strings are removed.
        * @memberof module:mcfud/core._
        * @param {string} s
        * @param {string} sep
@@ -1316,8 +1309,7 @@
       capitalize(str){
         return str.charAt(0).toUpperCase() + str.slice(1)
       },
-      /**
-       * Maybe pad the number with zeroes.
+      /**Maybe pad the number with zeroes.
        * @memberof module:mcfud/core._
        * @param {number} num
        * @param {number} digits
@@ -1326,8 +1318,7 @@
       prettyNumber(num, digits=2){
         return this.strPadLeft(Number(num).toString(), digits, "0")
       },
-      /**
-       * Pretty print millis in nice
+      /**Pretty print millis in nice
        * hour,minutes,seconds format.
        * @memberof module:mcfud/core._
        * @param {number} ms
@@ -1348,12 +1339,11 @@
           out.push(`${h} hrs, `);
         return out.reverse().join("");
       },
-      /**
-       * Remove some arguments from the front.
+      /**Remove some arguments from the front.
        * @memberof module:mcfud/core._
        * @param {arguments} args
        * @param {number} num
-       * @return {array} remaining arguments
+       * @return {any[]} remaining arguments
       */
       dropArgs(args, num){
         return args.length>num ? Slicer.call(args, num) : []
@@ -1399,8 +1389,7 @@
           }
         }
       },
-      /**
-       * Add an event listener to this target.
+      /**Add an event listener to this target.
        * @memberof module:mcfud/core._
        * @param {string} event
        * @param {any} target
@@ -1564,7 +1553,7 @@
       }
       /**
        * Subscribe to an event.
-       * @param {tuple} [event,target]
+       * @param {any[]} [event,target]
        * @param {callback} cb
        * @param {any} ctx
        * @param {array} extras
@@ -1586,7 +1575,7 @@
       }
       /**
        * Trigger an event.
-       * @param {tuple} [event,target]
+       * @param {any[]} [event,target]
        * @param {...any} args
        */
       pub(subject,...args){
@@ -1609,7 +1598,7 @@
       }
       /**
        * Unsubscribe to an event.
-       * @param {tuple} [event,target]
+       * @param {any[]} [event,target]
        * @param {callback} cb
        * @param {any} ctx
        */
