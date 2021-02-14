@@ -24,26 +24,20 @@
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
-    /**
-     * Find the offset.
-     * @private
-     * @function
+    /**Find the offset.
+     * @ignore
      */
     function _calcDelta(shift){
       return Math.abs(shift) % VISCHS_LEN
     }
-    /**
-     * Get the char at the index.
-     * @private
-     * @function
+    /**Get the char at the index.
+     * @ignore
      */
     function _charat(pos,string_){
       return (string_ || VISCHS).charAt(pos)
     }
-    /**
-     * Index for this char.
-     * @private
-     * @function
+    /**Index for this char.
+     * @ignore
      */
     function _getch(ch){
       for(let i=0;i<VISCHS_LEN;++i){
@@ -52,30 +46,30 @@
       }
       return -1
     }
-    /**
-     * Rotate right.
-     * @private
-     * @function
+    /**Rotate right.
+     * @ignore
      */
     function _rotr(delta, cpos){
       let pos= cpos+delta;
       return _charat(pos >= VISCHS_LEN ? (pos-VISCHS_LEN) : pos)
     }
-    /**
-     * Rotate left.
-     * @private
-     * @function
+    /**Rotate left.
+     * @ignore
      */
     function _rotl(delta, cpos){
       let pos= cpos-delta;
       return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
     }
     /**
-     * @private
-     * @var {object}
+     * @module mcfud/crypt
      */
     const _$={
-      /** Encrypt source by shifts. */
+      /**Encrypt source by shifts.
+       * @memberof module:mcfud/crypt
+       * @param {string} src
+       * @param {number} shift
+       * @return {string} encrypted text
+       */
       encrypt(src, shift){
         if(shift===0){ return src }
         function _f(shift,delta,cpos){
@@ -88,7 +82,12 @@
         });
         return out.join("");
       },
-      /** Decrypt text by shifts. */
+      /**Decrypt text by shifts.
+       * @memberof module:mcfud/crypt
+       * @param {string} cipherText
+       * @param {number} shift
+       * @return {string} decrypted text
+       */
       decrypt(cipherText,shift){
         if(shift===0){ return cipherText }
         function _f(shift,delta,cpos) {

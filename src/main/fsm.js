@@ -19,10 +19,44 @@
   function _module(Core){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     /**
-     * @private
-     * @var {object}
+     * @typedef {object} FSMStateTransition
+     * @property {string} target  switching to this target state
+     * @property {function} action() run this code upon the transition
+     */
+    /**
+     * @typedef {object} FSMStateTransitionList
+     * @property {FSMStateTransition} transition-1 user defined transition
+     * @property {FSMStateTransition} ...          more
+     * @property {FSMStateTransition} transition-n  user defined transition
+     */
+    /**
+     * @typedef {object} FSMState
+     * @property {function} enter() run this code when the FSM switches to this state
+     * @property {function} exit()  run this code when the FSM switches away from this state
+     * @property {FSMStateTransitionList} transitions  a list of state transition definitions
+     */
+    /**
+     * @typedef {object} FSMDefn
+     * @property {function} initState() return the initial state
+     * @property {FSMState} state-1 a user defined state
+     * @property {FSMState} ...     more
+     * @property {FSMState} state-n a user defined state
+     */
+    /**
+     * @typedef {object} FSMObject
+     * @property {function} state() returns the current state
+     * @property {function} process() execute any runnable code defined by the current state
+     * @property {function} trigger(event) apply this event to the state machine
+     */
+    /**Simple Finite State Machine.
+     * @module mcfud/fsm
      */
     const _$={
+      /**
+       * @memberof module:mcfud/fsm
+       * @param {FSMDefn} defn
+       * @return {FSMObject}
+       */
       fsm(defn){
         let _state=defn.initState();
         return {
@@ -58,8 +92,7 @@
     return _$;
   }
   /**Sample definition syntax/format.
-   * @private
-   * @var {object}
+   * @ignore
    */
   const sample={
     /** provides the initial state of this FSM */

@@ -27,14 +27,12 @@
     }
     const {is,u:_}=Core;
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function _f(s){ return !s.startsWith("F") }
 
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function rstr(len,ch){
       let out="";
@@ -45,8 +43,7 @@
       return out;
     }
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function ex_thrown(expected,e){
       let out=t_bad;
@@ -60,8 +57,7 @@
       return out;
     }
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function ensure_eq(env,name,form){
       return new Promise((resolve,reject)=>{
@@ -83,8 +79,7 @@
       });
     }
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function ensure_ex(env,name,form,error){
       return new Promise((resolve,reject)=>{
@@ -103,11 +98,33 @@
      * @var {string}
      */
     const [t_skip,t_bad,t_ok]=["Skippd", "Failed", "Passed"];
+
     /**
-     * @private
-     * @var {object}
+     * @typedef {object} TestSuiteObject
+     * @property {function} ensure(name,func)
+     * @property {function} eerror(name,func)
+     * @property {function} begin(set-up)
+     * @property {function} end(tear-down)
+     */
+    /**
+     * @typedef {object} TestSuiteReport
+     * @property {string} title
+     * @property {string} date
+     * @property {number} total
+     * @property {number} duration
+     * @property {any[]} passed
+     * @property {any[]} skippd
+     * @property {any[]} failed
+     */
+
+    /**
+     * @module mcfud/test
      */
     const _$={
+      /**Print report to stdout.
+       * @memberof module:mcfud/test
+       * @param {TestSuiteReport} r
+       */
       prn(r){
         const ok= r.passed.length;
         const sum=r.total;
@@ -128,6 +145,11 @@
         console.log(Colors.white(["cpu-time: ",_.prettyMillis(r.duration)].join("")));
         console.log(Colors.white(rstr(78,"=")));
       },
+      /**Define a test suite.
+       * @memberof module:mcfud/test
+       * @param {string} name
+       * @return {TestSuiteObject}
+       */
       deftest(name){
         let iniz=null;
         let finz=null;
@@ -181,6 +203,7 @@
         };
         return x;
       },
+      /** @ignore */
       _run(test){
         return new Promise((resolve,reject)=>{
           test().then(function(arr){
@@ -188,6 +211,12 @@
           });
         });
       },
+      /**Execute this test suite.
+       * @memberof module:mcfud/vec2
+       * @param {object} test
+       * @param {string} title
+       * @return {Promise}
+       */
       runtest(test,title){
         const mark= Date.now();
         return this._run(test).then(function(res){

@@ -1399,9 +1399,8 @@
       addEvent(event,target,cb,arg){
         if(isVec(event) && arguments.length===1)
           event.forEach(e=> this.addEvent.apply(this, e));
-        else if(isFun(target.addEventListener)){
+        else
           target.addEventListener(event,cb,arg)
-        }
       },
       /**Remove this event listener from this target.
        * @memberof module:mcfud/core._
@@ -1413,9 +1412,8 @@
       delEvent(event,target,cb,arg){
         if(isVec(event) && arguments.length===1)
           event.forEach(e => this.delEvent.apply(this, e));
-        else if(isFun(target.removeEventListener)){
+        else
           target.removeEventListener(event,cb,arg)
-        }
       }
     };
 
@@ -1540,16 +1538,13 @@
      * @ignore
      */
     const ZA=[];
-    /**
-     * @memberof module:mcfud/core
+
+    /**Publish-subscribe
      * @class
      */
     class CEventBus{
-      /**
-       * @constructor
-       */
       constructor(){
-        this._tree=new Map()
+        this._tree=new Map();
       }
       /**
        * Subscribe to an event.
@@ -1557,6 +1552,7 @@
        * @param {callback} cb
        * @param {any} ctx
        * @param {array} extras
+       * @return {CEventBus} self
        */
       sub(subject,cb,ctx,extras){
         let event=subject[0],
@@ -1570,13 +1566,15 @@
           let m= this._tree.get(e);
           target=target||NULL;
           !m.has(target) && m.set(target,[]);
-          m.get(target).push([cb,ctx,extras]);
+            m.get(target).push([cb,ctx,extras]);
         });
+        return this;
       }
       /**
        * Trigger an event.
        * @param {any[]} [event,target]
        * @param {...any} args
+       * @return {CEventBus} self
        */
       pub(subject,...args){
         let m,t,
@@ -1589,18 +1587,22 @@
             s[0].apply(s[1],args.concat(s[2] || ZA));
           });
         });
+        return this;
       }
       /**
        * Remove all subscribers.
+       * @return {CEventBus} self
        */
       reset(){
-        this._tree.clear()
+        this._tree.clear();
+        return this;
       }
       /**
        * Unsubscribe to an event.
        * @param {any[]} [event,target]
        * @param {callback} cb
        * @param {any} ctx
+       * @return {CEventBus} self
        */
       unsub(subject,cb,ctx){
         let event=subject[0],
@@ -1619,17 +1621,23 @@
                   if(m[i][0] === cb && m[i][1] === ctx) m.splice(i,1);
           }
         });
+        return this;
       }
     }
 
     /**Create a pub/sub event manager.
      * @memberof module:mcfud/core
-     * @return {module:mcfud/core.CEventBus}
+     * @return {CEventBus}
      */
-    function EventBus(){ return new CEventBus() }
+    function EventBus(){
+      return new CEventBus()
+    }
 
     //browser only--------------------------------------------------------------
-    if(doco){ _.dom=dom }
+    if(doco){ _.dom=dom }else{
+      delete _["addEvent"];
+      delete _["delEvent"];
+    }
     _$.EventBus=EventBus;
     _$.is=is;
     _$.u=_;

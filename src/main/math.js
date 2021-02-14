@@ -26,33 +26,93 @@
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
     const {is,u:_}= Core;
+    /** @ignore */
     function _mod_deg(deg){
       return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI
     }
+    /**
+     * @module mcfud/math
+     */
     const _$={
-      /** liner interpolation */
+      /**Liner interpolation.
+       * @memberof module:mcfud/math
+       * @param {number} startv
+       * @param {number} endv
+       * @param {number} t
+       * @return {number}
+       */
       lerp(startv, endv, t){
         return (1-t) * startv + t * endv
       },
-      /** Proper modulo. */
+      /**The modulo operator.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} N
+       * @return {number}
+       */
       xmod(x,N){
         return x<0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
       },
+      /**Limit the value to within these 2 numbers.
+       * @memberof module:mcfud/math
+       * @param {number} min
+       * @param {number} max
+       * @param {number} v a value
+       * @return {number}
+       */
       clamp(min,max,v){
         return v<min ? min : (v>max ? max : v)
       },
+      /**Square a number.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @return {number} q^2
+       */
       sqr(a){ return a*a },
+      /**Check if 2 numbers are approximately the same.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @param {number} b
+       * @return {boolean}
+       */
       fuzzyEq(a,b){ return _.feq(a,b) },
+      /**Check if the number is approximately zero.
+       * @memberof module:mcfud/math
+       * @param {number} n
+       * @return {boolean}
+       */
       fuzzyZero(n){ return _.feq0(n) },
+      /**Convert radians to degrees.
+       * @memberof module:mcfud/math
+       * @param {number} r
+       * @return {number} degrees
+       */
       radToDeg(r){ return _mod_deg(DEG_2PI * r/TWO_PI) },
+      /**Convert degrees to radians.
+       * @memberof module:mcfud/math
+       * @param {number} d
+       * @return {number} radians
+       */
       degToRad(d){ return TWO_PI * _mod_deg(d)/DEG_2PI },
-      /** Hypotenuse squared. */
+      /**Hypotenuse squared.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} y
+       * @return {number}
+       */
       pythag2(x,y){ return x*x + y*y },
-      /** Hypotenuse. */
+      /**Hypotenuse.
+       * @memberof module:mcfud/math
+       * @param {number} x
+       * @param {number} y
+       * @return {number}
+       */
       pythag(x,y){ return Math.sqrt(x*x + y*y) },
-      /** Modulo of the next increment. */
+      /** @ignore */
       wrap(i,len){ return (i+1) % len },
-      /** Is it more a or b? */
+      /**Is it more a or b?
+       * @ignore
+       */
       biasGreater(a,b){
         const biasRelative= 0.95;
         const biasAbsolute= 0.01;

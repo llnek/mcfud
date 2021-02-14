@@ -27,8 +27,7 @@
       return UseOBJ ? new V2Obj() : [0,0] }
     let _POOL=_.fill(PLEN,_CTOR);
     /**Put stuff back into the pool.
-     * @private
-     * @function
+     * @ignore
      */
     function _drop(...args){
       for(let a,i=0;i<args.length;++i){
@@ -42,8 +41,7 @@
       }
     }
     /**Take something from the pool.
-     * @private
-     * @function
+     * @ignore
      */
     function _take(x=0,y=0){
       const out= _POOL.length>0 ? _POOL.pop() : _CTOR();
@@ -57,14 +55,12 @@
       return out;
     }
     /**
-     * @private
-     * @var {object}
+     * @ignore
      */
     const _4ops={ "+": (a,b)=>a+b, "-": (a,b)=>a-b,
                   "*": (a,b)=>a*b, "/": (a,b)=>a/b };
     /**Make sure we have good data.
-     * @private
-     * @function
+     * @ignore
      */
     function _assertArgs(a,b,hint){
       if(hint===0){
@@ -75,8 +71,7 @@
       return true;
     }
     /**
-     * @private
-     * @function
+     * @ignore
      */
     function _vecXXX(op,a,b,c,local){
       let out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
@@ -96,8 +91,7 @@
       return out;
     }
     /**Rotate a vector([]) around a pivot.
-     * @private
-     * @function
+     * @ignore
      */
     function _v2rot_arr(a,cos,sin,pivot,local){
       const cx=pivot ? pivot[0] : 0;
@@ -112,8 +106,7 @@
       return a;
     }
     /**Rotate a vector(obj) around a pivot.
-     * @private
-     * @function
+     * @ignore
      */
     function _v2rot_obj(a,cos,sin,pivot,local){
       const cx=pivot ? pivot.x : 0;
@@ -128,8 +121,7 @@
       return a;
     }
     /**2d cross product, data-type=[].
-     * @private
-     * @function
+     * @ignore
      */
     function _vecXSS_arr(p1,p2){
       //v2 X v2
@@ -150,8 +142,7 @@
       _.assert(false,"cross(): bad args");
     }
     /**2d cross product, data-type=object.
-     * @private
-     * @function
+     * @ignore
      */
     function _vecXSS_obj(p1,p2){
       //v2 X v2
@@ -168,61 +159,157 @@
       }
       _.assert(false,"cross(): bad args");
     }
-    /**The object to export.
-     * @private
-     * @var {object}
+    /**
+     * @typedef {number[]} Vec2
+     */
+    /**
+     * @module mcfud/vec2
      */
     const _$={
-      /** internal, for testing only */
+      /**Internal, for testing only.
+       * @ignore
+       */
       _switchMode(bObj,size=16){
         UseOBJ=bObj;
         _POOL=_.fill(size||PLEN,_CTOR); },
-      /** internal, for testing only */
+      /**Internal, for testing only.
+       * @ignore
+       */
       _checkPoolSize(){ return _POOL.length },
-      take:_take,
-      reclaim:_drop,
+      /**Get a free vec from internal pool.
+       * @memberof module:mcfud/vec2
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
+      take(x=0,y=0){ return _take(x,y) },
+      /**Put back a vec.
+       * @memberof module:mcfud/vec2
+       * @param {...Vec2} args
+       */
+      reclaim(...args){ return _drop(...args) },
+      /**Create a free vector.
+       * @memberof module:mcfud/vec2
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
       vec(x,y){ return _take(x,y) },
-      /** A+B */
+      /**Vector addition: A+B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       add(a,b,c){ return _vecXXX(_4ops["+"],a,b,c) },
-      /** A= A+B */
+      /**Vector addition: A=A+B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       add$(a,b,c){ return _vecXXX(_4ops["+"],a,b,c,1) },
-      /** A-B */
+      /**Vector subtraction: A-B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       sub(a,b,c){ return _vecXXX(_4ops["-"],a,b,c) },
-      /** A=A-B */
+      /**Vector subtraction: A=A-B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       sub$(a,b,c){ return _vecXXX(_4ops["-"],a,b,c,1) },
-      /** A*B */
+      /**Vector multiply: A*B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       mul(a,b,c){ return _vecXXX(_4ops["*"],a,b,c) },
-      /** A=A*B */
+      /**Vector multiply: A=A*B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       mul$(a,b,c){ return _vecXXX(_4ops["*"],a,b,c,1) },
-      /** A/B */
+      /**Vector division: A/B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       div(a,b,c){ return _vecXXX(_4ops["/"],a,b,c) },
-      /** A=A/B */
+      /**Vector division: A=A/B
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number|Vec2} b
+       * @return {Vec2}
+       */
       div$(a,b,c){ return _vecXXX(_4ops["/"],a,b,c,1) },
-      /** Dot product of vectors, cos(t) = a·b / (|a| * |b|) */
+      /**Dot product of 2 vectors,
+       * cos(t) = a·b / (|a| * |b|)
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
       dot(a,b){
         if(_assertArgs(a,b,0))
           return UseOBJ ? (a.x*b.x + a.y*b.y)
                         : (a[0]*b[0] + a[1]*b[1])
       },
-      /** vectorAB is calculated by doing B-A */
+      /**Create a vector A->B, calculated by doing B-A.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
       vecAB(a,b){
         if(_assertArgs(a,b,0))
           return UseOBJ ? _take(b.x-a.x,b.y-a.y)
                         : _take(b[0]-a[0],b[1]-a[1])
       },
-      /** length square */
+      /**Vector length squared.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {number}
+       */
       len2(a){ return this.dot(a,a) },
+      /**Length of a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {number}
+       */
       len(a){ return Math.sqrt(this.len2(a)) },
-      /** distance square */
+      /**Distance between 2 vectors, squared.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
       dist2(a,b){
         let v= this.sub(b,a),
             d= this.len2(v);
         _drop(v);
         return d;
       },
-      /** distance */
+      /**Distance between 2 vectors.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
       dist(a,b){ return Math.sqrt(this.dist2(a,b)) },
-      /** unit vector */
+      /**Normalize this vector: a/|a|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {Vec2}
+       */
       unit(a){
         let d=this.len(a),
             out= _CTOR();
@@ -237,7 +324,11 @@
         }
         return out;
       },
-      /** A=unit(A) */
+      /**Normalize this vector: a=a/|a|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @return {Vec2}
+       */
       unit$(a){
         let d=this.len(a);
         if(!_.feq0(d)){
@@ -251,7 +342,12 @@
         }
         return a;
       },
-      /** Copy `src` into `des` */
+      /**Copy `src` into `des`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} des
+       * @param {Vec2} src
+       * @return {Vec2}
+       */
       set(des,src){
         _assertArgs(des,src,0);
         if(UseOBJ){
@@ -263,9 +359,19 @@
         }
         return des;
       },
-      /** */
+      /**Make a copy of this vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
       clone(v){ return this.set(_CTOR(),v) },
-      /** Copy values(args) into `des` */
+      /**Copy values(args) into `des`.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} des
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
       copy(des,x,y){
         _.assert(is.num(x)&&is.num(y),"wanted numbers");
         if(UseOBJ){
@@ -277,14 +383,26 @@
         }
         return des;
       },
-      /** Rotate a vector around a pivot */
-      rot(a,rot,pivot){
+      /**Rotate a vector around a pivot.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number} rot
+       * @param {Vec2} [pivot]
+       * @return {Vec2}
+       */
+      rot(a,rot,pivot=null){
         _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
         const s= Math.sin(rot);
         return UseOBJ ? _v2rot_obj(a,c,s,pivot) : _v2rot_arr(a,c,s,pivot);
       },
-      /** A=rot(A) */
+      /**Rotate a vector around a pivot: a=rot(a,...)
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {number} rot
+       * @param {Vec2} [pivot]
+       * @return {Vec2}
+       */
       rot$(a,rot,pivot){
         _assertArgs(a, pivot||a,0);
         const c= Math.cos(rot);
@@ -292,16 +410,33 @@
         return UseOBJ ? _v2rot_obj(a,c,s,pivot,1)
                       : _v2rot_arr(a,c,s,pivot,1);
       },
-      /** 2d cross product */
+      /**2d cross product.
+       * The sign of the cross product tells you whether the second vector
+       * is on the left or right side of the first vector, +ve implies
+       * the second vector is right(cw) of first, -ve implies second vector
+       * left(ccw) of first.
+       * The absolute value of the 2D cross product is the sine of the angle
+       * in between the two vectors, so taking the arc sine of it would give you the angle in radians.
+       * @memberof module:mcfud/vec2
+       * @param {number|Vec2} p1
+       * @param {number|Vec2} p2
+       * @return {number|Vec2}
+       */
       cross(p1,p2){ return UseOBJ ? _vecXSS_obj(p1,p2) : _vecXSS_arr(p1,p2) },
-      /**
-       * Angle (in radians) between these 2 vectors.
+      /**Angle (in radians) between these 2 vectors.
        * a.b = cos(t)*|a||b|
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
        */
       angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
-      /**
-       * Change vector to be perpendicular to what it was before, effectively
-       * rotates it 90 degrees(normal)
+      /**Change vector to be perpendicular to what it was before, effectively
+       * rotates it 90 degrees(normal).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {boolean} ccw counter-clockwise?
+       * @return {Vec2}
        */
       normal(a,ccw=false){
         _assertArgs(a,a);
@@ -311,7 +446,13 @@
           return ccw ? _take(-a[1],a[0]) : _take(a[1],-a[0])
         }
       },
-      /** A=normal(A) */
+      /**Change vector to be perpendicular to what it was before, effectively
+       * rotates it 90 degrees(normal), A=normal(A).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {boolean} ccw counter-clockwise?
+       * @return {Vec2}
+       */
       normal$(a,ccw=false){
         _assertArgs(a,a);
         const x= UseOBJ ? a.x : a[0];
@@ -322,26 +463,59 @@
         }
         return a;
       },
-      /** Find scalar projection A onto B */
+      /**Find scalar projection A onto B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {number}
+       */
       proj_scalar(a,b){ return this.dot(a,b)/this.len(b) },
-      /** Find vector A projection onto B */
+      /**Find vector A projection onto B.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
       proj(a,b){
         const bn = this.unit(b);
         return this.mul$(bn, this.dot(a,bn));
       },
-      /** Find the perpedicular vector */
+      /**Find the perpedicular vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {Vec2}
+       */
       perp(a,b){ return this.sub(a, this.proj(a,b)) },
-      /** Reflect a ray, normal must be normalized */
+      /**Reflect a ray, normal must be normalized.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} ray
+       * @param {Vec2} surface_normal
+       * @return {Vec2}
+       */
       reflect(ray,surface_normal){
         //ray of light hitting a surface, find the reflected ray
         //reflect= ray - 2(ray.surface_normal)surface_normal
         return this.sub(ray, this.mul(surface_normal, 2*this.dot(ray,surface_normal)))
       },
-      /** Negate a vector */
+      /**Negate a vector.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
       flip(v){ return this.mul(v, -1) },
-      /** V=flip(V) */
+      /**Negate a vector, v=flip(v).
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {Vec2}
+       */
       flip$(v){ return this.mul$(v, -1) },
-      /** Move a bunch of points */
+      /**Move a bunch of points.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} pos
+       * @param {...Vec2} args
+       * @return {Vec2[]}
+       */
       translate(pos,...args){
         _assertArgs(pos,pos);
         let b,a=false;
