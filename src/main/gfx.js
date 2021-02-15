@@ -24,133 +24,18 @@
 
     const TWO_PI=Math.PI*2;
     const {u:_}=Core;
-    const _G={};
+
+    /** @module mcfud/gfx */
+
     /**
-     * Html5 Text Style object.
-     * @public
-     * @function
-     */
-    _G.textStyle=function(font,fill,align,base){
-      //"14px 'Arial'" "#dddddd" "left" "top"
-      return {font: font, fill: fill, align: align, base: base}
-    };
-    /**
-     * Draw the shape onto the html5 canvas.
-     * @public
-     * @function
-     */
-    _G.drawShape=function(ctx,s,...args){
-      if(s.draw)
-        s.draw(ctx,...args)
-    };
-    /**
-     * Apply styles to the canvas.
-     * @public
-     * @function
-     */
-    _G.cfgStyle=function(ctx,styleObj){
-      if(styleObj){
-        let line=styleObj.line;
-        let stroke=styleObj.stroke;
-        if(line){
-          if(line.cap)
-            ctx.lineCap=line.cap;
-          if(line.width)
-            ctx.lineWidth=line.width;
-        }
-        if(stroke){
-          if(stroke.style)
-            ctx.strokeStyle=stroke.style;
-        }
-      }
-    };
-    /**
-     * Draw and connect this set of points onto the canvas.
-     * @public
-     * @function
-     */
-    _G.drawPoints=function(ctx,points,size){
-      if(size === undefined) size=points.length;
-      ctx.beginPath();
-      for(let i=0;i<size;++i){
-        let i2= (i+1)%size;
-        let p=points[i];
-        let q=points[i2];
-        ctx.moveTo(p[0],p[1]);
-        ctx.lineTo(q[0],q[1]);
-      }
-      ctx.stroke();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapePoly=function(ctx,poly){
-      return this.drawPoints(ctx,poly.points);
-    };
-    /**
-     * Draw a circle onto the canvas.  If a starting point
-     * is provided, draw a line to the center.
-     * @public
-     * @function
-     */
-    _G.drawCircle=function(ctx,x,y,radius){
-      ctx.beginPath();
-      ctx.arc(x,y,radius,0,TWO_PI,true);
-      ctx.closePath();
-      ctx.stroke();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeCircle=function(ctx,circle){
-      this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawRect=function(ctx,x,y,width,height,rot){
-      let left=x;
-      let top= y - height;
-      ctx.save();
-      ctx.translate(left,top);
-      ctx.rotate(rot);
-      ctx.strokeRect(0,0,width,height);
-      ctx.restore();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeRect=function(ctx,rect){
-      return this.drawRet(ctx,rect.pos[0],rect.pos[1],
-                          rect.width,rect.height,rect.rotation);
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawLine=function(ctx,x1,y1,x2,y2){
-      ctx.beginPath();
-      ctx.moveTo(x1,y1);
-      ctx.lineTo(x2,y2);
-      ctx.stroke();
-      //ctx.closePath();
-    };
-    /**
-     * @public
-     * @function
-     */
-    _G.drawShapeLine=function(ctx,line){
-      return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1]);
-    };
-    /**
-     * @public
+     * @memberof module:mcfud/gfx
      * @class
+     * @property {number[]} m
      */
-    class TXMatrix2d{
+    class TXMatrix2D{
+      /**
+       * @param {Vec2[]} source
+       */
       constructor(source){
         if(source){
           this.m = [];
@@ -159,20 +44,33 @@
           this.m = [1,0,0,0,1,0];
         }
       }
+      /**Toggle this into an `Identity` matrix
+       * @return {TXMatrix2D} self
+       */
       identity(){
         let m = this.m;
         m[0] = 1; m[1] = 0; m[2] = 0;
         m[3] = 0; m[4] = 1; m[5] = 0;
         return this;
       }
+      /**Deep clone a matrix.
+       * @param {TXMatrix2D}
+       * @return {TXMatrix2D} self
+       */
       clone(matrix){
-        let d = this.m, s = matrix.m;
+        let d = this.m,
+            s = matrix.m;
         d[0]=s[0]; d[1]=s[1]; d[2] = s[2];
         d[3]=s[3]; d[4]=s[4]; d[5] = s[5];
         return this;
       }
+      /**Multiply by this matrix
+       * @param {TXMatrix2D} matrix
+       * @return {TXMatrix2D} self
+       */
       multiply(matrix){
-        let a = this.m, b = matrix.m;
+        let a = this.m,
+            b = matrix.m;
         let m11 = a[0]*b[0] + a[1]*b[3];
         let m12 = a[0]*b[1] + a[1]*b[4];
         let m13 = a[0]*b[2] + a[1]*b[5] + a[2];
@@ -184,62 +82,85 @@
         a[3]=m21; a[4]=m22; a[5] = m23;
         return this;
       }
+      /**Apply rotation.
+       * @param {number} radians
+       * @return {TXMatrix2D} self
+       */
       rotate(radians){
-        if(radians === 0){ return this; }
-        let cos = Math.cos(radians),
-            sin = Math.sin(radians),
-            m = this.m;
-
-        let m11 = m[0]*cos  + m[1]*sin;
-        let m12 = m[0]*-sin + m[1]*cos;
-        let m21 = m[3]*cos  + m[4]*sin;
-        let m22 = m[3]*-sin + m[4]*cos;
-
-        m[0] = m11; m[1] = m12; // m[2] == m[2]
-        m[3] = m21; m[4] = m22; // m[5] == m[5]
+        if(!_.feq0(radians)){
+          let m=this.m,
+              cos = Math.cos(radians),
+              sin = Math.sin(radians);
+          let m11 = m[0]*cos  + m[1]*sin;
+          let m12 = -m[0]*sin + m[1]*cos;
+          let m21 = m[3]*cos  + m[4]*sin;
+          let m22 = -m[3]*sin + m[4]*cos;
+          m[0] = m11; m[1] = m12;
+          m[3] = m21; m[4] = m22;
+        }
         return this;
       }
+      /**Apply rotation (in degrees).
+       * @param {number} degrees
+       * @return {TXMatrix2D} self
+       */
       rotateDeg(degrees){
-        if(degrees === 0){ return this }
-        return this.rotate(Math.PI * degrees / 180);
+        return _.feq0(degrees)? this: this.rotate(Math.PI * degrees / 180)
       }
+      /**Apply scaling.
+       * @param {number} sx
+       * @param {number} sy
+       * @return {TXMatrix2D} self
+       */
       scale(sx,sy){
         let m = this.m;
-        if(sy === undefined){ sy = sx; }
+        if(sy===undefined){ sy=sx }
         m[0] *= sx;
         m[1] *= sy;
         m[3] *= sx;
         m[4] *= sy;
         return this;
       }
+      /**Apply translation.
+       * @param {number} tx
+       * @param {number} ty
+       * @return {TXMatrix2D} self
+       */
       translate(tx,ty){
         let m = this.m;
         m[2] += m[0]*tx + m[1]*ty;
         m[5] += m[3]*tx + m[4]*ty;
         return this;
       }
+      /**Transform this point.
+       * @param {number} x
+       * @param {number} y
+       * @return {Vec2}
+       */
       transform(x,y){
         return [ x * this.m[0] + y * this.m[1] + this.m[2],
                  x * this.m[3] + y * this.m[4] + this.m[5] ];
       }
+      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
+       * @param {object} obj
+       * @return {object} obj
+       */
       transformPoint(obj){
-        let x = obj.x, y = obj.y;
-        obj.x = x * this.m[0] + y * this.m[1] + this.m[2];
-        obj.y = x * this.m[3] + y * this.m[4] + this.m[5];
+        let [x,y]= this.transform(obj.x,obj.y);
+        obj.x = x;
+        obj.y = y;
         return obj;
       }
-      transformArray(inArr,outArr){
-        let x = inArr[0], y = inArr[1];
-        outArr[0] = x * this.m[0] + y * this.m[1] + this.m[2];
-        outArr[1] = x * this.m[3] + y * this.m[4] + this.m[5];
-        return outArr;
+      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
+       * @param {Vec2} inArr
+       * @return {Vec2}
+       */
+      transformArray(inArr){
+        return this.transform(inArr[0],inArr[1])
       }
-      transformX(x,y){
-        return x * this.m[0] + y * this.m[1] + this.m[2];
-      }
-      transformY(x,y){
-        return x * this.m[3] + y * this.m[4] + this.m[5];
-      }
+      /**Set HTML5 2d-context's transformation matrix.
+       * @param {object} html5 2d-context
+       */
       setContextTransform(ctx){
         let m = this.m;
         // source:
@@ -256,7 +177,156 @@
       }
     }
 
-    return _.inject(_G, {TXMatrix2d: TXMatrix2d});
+
+    const _$={
+      TXMatrix2D:TXMatrix2D,
+      /**Html5 Text Style object.
+       * @example
+       * "14px 'Arial'" "#dddddd" "left" "top"
+       * @memberof module:mcfud/gfx
+       * @param {string} font
+       * @param {string|number} fill
+       * @param {string} [align]
+       * @param {string} [base]
+       * @return {object} style object
+       */
+      textStyle(font,fill,align,base){
+        let x={font: font, fill: fill};
+        if(align) x.align=align;
+        if(base) x.base=base;
+        return x;
+      },
+      /**Draw the shape onto the html5 canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} ctx html5 2d-context
+       * @param {object} s a shape
+       * @param (...any) args
+       */
+      drawShape(ctx,s,...args){
+        if(s && s.draw)
+          s.draw(ctx,...args)
+      },
+      /**Apply styles to the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {object} style object
+       */
+      cfgStyle(ctx,styleObj){
+        const {line,stroke} =styleObj;
+        if(line){
+          if(line.cap)
+            ctx.lineCap=line.cap;
+          if(line.width)
+            ctx.lineWidth=line.width;
+        }
+        if(stroke){
+          if(stroke.style)
+            ctx.strokeStyle=stroke.style;
+        }
+      },
+      /**Draw and connect this set of points onto the canvas.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Vec2[]} points
+       * @param {number} [size] n# of points to draw
+       */
+      drawPoints(ctx,points,size){
+        if(size === undefined) size=points.length;
+        _.assert(size<=points.length);
+        ctx.beginPath();
+        for(let p,q,i2,i=0;i<size;++i){
+          i2= (i+1)%size;
+          p=points[i];
+          q=points[i2];
+          ctx.moveTo(p[0],p[1]);
+          ctx.lineTo(q[0],q[1]);
+        }
+        ctx.stroke();
+      },
+      /**Draw a polygonal shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Polygon} poly
+       * @return {}
+       */
+      drawShapePoly(ctx,poly){
+        return this.drawPoints(ctx,poly.points);
+      },
+      /**Draw a circle onto the canvas.  If a starting point
+       * is provided, draw a line to the center.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {number} x
+       * @param {number} y
+       * @param {radius} r
+       */
+      drawCircle(ctx,x,y,radius){
+        ctx.beginPath();
+        ctx.arc(x,y,radius,0,TWO_PI,true);
+        ctx.closePath();
+        ctx.stroke();
+      },
+      /**Draw a circular shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Circle} circle
+       */
+      drawShapeCircle(ctx,circle){
+        this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius);
+      },
+      /**Draw a rectangle.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d=context
+       * @param {number} x
+       * @param {number} y
+       * @param {number} width
+       * @param {number} height
+       * @param {number} rot
+       */
+      drawRect(ctx,x,y,width,height,rot){
+        let left=x;
+        let top= y - height;
+        ctx.save();
+        ctx.translate(left,top);
+        ctx.rotate(rot);
+        ctx.strokeRect(0,0,width,height);
+        ctx.restore();
+      },
+      /**Draw a rectangular shape.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {Rect} rect
+       */
+      drawShapeRect(ctx,rect){
+        return this.drawRect(ctx,rect.pos[0],rect.pos[1],
+                             rect.width,rect.height,rect.rotation)
+      },
+      /**Draw a line.
+       * @memberof module:mcfud/gfx
+       * @param {object} html5 2d-context
+       * @param {number} x1
+       * @param {number} y1
+       * @param {number} x2
+       * @param {number} y2
+       */
+      drawLine(ctx,x1,y1,x2,y2){
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.lineTo(x2,y2);
+        ctx.stroke();
+        //ctx.closePath();
+      },
+      /**Draw a 2d line.
+       * @memberof module:mcfud/gfx
+       * @param {ctx} html5 2d-context
+       * @param {Line} line
+       */
+      drawShapeLine(ctx,line){
+        return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1]);
+      }
+    };
+
+    return _$;
   }
 
   //export--------------------------------------------------------------------

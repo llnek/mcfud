@@ -20,113 +20,124 @@
    * @private
    * @function
    */
-  function _module(){
-    class QuadTree{
-      constructor(x1,y1,x2,y2,maxCount,maxDepth){
-        this.maxCount= maxCount || 12;
-        this.maxDepth= maxDepth || 5;
-        this.objects = [];
-        this.boxes=null;
-        this.level=0;
-        this.x1=x1;
-        this.x2=x2;
-        this.y1=y1;
-        this.y2=y2;
-        this.midX= (x1+x2)/2;
-        this.midY= (y1+y2)/2;
+  function _module(Core){
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    const MFL=Math.floor;
+    const {u:_} = Core;
+
+    /** @module mcfud/quadtree */
+
+    /**
+     * @typedef {object} QuadTree
+     * @property {function} insert(node)
+     * @property {function} search(node)
+     * @property {function} reset()
+     */
+
+    /** @ignore */
+    function QuadTree(left,right,top,bottom,maxCount,maxDepth,level){
+      let boxes=null,
+          objects = [];
+      //if flipped the co-ord system is LHS (like a browser, y grows down, objects are top-left+width_height)
+      //else RHS (standard, y grows up, objects are left-bottom+width_height)
+      let flipped=(top<bottom),
+          midX= MFL((left+right)/2),
+          midY= MFL((top+bottom)/2);
+      //find which quadrants r touches
+      function _locate(r){
+        let out=[],
+            left= r.x<midX,
+            right= r.x+r.width>midX,
+            up= flipped? (r.y<midY) : (r.y+r.height>midY),
+            down= flipped? (r.y+r.height>midY): (r.y<midY);
+        if(up){
+          if(left) out.push(3);
+          if(right) out.push(0); }
+        if(down){
+          if(left) out.push(2);
+          if(right) out.push(1); }
+        return out;
       }
-      _ctree(x1,y1,x2,y2){
-        let q=new QuadTree(x1,y1,x2,y2,this.maxCount,this.maxDepth);
-        q.level=this.level+1;
-        return q;
-      }
-      _split(){
-        _.assert(this.boxes===null);
+      //split into 4 quadrants
+      function _split(){
         //3|0
         //---
         //2|1
-        this.boxes=[this._ctree(this.midX, this.y1,this.x2,this.midY),
-                    this._ctree(this.midX, this.midY, this.x2,this.y2),
-                    this._ctree(this.x1, this.midY, this.midX, this.y2),
-                    this._ctree( this.x1, this.y1, this.midX,this.midY)];
+        _.assert(boxes===null);
+        boxes=[QuadTree(midX, right,top,midY,maxCount,maxDepth,level+1),
+               QuadTree(midX, right, midY, bottom,maxCount,maxDepth,level+1),
+               QuadTree(left, midX, midY, bottom,maxCount,maxDepth,level+1),
+               QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
       }
-      _locate(r){
-        let up= r.y < this.midY;
-        let left= r.x < this.midX;
-        let right= r.x + r.width > this.midX;
-        let down= r.y + r.height > this.midY;
-        if(up){
-          if(left) out.push(3);
-          if(right) out.push(0);
-        }
-        if(down){
-          if(left) out.push(2);
-          if(right) out.push(1);
-        }
-        return out;
-      }
-      insert(node){
-        let out;
-        if(this.boxes){
-          this._locate(node).forEach(i=>{
-            this.boxes[i].insert(node)
-          });
-        }else{
-          this.objects.push(node);
-          if(this.objects.length > this.maxCount &&
-             this.level < this.maxDepth){
-            this._split();
-            this.objects.forEach(o=>{
-              this._locate(o).forEach(i=>{
-                this.boxes[i].insert(o)
-              });
-            });
-            this.objects.length=0;
-          }
-        }
-      }
-      search(node){
-        //handle duplicates
-        let bin=new Map();
-        let out = [];
-        if(this.boxes){
-          this._locate(node).forEach(i=>{
-            this.boxes[i].search(node).forEach(o=>{
-              if(!bin.has(o)){
-                bin.set(o,null);
-                out.push(o);
+      return{
+        dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
+        insert:function(node){
+          for(let n=0;n<arguments.length;++n){
+            node=arguments[n];
+            if(boxes){
+              _locate(node).forEach(i=> boxes[i].insert(node))
+            }else{
+              objects.push(node);
+              if(objects.length > maxCount && level < maxDepth){
+                _split();
+                objects.forEach(o=> _locate(o).forEach(i=> boxes[i].insert(o)));
+                objects.length=0;
               }
-            })
-          })
-        }
-        this.objects.forEach(o=>{
-          if(!bin.has(o)){
-            bin.set(o,null);
-            out.push(o);
+            }
           }
-        });
-        //found all objects closeby
-        return out;
-      }
-      reset(){
-        this.objects.length=0;
-        this.boxes && this.boxes.forEach(b=>{
-          b.reset()
-        });
-        this.boxes=null;
-      }
+        },
+        reset(){
+          objects.length=0;
+          boxes && boxes.forEach(b=> b.reset());
+          boxes=null;
+        },
+        search(node){
+          //handle duplicates
+          const bin=new Map();
+          const out = [];
+          if(boxes){
+            _locate(node).forEach(i=>{
+              boxes[i].search(node).forEach(o=>{
+                if(!bin.has(o)){
+                  bin.set(o,null);
+                  out.push(o);
+                }
+              })
+            })
+          }
+          objects.forEach(o=>{
+            if(!bin.has(o)){
+              bin.set(o,null);
+              out.push(o);
+            }
+          });
+          //found all objects closeby
+          bin.clear();
+          return out;
+        }
+      };
     }
 
-    return {
-      quadtree(region,maxcount,maxdepth){
-        return new QuadTree(region.x1,region.y1,region.x2,region.y2,maxcount,maxdepth);
+    const _$={
+      /**
+       * @memberof module:mcfud/quadtree
+       * @param {object} region {left,right,top,bottom} the bounding region
+       * @param {number} maxCount maximum number of objects in each tree
+       * @param {number} maxDepth maximum depth of tree
+       * @return {QuadTree}
+       */
+      quadtree(region,maxCount=12,maxDepth=5){
+        const {left,right,top,bottom}=region;
+        return QuadTree(left,right,top,bottom,maxCount,maxDepth,0)
       }
     };
+
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module()
+    module.exports=_module(require("./core"));
   }else{
     gscope["io/czlab/mcfud/qtree"]=_module
   }

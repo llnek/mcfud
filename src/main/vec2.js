@@ -411,12 +411,12 @@
                       : _v2rot_arr(a,c,s,pivot,1);
       },
       /**2d cross product.
-       * The sign of the cross product tells you whether the second vector
-       * is on the left or right side of the first vector, +ve implies
-       * the second vector is right(cw) of first, -ve implies second vector
-       * left(ccw) of first.
+       * The sign of the cross product (AxB) tells you whether the 1st vector (A)
+       * is on the left or right side of the 2nd vector (B), -ve implies
+       * A is left of B, (rotate cw to B), +ve means A is right of B (rotate ccw to B).
        * The absolute value of the 2D cross product is the sine of the angle
-       * in between the two vectors, so taking the arc sine of it would give you the angle in radians.
+       * in between the two vectors, so taking the arc sine of it would give
+       * the angle in radians.
        * @memberof module:mcfud/vec2
        * @param {number|Vec2} p1
        * @param {number|Vec2} p2
