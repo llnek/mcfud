@@ -44,7 +44,40 @@ Test.runtest(
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Test.deftest("QuadTree").
   begin().
-  ensure("quadtree",function(){
+  ensure("quadtree;lhs",()=>{
+    let q= Q.quadtree({left:0,right:480,bottom:640,top:0},2,2);
+    let a=Node("a",460,100,20,20);
+    let b=Node("b",460,600,20,20);
+    let c=Node("c",100,500,20,20);
+    let d=Node("d",100,100,20,20);
+    let e=Node("e",30,260,100,100);
+    let f= Node("f",230,300,100,100);
+    let ok1,ok2,ok3,ok4,ok5,ok6,ok7,out;
+    q.insert(a,b,c,d);
+
+    out=q.search(a);
+    ok1= out.length===1 && out[0]===a;
+    out=q.search(b);
+    ok2= out.length===1 && out[0]===b;
+    out=q.search(c);
+    ok3= out.length===1 && out[0]===c;
+    out=q.search(d);
+    ok4= out.length===1 && out[0]===d;
+
+    q.insert(e);
+    out=q.search(e);
+    ok5= out.length===3 && out.map(o=>o.data).sort().join("")=="cde";
+
+    q.insert(f);
+    out=q.search(e);
+    ok6= out.length===2 && out.map(o=>o.data).sort().join("")=="ef";
+
+    out=q.search(f);
+    ok7= out.length===4 && out.map(o=>o.data).sort().join("")=="abef";
+
+    return ok1 && ok2 && ok3 && ok4 && ok5 && ok6 && ok7;
+  }).
+  ensure("quadtree;rhs",()=>{
     let q= Q.quadtree({left:0,right:480,bottom:0,top:640},2,2);
     let a=Node("a",460,600,20,20);
     let b=Node("b",460,100,20,20);
