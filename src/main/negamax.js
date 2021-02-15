@@ -21,11 +21,17 @@
   function _module(Core){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
-    const _N={};
-    //const PINF = 1000000;
+
+    /** @module mcfud/negamax */
+
     /**
-     * @public
+     * @memberof module:mcfud/negamax
      * @class
+     * @property {any} lastBestMove
+     * @property {any[]} state
+     * @property {number} other
+     * @property {number} cur
+     *
      */
     class FFrame{
       constructor(){
@@ -34,8 +40,11 @@
         this.other=0;
         this.cur=0;
       }
+      /**Make a copy of this.
+       * @return {FFrame}
+       */
       clone(){
-        let f= new FFrame();
+        const f= new FFrame();
         f.state=_.deepCopyArray(this.state);
         f.lastBestMove=this.lastBestMove;
         f.other=this.other;
@@ -43,26 +52,54 @@
         return f;
       }
     }
-    /**
-     * @public
+    /**Represents a game board.
+     * @memberof module:mcfud/negamax
      * @class
      */
     class GameBoard{
-      constructor(){
-      }
+      constructor(){}
+      /**Get the first move.
+       * @param {FFrame} frame
+       * @return {any}
+       */
       getFirstMove(frame){}
+      /**Get the list of next possible moves.
+       * @param {FFrame} frame
+       * @return {any[]}
+       */
       getNextMoves(frame){}
+      /**Calculate the score.
+       * @param {FFrame} frame
+       * @return {number}
+       */
       evalScore(frame){}
+      /**Check if game is a draw.
+       * @param {FFrame} frame
+       * @return {boolean}
+       */
       isStalemate(frame){}
-      isOver(f){}
+      /**Check if game is over.
+       * @param {FFrame} frame
+       * @return {boolean}
+       */
+      isOver(frame){}
       //undoMove(frame, move){}
-      makeMove(f, move){}
+      /**Make a move.
+       * @param {FFrame} frame
+       * @param {number} move
+       */
+      makeMove(frame, move){}
+      /**Switch to the other player.
+       * @param {FFrame} frame
+       */
       switchPlayer(frame){}
+      /**Take a snapshot of current game state.
+       * @return {FFrame}
+       */
       takeFFrame(){}
     }
     /**Nega Min-Max algo.
-     * @private
-     * @function
+     * @ignore
      */
     function _negaMax(board, game, maxDepth, depth, alpha, beta){
       if(depth === 0 || board.isOver(game)){
@@ -110,18 +147,23 @@
       }
       return bestValue;
     }
-    /**
-     * Main method for nega-max algo.
-     * @public
-     * @function
-     */
-    _N.evalNegaMax=function(board){
-      let f= board.takeFFrame();
-      _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
-      return f.lastBestMove;
+
+    const _$={
+      FFrame,
+      GameBoard,
+      /**
+       * @memberof module:mcfud/negamax
+       * @param {GameBoard} board
+       * @return {number}
+       */
+      evalNegaMax(board){
+        const f= board.takeFFrame();
+        _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
+        return f.lastBestMove;
+      }
     };
 
-    return _.inject(_N,{ FFrame: FFrame, GameBoard: GameBoard });
+    return _$;
   }
 
   //export--------------------------------------------------------------------

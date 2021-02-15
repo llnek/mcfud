@@ -26,6 +26,13 @@
     function _CTOR(){
       return UseOBJ ? new V2Obj() : [0,0] }
     let _POOL=_.fill(PLEN,_CTOR);
+
+    /** @module mcfud/vec2 */
+
+    /**
+     * @typedef {number[]} Vec2
+     */
+
     /**Put stuff back into the pool.
      * @ignore
      */
@@ -159,12 +166,7 @@
       }
       _.assert(false,"cross(): bad args");
     }
-    /**
-     * @typedef {number[]} Vec2
-     */
-    /**
-     * @module mcfud/vec2
-     */
+
     const _$={
       /**Internal, for testing only.
        * @ignore

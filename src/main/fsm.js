@@ -18,6 +18,9 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   function _module(Core){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
+
+    /** @module mcfud/fsm */
+
     /**
      * @typedef {object} FSMStateTransition
      * @property {string} target  switching to this target state
@@ -48,9 +51,7 @@
      * @property {function} process() execute any runnable code defined by the current state
      * @property {function} trigger(event) apply this event to the state machine
      */
-    /**Simple Finite State Machine.
-     * @module mcfud/fsm
-     */
+
     const _$={
       /**
        * @memberof module:mcfud/fsm

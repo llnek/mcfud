@@ -26,6 +26,11 @@
       throw "Fatal: No Colors!";
     }
     const {is,u:_}=Core;
+
+    /**
+     * @module mcfud/test
+     */
+
     /**
      * @ignore
      */
@@ -117,9 +122,6 @@
      * @property {any[]} failed
      */
 
-    /**
-     * @module mcfud/test
-     */
     const _$={
       /**Print report to stdout.
        * @memberof module:mcfud/test

@@ -28,6 +28,10 @@
     const {u:_, is}= Core;
 
     /**
+     * @module mcfud/matrix
+     */
+
+    /**
      * @typedef {object} MatrixObject
      * @property {number[]} dim size of the matrix[row,col]
      * @property {number[]} cells internal data
@@ -68,9 +72,6 @@
       return _matnew(rows,cols, _.fill(rows*cols,0))
     }
 
-    /**
-     * @module mcfud/matrix
-     */
     const _$={
       /** @ignore */
       v4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
