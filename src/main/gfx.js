@@ -13,19 +13,26 @@
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Core,_M){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
 
     const TWO_PI=Math.PI*2;
     const {u:_}=Core;
 
-    /** @module mcfud/gfx */
+    /**
+     * @module mcfud/gfx
+     */
+
+    /**
+     * @typedef {number[]} Vec2
+     */
 
     /**
      * @memberof module:mcfud/gfx
@@ -48,7 +55,7 @@
        * @return {TXMatrix2D} self
        */
       identity(){
-        let m = this.m;
+        const m = this.m;
         m[0] = 1; m[1] = 0; m[2] = 0;
         m[3] = 0; m[4] = 1; m[5] = 0;
         return this;
@@ -146,7 +153,7 @@
        * @return {object} obj
        */
       transformPoint(obj){
-        let [x,y]= this.transform(obj.x,obj.y);
+        const [x,y]= this.transform(obj.x,obj.y);
         obj.x = x;
         obj.y = y;
         return obj;
@@ -162,7 +169,7 @@
        * @param {object} html5 2d-context
        */
       setContextTransform(ctx){
-        let m = this.m;
+        const m = this.m;
         // source:
         //  m[0] m[1] m[2]
         //  m[3] m[4] m[5]
@@ -177,9 +184,8 @@
       }
     }
 
-
     const _$={
-      TXMatrix2D:TXMatrix2D,
+      TXMatrix2D,
       /**Html5 Text Style object.
        * @example
        * "14px 'Arial'" "#dddddd" "left" "top"
@@ -191,7 +197,7 @@
        * @return {object} style object
        */
       textStyle(font,fill,align,base){
-        let x={font: font, fill: fill};
+        const x={font: font, fill: fill};
         if(align) x.align=align;
         if(base) x.base=base;
         return x;
@@ -247,7 +253,6 @@
        * @memberof module:mcfud/gfx
        * @param {object} html5 2d-context
        * @param {Polygon} poly
-       * @return {}
        */
       drawShapePoly(ctx,poly){
         return this.drawPoints(ctx,poly.points);
@@ -272,7 +277,7 @@
        * @param {Circle} circle
        */
       drawShapeCircle(ctx,circle){
-        this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius);
+        return this.drawCircle(ctx,circle.pos[0],circle.pos[1],circle.radius)
       },
       /**Draw a rectangle.
        * @memberof module:mcfud/gfx
@@ -322,7 +327,7 @@
        * @param {Line} line
        */
       drawShapeLine(ctx,line){
-        return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1]);
+        return this.drawLine(ctx,line.p[0],line.p[1],line.q[0],line.q[1])
       }
     };
 

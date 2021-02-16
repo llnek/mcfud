@@ -13,31 +13,40 @@
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  function _module(Core){
-    if(!Core) Core=gscope["io/czlab/mcfud/core"]();
 
-    /** @module mcfud/fsm */
+  "use strict";
+
+  /**Create the module.
+  */
+  function _module(Core){
+
+    if(!Core)
+      Core=gscope["io/czlab/mcfud/core"]();
+
+    /**
+     * @module mcfud/fsm
+     */
 
     /**
      * @typedef {object} FSMStateTransition
      * @property {string} target  switching to this target state
      * @property {function} action() run this code upon the transition
      */
+
     /**
      * @typedef {object} FSMStateTransitionList
      * @property {FSMStateTransition} transition-1 user defined transition
      * @property {FSMStateTransition} ...          more
      * @property {FSMStateTransition} transition-n  user defined transition
      */
+
     /**
      * @typedef {object} FSMState
      * @property {function} enter() run this code when the FSM switches to this state
      * @property {function} exit()  run this code when the FSM switches away from this state
      * @property {FSMStateTransitionList} transitions  a list of state transition definitions
      */
+
     /**
      * @typedef {object} FSMDefn
      * @property {function} initState() return the initial state
@@ -45,6 +54,7 @@
      * @property {FSMState} ...     more
      * @property {FSMState} state-n a user defined state
      */
+
     /**
      * @typedef {object} FSMObject
      * @property {function} state() returns the current state
@@ -53,7 +63,7 @@
      */
 
     const _$={
-      /**
+      /**Create a FSM instance.
        * @memberof module:mcfud/fsm
        * @param {FSMDefn} defn
        * @return {FSMObject}
@@ -92,6 +102,7 @@
     };
     return _$;
   }
+
   /**Sample definition syntax/format.
    * @ignore
    */

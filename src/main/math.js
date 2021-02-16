@@ -13,10 +13,10 @@
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
@@ -26,13 +26,15 @@
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
     const {is,u:_}= Core;
-    /** @ignore */
-    function _mod_deg(deg){
-      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI
-    }
+
     /**
      * @module mcfud/math
      */
+
+    /** @ignore */
+    function _mod_deg(deg){
+      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI }
+
     const _$={
       /**Liner interpolation.
        * @memberof module:mcfud/math

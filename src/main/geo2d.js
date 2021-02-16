@@ -13,18 +13,20 @@
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /** @ignore */
+  const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
+
+  /**Create the module.
    */
   function _module(Core,_M,_V){
-    const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
-    //dependencies
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
     if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
+
     const MFL=Math.floor;
     const ABS=Math.abs;
     const MaxVerts=36;
@@ -34,16 +36,19 @@
      * @module mcfud/geo2d
      */
 
+    /**
+     * @typedef {number[]} Vec2
+     */
+
     /**Original source from Randy Gaul's impulse-engine:
      * https://github.com/RandyGaul/ImpulseEngine#Shape.h
-     * @ignore
      */
     function _orderPoints(vertices){
       const count=vertices.length;
       const hull= _.assert(count <= MaxVerts) && _.fill(MaxVerts);
       //find the right-most point
-      let maxX= vertices[0][0];
-      let rightMost=0;
+      let rightMost=0,
+          maxX= vertices[0][0];
       for(let x,i=1; i<count; ++i){
         x=vertices[i][0];
         if(x>maxX){
@@ -126,6 +131,7 @@
         }
       }
     }
+
     /**An Area.
      * @memberof module:mcfud/geo2d
      * @class
@@ -148,6 +154,7 @@
         return new Area(MFL(this.width/2),MFL(this.height/2))
       }
     }
+
     /**A Line.
      * @memberof module:mcfud/geo2d
      * @class
@@ -166,6 +173,7 @@
         this.q= _V.vec(x2,y2);
       }
     }
+
     /**A Circle.
      * @memberof module:mcfud/geo2d
      * @class
@@ -182,22 +190,25 @@
         this.orient=0;
         this.pos=_V.vec();
       }
-      /**
+      /**Set the rotation.
        * @param {number} r
+       * @return {Circle} self
        */
       setOrient(r){
         this.orient=r;
         return this;
       }
-      /**
+      /**Set origin.
        * @param {number} x
        * @param {number} y
+       * @return {Circle} self
        */
       setPos(x,y){
         _V.copy(this.pos,x,y);
         return this;
       }
     }
+
     /**A Polygon, points are specified in COUNTER-CLOCKWISE order.
      * @memberof module:mcfud/geo2d
      * @class
@@ -222,16 +233,18 @@
         this.pos=_V.vec();
         this.setPos(x,y);
       }
-      /**
+      /**Set origin.
        * @param {number} x
        * @param {number} y
+       * @return {Polygon} self
        */
       setPos(x=0,y=0){
         _V.copy(this.pos,x,y);
         return this;
       }
-      /**
+      /**Set vertices.
        * @param {Vec2[]} points
+       * @return {Polygon} self
        */
       set(points){
         this.calcPoints= this.calcPoints || [];
@@ -249,16 +262,26 @@
         });
         return this._recalc();
       }
+      /**Set rotation.
+       * @param {number} rot
+       * @return {Polygon} self
+       */
       setOrient(rot){
         this.orient = rot;
         return this._recalc();
       }
+      /**Move the points.
+       * @param {number} x
+       * @param {number} y
+       * @return {Polygon} self
+       */
       translate(x, y){
         _.doseq(this.points,p=>{
           p[0] += x; p[1] += y;
         });
         return this._recalc();
       }
+      /** @ignore */
       _recalc(){
         if(this.points){
           _.doseq(this.points,(p,i)=>{
@@ -278,6 +301,7 @@
         return this;
       }
     }
+
     /** @ignore */
     function toPolygon(r){
       return new Polygon(r.pos[0],
@@ -285,9 +309,17 @@
                                         _V.vec(r.width,r.height),
                                         _V.vec(0,r.height),_V.vec()])
     }
+
     /**A collision manifold.
      * @memberof module:mcfud/geo2d
      * @class
+     * @property {Vec2} overlapN  overlap normal
+     * @property {Vec2} overlapV  overlap vector
+     * @property {number} overlap overlap magnitude
+     * @property {object} A
+     * @property {object} B
+     * @property {boolean} AInB
+     * @property {boolean} BInA
      */
     class Manifold{
       /**
@@ -311,13 +343,15 @@
         return this;
       }
     }
+
     //------------------------------------------------------------------------
     // 2d collision using Separating Axis Theorem.
     // see https://github.com/jriecken/sat-js
     //------------------------------------------------------------------------
+
     /**Check all shadows onto this axis and
-      *find the min and max.
-      @ignore */
+     * find the min and max.
+     */
     function _findProjRange(points, axis){
       let min = Infinity,
           max = -Infinity;
@@ -328,6 +362,7 @@
       }
       return [min,max]
     }
+
     /** @ignore */
     function _voronoiRegion(line, point){
       let n2 = _V.len2(line),
@@ -336,6 +371,7 @@
       //If pt is beyond the end of the line, right voronoi region
       return dp<0 ? LEFT_VORONOI : (dp>n2 ? RIGHT_VORONOI : MID_VORONOI)
     }
+
     /** @ignore */
     function _testSAT(aPos,aPoints, bPos,bPoints, axis, resolve){
       let [minA,maxA] =_findProjRange(aPoints, axis);
@@ -347,9 +383,7 @@
       minB += proj;
       maxB += proj;
       _V.reclaim(vAB);
-      if(minA>maxB || minB>maxA){
-        return true
-      }
+      if(minA>maxB || minB>maxA){ return true }
       if(resolve){
         let overlap = 0;
         //A starts left of B
@@ -387,11 +421,13 @@
         }
       }
     }
+
     /**
      * @private
      * @var {Manifold}
      */
     const _RES= new Manifold();
+
     /**
      * @private
      * @var {Polygon}
@@ -400,9 +436,9 @@
 
     /** @ignore */
     function _circle_circle(a, b, resolve){
-      let r_ab = a.radius + b.radius;
       let vAB= _V.vecAB(a.pos,b.pos);
-      let r2 = r_ab * r_ab;
+      let r_ab = a.radius+b.radius;
+      let r2 = r_ab*r_ab;
       let d2 = _V.len2(vAB);
       let status= !(d2 > r2);
       if(status && resolve){
@@ -418,11 +454,12 @@
       _V.reclaim(vAB);
       return status;
     }
+
     /** @ignore */
     function _poly_circle(polygon, circle, resolve){
       // get position of the circle relative to the polygon.
       let vPC= _V.vecAB(polygon.pos,circle.pos);
-      let r2 = circle.radius * circle.radius;
+      let r2 = circle.radius*circle.radius;
       let cps = polygon.calcPoints;
       let edge = _V.vec();
       let point;
@@ -452,7 +489,7 @@
           if(region === RIGHT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist > circle.radius){
+            if(dist>circle.radius){
               // No intersection
               _V.reclaim(vPC,edge,point,point2);
               return false;
@@ -473,7 +510,7 @@
           if(region === LEFT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist > circle.radius){
+            if(dist>circle.radius){
               _V.reclaim(vPC,edge,point);
               return false;
             } else if(resolve){
@@ -519,6 +556,7 @@
       _V.reclaim(vPC,edge,point);
       return true;
     }
+
     /** @ignore */
     function _circle_poly(circle, polygon, resolve){
       let result = _poly_circle(polygon, circle, resolve);
@@ -535,6 +573,7 @@
       }
       return result;
     }
+
     /** @ignore */
     function _poly_poly(a, b, resolve){
       let pa = a.calcPoints;
@@ -559,12 +598,12 @@
     }
 
     const _$={
-      Rect: Rect,
-      Area: Area,
-      Line: Line,
-      Circle: Circle,
-      Polygon: Polygon,
-      Manifold: Manifold,
+      Rect,
+      Area,
+      Line,
+      Circle,
+      Polygon,
+      Manifold,
       /**Sort vertices in counter clockwise order.
        * @memberof module:mcfud/geo2d
        * @param {Vec2[]} vs

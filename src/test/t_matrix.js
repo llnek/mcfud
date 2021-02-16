@@ -247,9 +247,6 @@ Test.deftest("Math").
     let w=M.rot3D(Math.PI/2,Math.PI/2,Math.PI/2);
     let r= M.matVMult(w,M.v4(2,3,4));
     return _arrayEq(r,[4,3,-2,0]);
-  }).
-  ensure("Z",()=>{
-    return 1;
   }).end(tearDown)).then(function(r){
   Test.prn(r);
   });

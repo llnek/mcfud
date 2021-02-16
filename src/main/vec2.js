@@ -13,16 +13,17 @@
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
-   */
+
+  /**Creates the module.
+  */
   function _module(UseOBJ=false,Core=null){
     class V2Obj{ constructor(){ this.x=0;this.y=0 } }
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
     const PLEN=96;
+    /** @ignore */
     function _CTOR(){
       return UseOBJ ? new V2Obj() : [0,0] }
     let _POOL=_.fill(PLEN,_CTOR);
@@ -34,59 +35,49 @@
      */
 
     /**Put stuff back into the pool.
-     * @ignore
      */
     function _drop(...args){
       for(let a,i=0;i<args.length;++i){
         a=args[i];
         if(_POOL.length<PLEN){
           if((UseOBJ && a instanceof V2Obj) ||
-            (!UseOBJ && a && a.length===2)) {
-            _POOL.push(a);
-          }
+            (!UseOBJ && a && a.length===2)) { _POOL.push(a) }
         }else{break}
       }
     }
+
     /**Take something from the pool.
-     * @ignore
      */
     function _take(x=0,y=0){
       const out= _POOL.length>0 ? _POOL.pop() : _CTOR();
       if(UseOBJ){
-        out.x=x;
-        out.y=y;
+        out.x=x; out.y=y
       }else{
-        out[0]=x;
-        out[1]=y;
-      }
+        out[0]=x; out[1]=y }
       return out;
     }
-    /**
-     * @ignore
-     */
+
+    /**4 basic arithmetic ops. */
     const _4ops={ "+": (a,b)=>a+b, "-": (a,b)=>a-b,
                   "*": (a,b)=>a*b, "/": (a,b)=>a/b };
+
     /**Make sure we have good data.
-     * @ignore
      */
     function _assertArgs(a,b,hint){
-      if(hint===0){
-        //b's type must be same as arg[0]
-      }else if(is.num(b)) {b=a}
+      if(hint===0){ /*b's type must be same as a*/ }else if(is.num(b)) {b=a}
       UseOBJ ? _.assert(a instanceof V2Obj && b instanceof V2Obj)
              : _.assert(a.length===2&&is.vec(b)&&a.length===b.length);
       return true;
     }
-    /**
-     * @ignore
-     */
+
+    /**Handles various combination of args. */
     function _vecXXX(op,a,b,c,local){
-      let out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
-      let n= is.num(b);
+      const out= _assertArgs(a,b) ? (local ? a : _CTOR()) : null;
+      const n= is.num(b);
       if(is.num(c)){
-        _.assert(is.num(b),"wanted number");
+        _.assert(n,"wanted both numbers")
       }else if(n){
-        c=b;
+        c=b
       }
       if(UseOBJ){
         out.x=op(a.x, n?b:b.x);
@@ -97,38 +88,36 @@
       }
       return out;
     }
+
     /**Rotate a vector([]) around a pivot.
-     * @ignore
      */
     function _v2rot_arr(a,cos,sin,pivot,local){
       const cx=pivot ? pivot[0] : 0;
       const cy=pivot ? pivot[1] : 0;
-      const x_= a[0] - cx;
-      const y_= a[1] - cy;
-      const x= cx + (x_*cos - y_*sin);
-      const y= cy + (x_ * sin + y_ * cos);
-      if(local){ a[0] = x; a[1] = y; }else{
-        a= _take(x,y);
+      const x_= a[0]-cx;
+      const y_= a[1]-cy;
+      const x= cx+(x_*cos - y_*sin);
+      const y= cy+(x_ * sin + y_ * cos);
+      if(local){ a[0]=x; a[1]=y }else{
+        a= _take(x,y)
       }
       return a;
     }
     /**Rotate a vector(obj) around a pivot.
-     * @ignore
      */
     function _v2rot_obj(a,cos,sin,pivot,local){
       const cx=pivot ? pivot.x : 0;
       const cy=pivot ? pivot.y : 0;
-      const x_= a.x - cx;
-      const y_= a.y - cy;
-      const x= cx + (x_*cos - y_*sin);
-      const y= cy + (x_ * sin + y_ * cos);
-      if(local){ a.x = x; a.y = y; }else{
-        a= _take(x,y);
+      const x_= a.x-cx;
+      const y_= a.y-cy;
+      const x= cx+(x_*cos - y_*sin);
+      const y= cy+(x_ * sin + y_ * cos);
+      if(local){ a.x = x; a.y = y }else{
+        a= _take(x,y)
       }
       return a;
     }
     /**2d cross product, data-type=[].
-     * @ignore
      */
     function _vecXSS_arr(p1,p2){
       //v2 X v2
@@ -149,7 +138,6 @@
       _.assert(false,"cross(): bad args");
     }
     /**2d cross product, data-type=object.
-     * @ignore
      */
     function _vecXSS_obj(p1,p2){
       //v2 X v2
@@ -168,15 +156,11 @@
     }
 
     const _$={
-      /**Internal, for testing only.
-       * @ignore
-       */
+      /**Internal, for testing only. */
       _switchMode(bObj,size=16){
         UseOBJ=bObj;
-        _POOL=_.fill(size||PLEN,_CTOR); },
-      /**Internal, for testing only.
-       * @ignore
-       */
+        _POOL=_.fill(size||PLEN,_CTOR) },
+      /**Internal, for testing only. */
       _checkPoolSize(){ return _POOL.length },
       /**Get a free vec from internal pool.
        * @memberof module:mcfud/vec2
@@ -196,7 +180,7 @@
        * @param {number} y
        * @return {Vec2}
        */
-      vec(x,y){ return _take(x,y) },
+      vec(x=0,y=0){ return _take(x,y) },
       /**Vector addition: A+B.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -310,12 +294,13 @@
       /**Normalize this vector: a/|a|
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
-       * @return {Vec2}
+       * @return {Vec2} undefined if zero length
        */
       unit(a){
-        let d=this.len(a),
-            out= _CTOR();
+        let out,
+            d=this.len(a);
         if(!_.feq0(d)){
+          out=_CTOR();
           if(UseOBJ){
             out.x= a.x/d;
             out.y= a.y/d;
@@ -329,10 +314,11 @@
       /**Normalize this vector: a=a/|a|
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
-       * @return {Vec2}
+       * @return {Vec2} undefined if zero length
        */
       unit$(a){
-        let d=this.len(a);
+        let out,
+            d=this.len(a);
         if(!_.feq0(d)){
           if(UseOBJ){
             a.x /= d;
@@ -341,8 +327,9 @@
             a[0] /= d;
             a[1] /= d;
           }
+          out=a;
         }
-        return a;
+        return out;
       },
       /**Copy `src` into `des`.
        * @memberof module:mcfud/vec2
@@ -417,8 +404,7 @@
        * is on the left or right side of the 2nd vector (B), -ve implies
        * A is left of B, (rotate cw to B), +ve means A is right of B (rotate ccw to B).
        * The absolute value of the 2D cross product is the sine of the angle
-       * in between the two vectors, so taking the arc sine of it would give
-       * the angle in radians.
+       * in between the two vectors.
        * @memberof module:mcfud/vec2
        * @param {number|Vec2} p1
        * @param {number|Vec2} p2
@@ -459,9 +445,9 @@
         _assertArgs(a,a);
         const x= UseOBJ ? a.x : a[0];
         if(UseOBJ){
-          if(ccw){ a.x=-a.y; a.y= x; }else{ a.x=a.y; a.y= -x; }
+          if(ccw){ a.x=-a.y; a.y= x }else{ a.x=a.y; a.y= -x }
         }else{
-          if(ccw){ a[0]=-a[1]; a[1]= x; }else{ a[0]=a[1]; a[1]= -x; }
+          if(ccw){ a[0]=-a[1]; a[1]= x }else{ a[0]=a[1]; a[1]= -x }
         }
         return a;
       },

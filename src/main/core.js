@@ -13,19 +13,17 @@
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(window,doco,seed_rand){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   if(typeof module==="object" && module.exports){
     seed_rand=require("../tpcl/seedrandom.min")
   }else{
     doco=window.document
   }
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**Module's Main
-   * @private
-   * @function
-   */
+
+  /**Create the module.
+  */
   function _module(){
     const MFL=Math.floor,
           Slicer=Array.prototype.slice,
@@ -41,6 +39,10 @@
     function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
     function isUndef(o){ return o===undefined }
     function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
+
+    /**
+     * @module mcfud/core
+     */
 
     /**
      * @private
@@ -113,14 +115,9 @@
       }
     }
 
-    /**
-     * @module mcfud/core
-     */
     const _$={};
 
-    /**
-     * @namespace module:mcfud/core.is
-     */
+    /** @namespace module:mcfud/core.is */
     const is={
       /**Check if input(s) are type `function`.
        * @memberof module:mcfud/core.is
@@ -193,9 +190,7 @@
       own(o,p){ return Object.prototype.hasOwnProperty.call(o,p) }
     };
 
-    /**
-     * @namespace module:mcfud/core._
-     */
+    /** @namespace module:mcfud/core._ */
     const _={
       /**Re-seed the internal prng object.
        * @memberof module:mcfud/core._
@@ -1417,9 +1412,7 @@
       }
     };
 
-    /**
-     * @namespace module:mcfud/core.dom
-     */
+    /** @namespace module:mcfud/core.dom */
     const dom={
       /**Get a list of the document's elements that
        * match the specified selector(s).
@@ -1638,6 +1631,7 @@
       delete _["addEvent"];
       delete _["delEvent"];
     }
+
     _$.EventBus=EventBus;
     _$.is=is;
     _$.u=_;

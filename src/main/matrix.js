@@ -13,10 +13,10 @@
 // Copyright © 2020-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
+
   "use strict";
-  /**
-   * @private
-   * @function
+
+  /**Create the module.
    */
   function _module(Core){
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
@@ -49,7 +49,7 @@
     function _arrayEq(a1,a2){
       //2 numeric arrays are equal?
       for(let i=0;i<a1.length;++i){
-        if(!_.feq(a1[i],a2[i])) return false; }
+        if(!_.feq(a1[i],a2[i])) return false }
       return true
     }
 
@@ -188,14 +188,12 @@
         const c= _cell(m.dim[0],m.dim[1],row,col);
         if(c>=0 && c<m.cells.length){
           if(is.num(value)){
-            m.cells[c]=value;
-            return m;
-          }
-          return m.cells[c];
+            m.cells[c]=value; return m }
+          return m.cells[c]
         }
       },
       /**Create an `Identity` matrix.
-       * memberof module:mcfud/matrix
+       * @memberof module:mcfud/matrix
        * @param {number} sz  size of the matrix
        * @return {MatrixObject} new matrix
        */
@@ -207,7 +205,7 @@
         return _matnew(sz, sz, out);
       },
       /**Create a matrix of zeroes.
-       * memberof module:mcfud/matrix
+       * @memberof module:mcfud/matrix
        * @param {number} sz  size of the matrix
        * @return {MatrixObject} new matrix
        */
@@ -217,11 +215,10 @@
       },
       /**Get the rows of this matrix,
        * for example, if the matrix is
-       * [1 0 0
+       * [1 230
        *  0 1 0
        *  0 0 1] then the rows majors are
-       *  [1 0 0], [0 1 0], [0 0 1]
-       *
+       *  [1 2 3], [0 1 0], [0 0 1]
        * @memberof module:mcfud/matrix
        * @param {MatrixObject} m the matrix
        * @return {number[][]}
@@ -236,7 +233,6 @@
        *  4 5 6
        *  7 8 9] then the column majors are
        *  [1 4 7], [2 5 8], [7 8 9]
-       *
        * @memberof module:mcfud/matrix
        * @param {MatrixObject} m the matrix
        * @return {number[][]}
@@ -249,7 +245,7 @@
           for(let r=0;r<rows;++r){
             a.push(m.cells[r*cols+c])
           }
-          out.push(a);
+          out.push(a)
         }
         return out;
       },
@@ -314,7 +310,7 @@
        */
       matEq(a,b){
         return a.dim[0]===b.dim[0] &&
-               a.dim[1]===b.dim[1] ? _arrayEq(a.cells,b.cells) : false
+               a.dim[1]===b.dim[1] && _arrayEq(a.cells,b.cells)
       },
       /**Transpose this matrix.
        * @memberof module:mcfud/matrix
@@ -379,9 +375,9 @@
       /** @ignore */
       _matDet2x2(m){
         _.assert(m.cells.length===4);
-        return m.cells[0]*m.cells[3] - m.cells[1] * m.cells[2]
+        return m.cells[0]*m.cells[3] - m.cells[1]*m.cells[2]
       },
-      /** Extract a portion of a matrix by
+      /**Extract a portion of a matrix by
        * getting rid of a row and col.
        * @memberof module:mcfud/matrix
        * @param {MatrixObject} m the matrix
@@ -390,7 +386,7 @@
        * @return {MatrixObject} new matrix
        */
       matCut(m,row,col){
-        let [rows,cols]=m.dim;
+        const [rows,cols]=m.dim;
         //change to zero indexed
         let _row = row-1;
         let _col= col-1;
@@ -402,16 +398,16 @@
           }
         return _matnew(rows-1,cols-1, tmp)
       },
-      /** Find the `Matrix Minor` of this matrix.
-       *  A "minor" is the determinant of the square matrix
-       *  formed by deleting one row and one column from
-       *  some larger square matrix.
+      /**Find the `Matrix Minor` of this matrix.
+       * A "minor" is the determinant of the square matrix
+       * formed by deleting one row and one column from
+       * some larger square matrix.
        * @memberof module:mcfud/matrix
        * @param {MatrixObject} m the matrix
        * @return {MatrixObject} new matrix
        */
       matMinor(m){
-        let [rows,cols]=m.dim;
+        const [rows,cols]=m.dim;
         let tmp=[];
         _.assert(rows===cols);
         if(cols===2)
@@ -428,7 +424,7 @@
         return _.assert(m.cells.length===4) &&
                this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
       },
-      /** Find the `Matrix Cofactor` of this matrix.
+      /**Find the `Matrix Cofactor` of this matrix.
        * The cofactor is a signed minor.
        * The cofactor of aij is denoted by Aij and is defined as
        * Aij = (-1)^(i+j) Mij
@@ -437,8 +433,8 @@
        * @return {MatrixObject} new matrix
        */
       matCofactor(m){
-        let minor=this.matMinor(m);
-        let [rows,cols]=minor.dim;
+        const minor=this.matMinor(m);
+        const [rows,cols]=minor.dim;
         let tmp=minor.cells.slice();
         for(let r=0;r<rows;++r)
           for(let p,c=0;c<cols;++c){
@@ -459,7 +455,7 @@
       },
       /** @ignore */
       _minv2x2(m){
-        let [rows,cols]=m.dim;
+        const [rows,cols]=m.dim;
         _.assert(m.cells.length===4&&rows===2&&cols===2);
         let r,c=m.cells;
         let det= c[0]*c[3] - c[1]*c[2];
@@ -478,7 +474,7 @@
        * @return {MatrixObject} new matrix
        */
       matInv(m){
-        let [rows,cols]=m.dim;
+        const [rows,cols]=m.dim;
         if(cols===2)
           return this._minv2x2(m);
         let d= this.matDet(m);
@@ -525,7 +521,7 @@
        * @return {MatrixObject} new matrix
        */
       scale3D(v){
-        let out=this.matIdentity(4);
+        const out=this.matIdentity(4);
         out.cells[_cell(4,4,1,1)]=v[0];
         out.cells[_cell(4,4,2,2)]=v[1];
         out.cells[_cell(4,4,3,3)]=v[2];
@@ -537,7 +533,7 @@
        * @return {MatrixObject} new matrix
        */
       translate3D(v){
-        let out=this.matIdentity(4);
+        const out=this.matIdentity(4);
         out.cells[_cell(4,4,4,1)]=v[0];
         out.cells[_cell(4,4,4,2)]=v[1];
         out.cells[_cell(4,4,4,3)]=v[2];
@@ -628,9 +624,9 @@
               }else if(v !== 0) return false;
             }
           }
-          return true;
+          return true
         }else{
-          return false;
+          return false
         }
       },
       /**Check if matrix is `orthogonal`.
@@ -649,6 +645,7 @@
                this.isIdentity(this.matMult(this.matXpose(m), this.matInv(m)));
       }
     };
+
     return _$;
   }
 

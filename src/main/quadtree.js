@@ -13,19 +13,19 @@
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
 ;(function(gscope){
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   "use strict";
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  /**
-   * @private
-   * @function
+
+  /**Creates the module.
    */
   function _module(Core){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     const MFL=Math.floor;
     const {u:_} = Core;
 
-    /** @module mcfud/quadtree */
+    /**
+      * @module mcfud/quadtree
+      */
 
     /**
      * @typedef {object} QuadTree
@@ -34,7 +34,16 @@
      * @property {function} reset()
      */
 
-    /** @ignore */
+    /**
+     * @typedef {object} QuadTreeNode
+     * @property {number} x
+     * @property {number} y
+     * @property {number} width
+     * @property {number} height
+     * @property {function} getNodeRect()
+     */
+
+    /**Creates a QuadTree. */
     function QuadTree(left,right,top,bottom,maxCount,maxDepth,level){
       let boxes=null,
           objects = [];
@@ -45,11 +54,18 @@
           midY= MFL((top+bottom)/2);
       //find which quadrants r touches
       function _locate(r){
+        let x,y,width,height;
+        if(_.has(r,"x") && _.has(r,"y") && _.has(r,"width") && _.has(r,"height")){
+          x=r.x; y=r.y; width=r.width; height=r.height;
+        }else if(r.getNodeRect){
+          let b=r.getNodeRect();
+          x=b.x; y=b.y; width=b.width; height=b.height;
+        }
         let out=[],
-            left= r.x<midX,
-            right= r.x+r.width>midX,
-            up= flipped? (r.y<midY) : (r.y+r.height>midY),
-            down= flipped? (r.y+r.height>midY): (r.y<midY);
+            left= x<midX,
+            right= x+width>midX,
+            up= flipped? (y<midY) : (y+height>midY),
+            down= flipped? (y+height>midY): (y<midY);
         if(up){
           if(left) out.push(3);
           if(right) out.push(0); }
@@ -58,6 +74,7 @@
           if(right) out.push(1); }
         return out;
       }
+
       //split into 4 quadrants
       function _split(){
         //3|0
@@ -69,6 +86,7 @@
                QuadTree(left, midX, midY, bottom,maxCount,maxDepth,level+1),
                QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
       }
+
       return{
         dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
         insert:function(node){

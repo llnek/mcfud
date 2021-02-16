@@ -13,32 +13,35 @@
 // Copyright © 2013-2021, Kenneth Leung. All rights reserved.
 
 ;(function(gscope){
+
   "use strict";
+
   const VISCHS=" @N/\\Ri2}aP`(xeT4F3mt;8~%r0v:L5$+Z{'V)\"CKIc>z.*"+
                "fJEwSU7juYg<klO&1?[h9=n,yoQGsW]BMHpXb6A|D#q^_d!-";
   const VISCHS_LEN=VISCHS.length;
-  /**
-   * @private
-   * @function
-   */
+
+  /**Create the module.
+  */
   function _module(Core){
-    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!Core)
+      Core= gscope["io/czlab/mcfud/core"]();
     const {u:_} = Core;
-    /**Find the offset.
-     * @ignore
+
+    /**
+     * @module mcfud/crypt
      */
+
+    /**Find the offset. */
     function _calcDelta(shift){
       return Math.abs(shift) % VISCHS_LEN
     }
-    /**Get the char at the index.
-     * @ignore
-     */
+
+    /**Get the char at the index. */
     function _charat(pos,string_){
       return (string_ || VISCHS).charAt(pos)
     }
-    /**Index for this char.
-     * @ignore
-     */
+
+    /**Index for this char. */
     function _getch(ch){
       for(let i=0;i<VISCHS_LEN;++i){
         if(_charat(i)===ch)
@@ -46,23 +49,19 @@
       }
       return -1
     }
-    /**Rotate right.
-     * @ignore
-     */
+
+    /**Rotate right. */
     function _rotr(delta, cpos){
       let pos= cpos+delta;
       return _charat(pos >= VISCHS_LEN ? (pos-VISCHS_LEN) : pos)
     }
-    /**Rotate left.
-     * @ignore
-     */
+
+    /**Rotate left. */
     function _rotl(delta, cpos){
       let pos= cpos-delta;
       return _charat(pos< 0 ? (VISCHS_LEN+pos) : pos)
     }
-    /**
-     * @module mcfud/crypt
-     */
+
     const _$={
       /**Encrypt source by shifts.
        * @memberof module:mcfud/crypt
