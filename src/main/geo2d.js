@@ -40,6 +40,24 @@
      * @typedef {number[]} Vec2
      */
 
+    /**Check if point inside a polygon.
+     * @see https://wrf.ecse.rpi.edu/Research/Short_Notes/pnpoly.html
+     * @ignore
+     */
+    function _pointInPoly(testx,testy,points){
+      let c=false,
+          nvert=points.length;
+      for(let p,q, i=0, j=nvert-1; i<nvert;){
+        p=points[i];
+        q=points[j];
+        if(((p[1]>testy) !== (q[1]>testy)) &&
+          (testx < (q[0]-p[0]) * (testy-p[1]) / (q[1]-p[1]) + p[0])) c = !c;
+        j=i;
+        ++i;
+      }
+      return c
+    }
+
     /**Original source from Randy Gaul's impulse-engine:
      * https://github.com/RandyGaul/ImpulseEngine#Shape.h
      */
@@ -829,13 +847,7 @@
         const d2 = _V.len2(_V.sub(p,c.pos));
         return d2 <= c.radius * c.radius;
       },
-      /**Check if polygon contains this point.
-       * @memberof module:mcfud/geo2d
-       * @param {Vec2} p
-       * @param {Polygon} poly
-       * @return {boolean}
-       */
-      hitTestPointPolygon(p, poly){
+      XXhitTestPointPolygon(p, poly){
         _V.set(_FAKE_POLY.pos,p);
         let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
         return res ? _RES.AInB : false;
@@ -915,6 +927,35 @@
        */
       hitTestPolygonPolygon(a, b){
         return _poly_poly(a,b,new Manifold())
+      },
+      /**Check if a point is inside these polygon vertices.
+       * @memberof module:mcfud/geo2d
+       * @param {number} testx
+       * @param {number} testy
+       * @param {Vec2[]} ps
+       * @return {boolean}
+       */
+      hitTestPointInPolygon(testx,testy,ps){
+        let c;
+        for(let p,q,len=ps.length, i=0, j=len-1; i<len;){
+          p=ps[i];
+          q=ps[j];
+          if(((p[1]>testy) !== (q[1]>testy)) &&
+             (testx < (q[0]-p[0]) * (testy-p[1]) / (q[1]-p[1]) + p[0])) c = !c;
+          j=i;
+          ++i;
+        }
+        return c;
+      },
+      /**Check if point is inside this polygon.
+       * @memberof module:mcfud/geo2d
+       * @param {number[]} [testx,testy]
+       * @param {Polygon} poly
+       * @return {boolean}
+       */
+      hitTestPointPolygon([testx,testy],poly){
+        return this.hitTestPointInPolygon(testx,testy,
+                                          _V.translate(poly.pos,poly.calcPoints))
       }
     };
 

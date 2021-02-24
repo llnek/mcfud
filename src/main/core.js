@@ -25,10 +25,12 @@
   /**Create the module.
   */
   function _module(){
-    const MFL=Math.floor,
+    const root=window,
+          MFL=Math.floor,
           Slicer=Array.prototype.slice,
           toStr=Object.prototype.toString;
     function isObj(obj){ return toStr.call(obj) == "[object Object]" }
+    function isObject(obj){ return isObj(obj) }
     function isNil(obj){ return toStr.call(obj) == "[object Null]" }
     function isFun(obj){ return toStr.call(obj) == "[object Function]" }
     function isVec(obj){ return toStr.call(obj) == "[object Array]" }
@@ -148,6 +150,13 @@
        * @return {boolean}
        */
       map(m,...args){ return _everyF(isMap,m,args) },
+      /**Check if input(s) are type `Set`.
+       * @memberof module:mcfud/core.is
+       * @param {any} m anything
+       * @param {...any} args more of anything
+       * @return {boolean}
+       */
+      set(s,...args){ return _everyF(isSet,s,args) },
       /**Check if input(s) are type `number`.
        * @memberof module:mcfud/core.is
        * @param {any} n anything
@@ -252,6 +261,9 @@
        * @param {any} b
        * @return {any} a or b
        */
+      setVec(a,...args){
+        args.forEach((v,i)=> a[i]=v)
+      },
       or(a,b){ return a===undefined?b:a },
       /**Coerce input into a number, if not return the default.
        * @memberof module:mcfud/core._
@@ -1627,7 +1639,7 @@
     }
 
     //browser only--------------------------------------------------------------
-    if(doco){ _.dom=dom }else{
+    if(doco){ _$.dom=dom }else{
       delete _["addEvent"];
       delete _["delEvent"];
     }
