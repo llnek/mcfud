@@ -17,6 +17,7 @@ const jsFiles = [
   "src/main/fsm.js",
   "src/main/gfx.js",
   "src/main/geo2d.js",
+  //"src/main/spatial.js",
   "src/main/quadtree.js",
   "src/main/negamax.js",
   "src/main/test.js"
