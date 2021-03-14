@@ -265,6 +265,7 @@
       setVec(a,...args){
         args.forEach((v,i)=> a[i]=v)
       },
+      nor(a,b){ return a===undefined||a===null?b:a },
       or(a,b){ return a===undefined?b:a },
       /**Coerce input into a number, if not return the default.
        * @memberof module:mcfud/core._
@@ -4297,15 +4298,19 @@
       /**Get the AABB rectangle.
        * @memberof module:mcfud/geo2d
        * @param {Circle|Polygon} obj
+       * @param {Vec} [pos]
        * @return {Rect}
        */
-      getAABB(obj){
+      getAABB(obj,pos=null){
+        if(!pos){
+          pos=obj.pos;
+        }
         if(_.has(obj,"radius")){
-          return new Rect(obj.pos[0]-obj.radius,
-                          obj.pos[1]-obj.radius,
+          return new Rect(pos[0]-obj.radius,
+                          pos[1]-obj.radius,
                           obj.radius*2, obj.radius*2)
         }else{
-          let cps= _V.translate(obj.pos, obj.calcPoints);
+          let cps= _V.translate(pos, obj.calcPoints);
           let xMin= cps[0][0];
           let yMin= cps[0][1];
           let xMax= xMin;
