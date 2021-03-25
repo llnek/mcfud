@@ -374,7 +374,7 @@ Test.deftest("Core").
     });
   }).
   ensure("EventBus",()=>{
-    let ok1,ok2,ok3,ok4,ok5;
+    let ok1,ok2,ok3,ok4,ok5,ok6;
     let sum=0;
     let e= EventBus(),x={foo:(a)=>sum+=a*2},y={foo:(a)=>{sum+=a}};
     //
@@ -402,7 +402,12 @@ Test.deftest("Core").
     e.pub(["t1",x],1);
     e.pub(["t2",x],2);
     ok5=sum===6;
-    return ok1&&ok2&&ok3&&ok4&&ok5;
+    //
+    e.unsub(x);
+    e.pub(["t1",x],1);
+    e.pub(["t2",x],2);
+    ok6=sum===6;
+    return ok1&&ok2&&ok3&&ok4&&ok5&&ok6;
   }).
   ensure("dropArgs",()=>{
     function x(){ return _.dropArgs(arguments,3) }
