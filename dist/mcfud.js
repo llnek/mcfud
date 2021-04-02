@@ -2143,17 +2143,15 @@
        * @return {Vec2} undefined if zero length
        */
       unit(a){
-        let out,
-            d=this.len(a);
-        if(!_.feq0(d)){
-          out=_CTOR();
-          if(UseOBJ){
-            out.x= a.x/d;
-            out.y= a.y/d;
-          }else{
-            out[0]= a[0]/d;
-            out[1]= a[1]/d;
-          }
+        let d=this.len(a),
+            z=_.feq0(d),
+            out=_CTOR();
+        if(UseOBJ){
+          out.x= z?0:a.x/d;
+          out.y= z?0:a.y/d;
+        }else{
+          out[0]= z?0:a[0]/d;
+          out[1]= z?0:a[1]/d;
         }
         return out;
       },
@@ -2163,19 +2161,16 @@
        * @return {Vec2} undefined if zero length
        */
       unit$(a){
-        let out,
-            d=this.len(a);
-        if(!_.feq0(d)){
-          if(UseOBJ){
-            a.x /= d;
-            a.y /= d;
-          }else{
-            a[0] /= d;
-            a[1] /= d;
-          }
-          out=a;
+        let d=this.len(a),
+            z=_.feq0(d);
+        if(UseOBJ){
+          a.x =z?0: a.x/d;
+          a.y =z?0:a.y/d;
+        }else{
+          a[0]=z?0:a[0]/ d;
+          a[1]=z?0:a[1]/ d;
         }
-        return out;
+        return a;
       },
       /**Copy `src` into `des`.
        * @memberof module:mcfud/vec2
