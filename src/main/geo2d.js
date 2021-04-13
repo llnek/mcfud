@@ -417,7 +417,6 @@
       //move B's range to its position relative to A.
       minB += proj;
       maxB += proj;
-      _V.reclaim(vAB);
       if(minA>maxB || minB>maxA){ return true }
       if(resolve){
         let overlap = 0;
@@ -486,7 +485,6 @@
         resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
         resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
       }
-      _V.reclaim(vAB);
       return status;
     }
 
@@ -526,7 +524,6 @@
             let dist = _V.len(point);
             if(dist>circle.radius){
               // No intersection
-              _V.reclaim(vPC,edge,point,point2);
               return false;
             } else if(resolve){
               // intersects, find the overlap.
@@ -535,7 +532,6 @@
               overlap = circle.radius - dist;
             }
           }
-          _V.reclaim(point2);
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
           _V.set(edge,polygon.edges[next]);
@@ -546,7 +542,6 @@
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
             if(dist>circle.radius){
-              _V.reclaim(vPC,edge,point);
               return false;
             } else if(resolve){
               resolve.BInA = false;
@@ -563,7 +558,6 @@
           let distAbs = Math.abs(dist);
           // if the circle is on the outside of the edge, there is no intersection.
           if(dist > 0 && distAbs > circle.radius){
-            _V.reclaim(vPC,normal,point);
             return false;
           } else if(resolve){
             overlapN = normal;
@@ -588,7 +582,6 @@
         resolve.B = circle;
         _V.mul$(_V.set(resolve.overlapV,resolve.overlapN),resolve.overlap);
       }
-      _V.reclaim(vPC,edge,point);
       return true;
     }
 

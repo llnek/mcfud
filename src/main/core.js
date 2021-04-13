@@ -38,9 +38,27 @@
     function isSet(obj){ return toStr.call(obj) == "[object Set]" }
     function isStr(obj){ return toStr.call(obj) == "[object String]" }
     function isNum(obj){ return toStr.call(obj) == "[object Number]" }
+    function isBool(obj){ return toStr.call(obj) == "[object Boolean]" }
     function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
     function isUndef(o){ return o===undefined }
     function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
+
+    //original source from https://developer.mozilla.org
+    function completeAssign(target, source){
+      let descriptors = Object.keys(source).reduce((descriptors, key) => {
+        descriptors[key] = Object.getOwnPropertyDescriptor(source, key);
+        return descriptors;
+      }, {});
+      // By default, Object.assign copies enumerable Symbols, too
+      Object.getOwnPropertySymbols(source).forEach(sym => {
+        let descriptor = Object.getOwnPropertyDescriptor(source, sym);
+        if (descriptor.enumerable) {
+          descriptors[sym] = descriptor;
+        }
+      });
+      Object.defineProperties(target, descriptors);
+      return target;
+    }
 
     /**
      * @module mcfud/core
@@ -164,6 +182,12 @@
        * @return {boolean}
        */
       num(n,...args){ return _everyF(isNum,n,args) },
+      /**Check if input is a boolean.
+       * @memberof module:mcfud/core.is
+       * @param {boolean} n
+       * @return {boolean}
+       */
+      bool(n,...args){ return _everyF(isBool,n,args) },
       /**Check if input is a positive number.
        * @memberof module:mcfud/core.is
        * @param {number} n
@@ -663,11 +687,11 @@
        * @param {number|function} v
        * @return {any[]}
        */
-      fill(a,v){
+      fill(a,v,...args){
         if(isNum(a)){a= new Array(a)}
         if(isVec(a))
           for(let i=0;i<a.length;++i)
-            a[i]= isFun(v) ? v() : v;
+            a[i]= isFun(v) ? v(...args) : v;
         return a;
       },
       /**Get the size of this input.
@@ -1051,7 +1075,7 @@
        */
       inject(des,...args){
         des=des || {};
-        args.forEach(s=> s && Object.assign(des,s));
+        args.forEach(s=> s && completeAssign(des,s));
         return des;
       },
       /**Deep copy of array/nested arrays.
