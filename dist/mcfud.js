@@ -1908,48 +1908,48 @@
       constructor(){
         this.x=0;
         this.y=0;
-        this.unit=function(out){
-          if(is.bool(out)){ out=_ctor(out) }
-          if(is.vec(out)){out[0]=this.x;out[1]=this.y}else{
-            out.x=this.x;out.y=this.y;
-          }
-          return out;
-        };
-        this.bind=function(v){
-          if(is.vec(v)){this.x=v[0];this.y=v[1]}else{
-            this.x=v.x;this.y=v.y
-          }
-          return this;
-        };
-        this.op=function(code,b,c){
-          let out=MVPool.take();
-          out.x=this.x;
-          out.y=this.y;
-          switch(code){
-            case"+":
-              if(is.num(b)) out.x += b;
-              if(is.num(c)) out.y += c;
-              break;
-            case"-":
-              if(is.num(b)) out.x -= b;
-              if(is.num(c)) out.y -= c;
-              break;
-            case"*":
-              if(is.num(b)) out.x *= b;
-              if(is.num(c)) out.y *= c;
-              break;
-            case "/":
-              if(is.num(b)) out.x /= b;
-              if(is.num(c)) out.y /= c;
-              break;
-          }
-          return out;
-        };
-        this["+"]=(m)=>{ return this.op("+",m.x,m.y) };
-        this["-"]=(m)=>{ return this.op("-",m.x,m.y) };
-        this["*"]=(m)=>{ return this.op("*",m.x,m.y) };
-        this["/"]=(m)=>{ return this.op("/",m.x,m.y) };
       }
+      unit(out){
+        if(is.bool(out)){ out=_ctor(out) }
+        if(is.vec(out)){out[0]=this.x;out[1]=this.y}else{
+          out.x=this.x;out.y=this.y;
+        }
+        return out;
+      }
+      bind(v){
+        if(is.vec(v)){this.x=v[0];this.y=v[1]}else{
+          this.x=v.x;this.y=v.y
+        }
+        return this;
+      }
+      op(code,b,c){
+        let out=MVPool.take();
+        out.x=this.x;
+        out.y=this.y;
+        switch(code){
+          case"+":
+            if(is.num(b)) out.x += b;
+            if(is.num(c)) out.y += c;
+            break;
+          case"-":
+            if(is.num(b)) out.x -= b;
+            if(is.num(c)) out.y -= c;
+            break;
+          case"*":
+            if(is.num(b)) out.x *= b;
+            if(is.num(c)) out.y *= c;
+            break;
+          case "/":
+            if(is.num(b)) out.x /= b;
+            if(is.num(c)) out.y /= c;
+            break;
+        }
+        return out;
+      }
+      "+"(m){ return this.op("+",m.x,m.y) }
+      "-"(m){ return this.op("-",m.x,m.y) }
+      "*"(m){ return this.op("*",m.x,m.y) }
+      "/"(m){ return this.op("/",m.x,m.y) }
     }
 
     _.inject(MVPool,{
