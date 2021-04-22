@@ -300,6 +300,7 @@
       setVec(a,...args){
         args.forEach((v,i)=> a[i]=v)
       },
+      nichts(a){return a===undefined||a===null},
       nor(a,b){ return a===undefined||a===null?b:a },
       or(a,b){ return a===undefined?b:a },
       /**Coerce input into a number, if not return the default.
@@ -896,7 +897,6 @@
         }else if(is.pos(handle)){
           clearTimeout(handle);
         }
-        return 0;
       },
       /**Iterate a collection(array) in reverse.
        * @memberof module:mcfud/core._

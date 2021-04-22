@@ -122,13 +122,13 @@ Test.deftest("Geo2d").
     return r.pos.join("")+r.width+r.height=="151555" && !z;
   }).
   ensure("hitTestPointCircle",()=>{
-    return G.hitTestPointCircle([6,6],new G.Circle(10).setPos(5,5)) &&
-           !G.hitTestPointCircle([0,0],new G.Circle(2).setPos(5,5));
+    return G.hitTestPointCircle(6,6,new G.Circle(10).setPos(5,5)) &&
+           !G.hitTestPointCircle(0,0,new G.Circle(2).setPos(5,5));
   }).
   ensure("hitTestPointPolygon",()=>{
     let p=new G.Polygon(10,10).set([[20,0],[15,10],[10,0]]);
-    return G.hitTestPointPolygon([25,12],p) &&
-           !G.hitTestPointPolygon([1,3],p);
+    return G.hitTestPointPolygon(25,12,p) &&
+           !G.hitTestPointPolygon(1,3,p);
   }).
   ensure("hitTestCircleCircle",()=>{
     return G.hitCircleCircle(new G.Circle(5).setPos(10,10), new G.Circle(4).setPos(12,12)) &&

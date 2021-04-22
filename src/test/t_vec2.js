@@ -151,13 +151,13 @@ Test.deftest("Vec2").
   ensure("set;copy",()=>{
     let v=V.vec(1,2);
     let w=V.vec(3,4);
-    V.copy(v,20,10);
-    V.set(w, V.vecXY(10,20));
+    V.set(v,20,10);
+    V.copy(w, V.vecXY(10,20));
     let ok1= v[0]===20&&v[1]===10 && w[0]===10 && w[1]===20;
     v=V.vecXY(1,2);
     w=V.vecXY(3,4);
-    V.copy(v,20,10);
-    V.set(w, V.vec(10,20));
+    V.set(v,20,10);
+    V.copy(w, V.vec(10,20));
     let ok2= v.x===20&&v.y===10 && w.x===10 && w.y===20;
     return ok1&&ok2;
   }).

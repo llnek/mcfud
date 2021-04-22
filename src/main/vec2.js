@@ -310,7 +310,7 @@
        * @param {Vec2} src
        * @return {Vec2}
        */
-      set(des,src){
+      copy(des,src){
         assertArgs(des,src);
         let p1=MVPool.take().bind(des);
         let p2=MVPool.take().bind(src);
@@ -338,7 +338,7 @@
        * @param {number} y
        * @return {Vec2}
        */
-      copy(des,x,y){
+      set(des,x,y){
         let p1= MVPool.take().bind(des);
         if(is.num(x)) p1.x=x;
         if(is.num(y)) p1.y=y;
@@ -352,18 +352,16 @@
        * @param {number} x
        * @return {Vec2}
        */
-      copyX(v,x){
-        return this.copy(v,x)
-      },
+      setX(v,x){
+        return this.set(v,x) },
       /**Copy value into `v`.
        * @memberof module:mcfud/vec2
        * @param {Vec2} v
        * @param {number} y
        * @return {Vec2}
        */
-      copyY(v,y){
-        return this.copy(v,null,y)
-      },
+      setY(v,y){
+        return this.set(v,null,y) },
       /**Rotate a vector around a pivot.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a

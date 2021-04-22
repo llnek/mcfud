@@ -222,7 +222,7 @@
        * @return {Circle} self
        */
       setPos(x,y){
-        _V.copy(this.pos,x,y);
+        _V.set(this.pos,x,y);
         return this;
       }
     }
@@ -257,7 +257,7 @@
        * @return {Polygon} self
        */
       setPos(x=0,y=0){
-        _V.copy(this.pos,x,y);
+        _V.set(this.pos,x,y);
         return this;
       }
       /**Set vertices.
@@ -303,7 +303,7 @@
       _recalc(){
         if(this.points){
           _.doseq(this.points,(p,i)=>{
-            _V.set(this.calcPoints[i],p);
+            _V.copy(this.calcPoints[i],p);
             if(!_.feq0(this.orient))
               _V.rot$(this.calcPoints[i],this.orient);
           });
@@ -449,7 +449,7 @@
         let absOverlap= Math.abs(overlap);
         if(absOverlap < resolve.overlap){
           resolve.overlap = absOverlap;
-          _V.set(resolve.overlapN,axis);
+          _V.copy(resolve.overlapN,axis);
           if(overlap<0)
             _V.flip$(resolve.overlapN);
         }
@@ -480,8 +480,8 @@
         resolve.A = a;
         resolve.B = b;
         resolve.overlap = r_ab - dist;
-        _V.set(resolve.overlapN, _V.unit$(vAB));
-        _V.set(resolve.overlapV, _V.mul(vAB,resolve.overlap));
+        _V.copy(resolve.overlapN, _V.unit$(vAB));
+        _V.copy(resolve.overlapV, _V.mul(vAB,resolve.overlap));
         resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
         resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
       }
@@ -502,7 +502,7 @@
         prev = i === 0 ? len-1 : i-1;
         overlap = 0;
         overlapN = null;
-        _V.set(edge,polygon.edges[i]);
+        _V.copy(edge,polygon.edges[i]);
         // calculate the center of the circle relative to the starting point of the edge.
         point=_V.vecAB(cps[i],vPC);
         // if the distance between the center of the circle and the point
@@ -515,7 +515,7 @@
         let region = _voronoiRegion(edge, point);
         if(region === LEFT_VORONOI){
           // need to make sure we're in the RIGHT_VORONOI of the previous edge.
-          _V.set(edge,polygon.edges[prev]);
+          _V.copy(edge,polygon.edges[prev]);
           // calculate the center of the circle relative the starting point of the previous edge
           let point2= _V.vecAB(cps[prev],vPC);
           region = _voronoiRegion(edge, point2);
@@ -534,9 +534,9 @@
           }
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
-          _V.set(edge,polygon.edges[next]);
+          _V.copy(edge,polygon.edges[next]);
           // calculate the center of the circle relative to the starting point of the next edge.
-          _V.sub$(_V.set(point,vPC),cps[next]);
+          _V.sub$(_V.copy(point,vPC),cps[next]);
           region = _voronoiRegion(edge, point);
           if(region === LEFT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
@@ -573,14 +573,14 @@
         // (overlapN may be null if the circle was in the wrong Voronoi region).
         if(overlapN && resolve && Math.abs(overlap) < Math.abs(resolve.overlap)){
           resolve.overlap = overlap;
-          _V.set(resolve.overlapN,overlapN);
+          _V.copy(resolve.overlapN,overlapN);
         }
       }
       // calculate the final overlap vector - based on the smallest overlap.
       if(resolve){
         resolve.A = polygon;
         resolve.B = circle;
-        _V.mul$(_V.set(resolve.overlapV,resolve.overlapN),resolve.overlap);
+        _V.mul$(_V.copy(resolve.overlapV,resolve.overlapN),resolve.overlap);
       }
       return true;
     }
@@ -619,7 +619,7 @@
           return false;
         resolve.A = a;
         resolve.B = b;
-        _V.set(resolve.overlapV,resolve.overlapN);
+        _V.copy(resolve.overlapV,resolve.overlapN);
         _V.mul$(resolve.overlapV,resolve.overlap);
       }
       return true;
@@ -853,18 +853,15 @@
       },
       /**Check if circle contains this point.
        * @memberof module:mcfud/geo2d
-       * @param {Vec2} p
+       * @param {number} px
+       * @param {number} py
        * @param {Circle} c
        * @return {boolean}
        */
-      hitTestPointCircle(p, c){
-        const d2 = _V.len2(_V.sub(p,c.pos));
-        return d2 <= c.radius * c.radius;
-      },
-      XXhitTestPointPolygon(p, poly){
-        _V.set(_FAKE_POLY.pos,p);
-        let res= this.hitTestPolygonPolygon(_FAKE_POLY, poly, _RES.clear());
-        return res ? _RES.AInB : false;
+      hitTestPointCircle(px, py, c){
+        let dx=px-c.pos[0];
+        let dy=py-c.pos[1];
+        return dx*dx+dy*dy <= c.radius*c.radius;
       },
       /**If these 2 circles collide, return the manifold.
        * @memberof module:mcfud/geo2d
@@ -963,11 +960,12 @@
       },
       /**Check if point is inside this polygon.
        * @memberof module:mcfud/geo2d
-       * @param {number[]} [testx,testy]
+       * @param {number} testx
+       * @param {number} testy
        * @param {Polygon} poly
        * @return {boolean}
        */
-      hitTestPointPolygon([testx,testy],poly){
+      hitTestPointPolygon(testx,testy,poly){
         return this.hitTestPointInPolygon(testx,testy,
                                           _V.translate(poly.pos,poly.calcPoints))
       }
