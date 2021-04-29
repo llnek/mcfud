@@ -237,6 +237,12 @@
 
     /** @namespace module:mcfud/core._ */
     const _={
+      /** error message */
+      error(...args){
+        console.error(...args) },
+      /** log message */
+      log(...args){
+        console.log(...args) },
       /**Re-seed the internal prng object.
        * @memberof module:mcfud/core._
        * @return {number}

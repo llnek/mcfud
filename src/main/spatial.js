@@ -40,7 +40,6 @@
     function SpatialGrid(cellW,cellH){
       const _grid= new Map();
       return{
-        //get grid() {return _grid},
         searchAndExec(item,cb){
           let ret,
               g= item.getSpatial();
@@ -51,9 +50,11 @@
                   vs=X.values();
                   r= vs.next();
                   while(!r.done){
-                    if(ret=cb(item,r.value)){
-                      x=y=Infinity;
-                      break;
+                    if(item !== r.value){
+                      if(ret=cb(item,r.value)){
+                        x=y=Infinity;
+                        break;
+                      }
                     }
                     ret=null;
                     r= vs.next();
@@ -62,25 +63,29 @@
           }
           return ret;
         },
-        search(item){
-          let out=[],
+        search(item,incItem=false){
+          let X,Y,out=[],
               g= item.getSpatial();
           for(let y = g.y1; y <= g.y2; ++y){
             if(Y=_grid.get(y))
               for(let x= g.x1; x <= g.x2; ++x)
                 if(X=Y.get(x))
-                  X.forEach(v=>out.push(v))
+                  X.forEach(v=>{
+                    if(v===item && !incItem){}else{
+                      out.push(v)
+                    }
+                  })
           }
-          return out;
+          return out
         },
         engrid(item,skipAdd){
-          let g = item.getSpatial(),
-              r = item.getBBox(),
+          if(!item){return}
+          let r = item.getBBox(),
+              g = item.getSpatial(),
               gridX1 = MFL(r.x1 / cellW),
               gridY1 = MFL(r.y1 / cellH),
               gridX2 = MFL(r.x2/cellW),
               gridY2 = MFL(r.y2/ cellH);
-
           if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
              g.y1 !== gridY1 || g.y2 !== gridY2){
             this.degrid(item);
@@ -88,14 +93,13 @@
             g.x2= gridX2;
             g.y1= gridY1;
             g.y2= gridY2;
-            if(!skipAdd) this._insert(item);
+            if(!skipAdd) this._register(item);
           }
           return item;
         },
         reset(){
-          _grid.clear()
-        },
-        _insert(item){
+          _grid.clear() },
+        _register(item){
           let g= item.getSpatial();
           if(is.num(g.x1)){
             for(let X,Y,y= g.y1; y <= g.y2; ++y){
@@ -112,17 +116,19 @@
           }
         },
         degrid(item){
-          let g= item.getSpatial();
-          if(is.num(g.x1)){
-            for(let X,Y,y= g.y1; y <= g.y2; ++y){
-              if(Y=_grid.get(y))
-                for(let x= g.x1; x<=g.x2; ++x)
-                  if(X=Y.get(x))
-                    _.dissoc(X,item.getGuid())
+          if(item){
+            let g= item.getSpatial();
+            if(is.num(g.x1)){
+              for(let X,Y,y= g.y1; y <= g.y2; ++y){
+                if(Y=_grid.get(y))
+                  for(let x= g.x1; x<=g.x2; ++x)
+                    if(X=Y.get(x))
+                      _.dissoc(X,item.getGuid())
+              }
             }
           }
         }
-      };
+      }
     }
 
     const _$={
