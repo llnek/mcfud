@@ -307,8 +307,32 @@
       setVec(a,...args){
         args.forEach((v,i)=> a[i]=v)
       },
+      /**If not even, make it even.
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @return {number}
+       */
+      evenN(n,dir){
+        return isEven(n)?n:(dir?n+1:n-1) },
+      /**Check if a is null or undefined - `not real`.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @return {boolean}
+       */
       nichts(a){return a===undefined||a===null},
+      /**If a is `not-real` return b.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @param {any} b
+       * @return {any}
+       */
       nor(a,b){ return a===undefined||a===null?b:a },
+      /**If a is `undefined` return b.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @param {any} b
+       * @return {any}
+       */
       or(a,b){ return a===undefined?b:a },
       /**Coerce input into a number, if not return the default.
        * @memberof module:mcfud/core._
