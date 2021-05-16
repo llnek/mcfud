@@ -83,7 +83,7 @@
        * @param {GFrame} frame
        * @return {number}
        */
-      evalScore(frame){}
+      evalScore(frame,move){}
       /**Check if game is a draw.
        * @param {GFrame} frame
        * @return {boolean}
@@ -93,7 +93,7 @@
        * @param {GFrame} frame
        * @return {boolean}
        */
-      isOver(frame){}
+      isOver(frame,move){}
       //undoMove(frame, move){}
       /**Make a move.
        * @param {GFrame} frame
@@ -110,23 +110,31 @@
       takeGFrame(){}
     }
 
+    /** @ignore */
+    function _calcScore(board,game,move,depth){
+      let score=board.evalScore(game,move);
+      if(!_.feq0(score))
+        score -= 0.01*depth*Math.abs(score)/score;
+      return score;
+    }
+
     /**Implements the NegaMax Min-Max algo.
      * @see {@link https://github.com/Zulko/easyAI}
      * @param {GameBoard} board
      * @param {GFrame} game
      * @param {number} maxDepth
      * @param {number} depth
+     * @param {any} prevMove
      * @param {number} alpha
      * @param {number} beta
      * @return {number}
      */
-    function _negaMax(board, game, maxDepth, depth, alpha, beta){
-      if(depth === 0 || board.isOver(game)){
-        let score=board.evalScore(game);
-        if(score !== 0)
-          score -= 0.01*depth*Math.abs(score)/score;
-        return score;
-      }
+    function _negaMax(board, game, maxDepth,depth,prevMove, alpha, beta){
+
+      if(depth===0 ||
+         board.isOver(game,prevMove)){
+        return _calcScore(board,game,prevMove,depth) }
+
       let openMoves = board.getNextMoves(game),
           state=game,
           bestValue = -Infinity,
@@ -142,7 +150,7 @@
         //try a move
         board.makeMove(game, move);
         board.switchPlayer(game);
-        rc= - _negaMax(board, game, maxDepth, depth-1, -beta, -alpha);
+        rc= - _negaMax(board, game, maxDepth, depth-1, move, -beta, -alpha)
         //now, roll it back
         if(board.undoMove){
           board.switchPlayer(game);
@@ -175,7 +183,8 @@
        */
       evalNegaMax(board){
         const f= board.takeGFrame();
-        _negaMax(board, f, board.depth, board.depth, -Infinity, Infinity);
+        const d= board.depth;
+        _negaMax(board, f, d,d,null, -Infinity, Infinity);
         return f.lastBestMove;
       }
     };
@@ -184,7 +193,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/negamax"]=_module

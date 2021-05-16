@@ -669,7 +669,7 @@
         for(let i=0;i<c.length;++i){
           if(isFun(v)){
             if(!v(c[i])) return false;
-          }else if(c[i] !== v) return false;
+          }else if(c[i] != v) return false;
         }
         return c.length>0;
       },
