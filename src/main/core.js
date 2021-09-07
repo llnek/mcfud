@@ -312,6 +312,7 @@
        * @return {number}
        */
       evenN(n,dir){
+        n=Math.floor(n);
         return isEven(n)?n:(dir?n+1:n-1) },
       /**Check if a is null or undefined - `not real`.
        * @memberof module:mcfud/core._
