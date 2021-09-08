@@ -20,6 +20,7 @@ const jsFiles = [
   "src/main/spatial.js",
   "src/main/quadtree.js",
   "src/main/negamax.js",
+  "src/main/minimax.js",
   "src/main/test.js"
 ];
 
