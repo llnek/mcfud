@@ -83,7 +83,7 @@
        * @param {GFrame} frame
        * @return {number}
        */
-      evalScore(frame,move){}
+      evalScore(frame){}
       /**Check if game is a draw.
        * @param {GFrame} frame
        * @return {boolean}
@@ -93,22 +93,57 @@
        * @param {GFrame} frame
        * @return {boolean}
        */
-      isOver(frame,move){}
+      isOver(frame){}
+      /**Reverse previous move.
+       * @param {GFrame} frame
+       * @param {any} move
+       */
+      unmakeMove(frame, move){
+        if(!this.undoMove)
+          throw Error("Need Implementation");
+        this.switchPlayer(frame);
+        this.undoMove(frame, move);
+      }
       //undoMove(frame, move){}
+      //doMove(frame, move){ }
       /**Make a move.
        * @param {GFrame} frame
        * @param {any} move
        */
-      makeMove(frame, move){}
+      makeMove(frame, move){
+        if(!this.doMove)
+          throw Error("Need Implementation!");
+        this.doMove(frame, move);
+        this.switchPlayer(frame);
+      }
       /**Switch to the other player.
        * @param {GFrame} frame
        */
-      switchPlayer(frame){}
+      switchPlayer(snap){
+        let t = snap.cur;
+        snap.cur= snap.other;
+        snap.other= t;
+      }
+      /**Get the other player.
+       * @param {any} pv player
+       * @return {any}
+       */
+      getOtherPlayer(pv){
+        if(pv === this.actors[1]) return this.actors[2];
+        if(pv === this.actors[2]) return this.actors[1];
+      }
+      /**Get the current player.
+       * @return {any}
+       */
+      getPlayer(){
+        return this.actors[0]
+      }
       /**Take a snapshot of current game state.
        * @return {GFrame}
        */
       takeGFrame(){}
       run(seed,actor){
+        this.getAlgoActor=()=>{ return actor }
         this.syncState(seed,actor);
         let pos= this.getFirstMove();
         if(_.nichts(pos))
@@ -118,70 +153,113 @@
     }
 
     /** @ignore */
-    function _calcScore(board,game,move,depth){
-      let score=board.evalScore(game,move);
+    function _calcScore(board,game,depth,maxDepth){
+      //if the other player wins, then return a -ve else +ve
+      //maxer == 1 , minus == -1
+      let score=board.evalScore(game,depth,maxDepth);
+      /*
       if(!_.feq0(score))
         score -= 0.01*depth*Math.abs(score)/score;
       return score;
+      */
+      return score * (1 + 0.001 * depth);
     }
+
+    //option2
+    //
+    function _negaAlphaBeta(board, game, depth, maxDepth, alpha, beta){
+
+      if(depth===0 || board.isOver(game)){
+        return { depth, value: _calcScore(board,game,depth,maxDepth) }
+      }
+
+      let state=game,
+          copier= board.getStateCopier(),
+          openMoves= _.shuffle(board.getNextMoves(game));
+
+      for(let rc, move, i=0; i< openMoves.length; ++i){
+        move= openMoves[i];
+        if(!board.undoMove){
+          _.assert(copier, "Missing state copier!");
+          game= state.clone(copier);
+        }
+        board.makeMove(game, move);
+        rc = _negaAlphaBeta(board, game, depth-1,
+                                         maxDepth,
+                                         {value: -beta.value, move: beta.move},
+                                         {value: -alpha.value, move: alpha.move});
+        //now, roll it back
+        if(board.undoMove)
+          board.unmakeMove(game, move);
+        rc.value = -rc.value;
+        rc.move = move;
+        if(rc.value>alpha.value){
+          alpha = {value: rc.value, move: move, depth: rc.depth};
+        }
+        if(alpha.value >= beta.value){
+          return beta;
+        }
+      }
+
+      return JSON.parse(JSON.stringify(alpha));
+    }
+    //
+    //
 
     /**Implements the NegaMax Min-Max algo.
      * @see {@link https://github.com/Zulko/easyAI}
      * @param {GameBoard} board
      * @param {GFrame} game
-     * @param {number} maxDepth
      * @param {number} depth
-     * @param {any} prevMove
+     * @param {number} maxDepth
      * @param {number} alpha
      * @param {number} beta
      * @return {number}
      */
-    function _negaMax(board, game, maxDepth,depth,prevMove, alpha, beta){
+    function _negaMax(board, game, depth,maxDepth,alpha, beta){
 
-      if(depth===0 ||
-         (!_.nichts(prevMove)&&
-          board.isOver(game,prevMove))){
-        return _calcScore(board,game,prevMove,depth) }
+      if(depth===0 || board.isOver(game)){
+        return [_calcScore(board,game,depth,maxDepth),null]
+      }
 
-      let openMoves = board.getNextMoves(game),
+      let openMoves = _.shuffle(board.getNextMoves(game)),
+          copier= board.getStateCopier(),
           state=game,
           bestValue = -Infinity,
           bestMove = openMoves[0];
 
-      if(depth === maxDepth)
-        game.lastBestMove = openMoves[0];
+      if(depth===maxDepth)
+        state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
-        if(!board.undoMove)
-          game=state.clone(board.getStateCopier());
+        if(!board.undoMove){
+          _.assert(copier, "Missing state copier!");
+          game=state.clone(copier);
+        }
         move = openMoves[i];
         //try a move
         board.makeMove(game, move);
-        board.switchPlayer(game);
-        rc= - _negaMax(board, game, maxDepth, depth-1, move, -beta, -alpha)
+        rc= - _negaMax(board, game, depth-1, maxDepth, -beta, -alpha)[0];
         //now, roll it back
-        if(board.undoMove){
-          board.switchPlayer(game);
-          board.undoMove(game, move);
-        }
+        if(board.undoMove)
+          board.unmakeMove(game, move);
         //how did we do ?
-        //bestValue = _.max(bestValue, rc);
         if(bestValue < rc){
           bestValue = rc;
           bestMove = move
         }
         if(alpha < rc){
-          alpha = rc;
-          //bestMove = move;
+          alpha=rc;
           if(depth === maxDepth)
             state.lastBestMove = move;
           if(alpha >= beta) break;
         }
       }
-      return bestValue;
+      return [bestValue, state.lastBestMove];
     }
 
     const _$={
+      algo:"negamax",
       GFrame,
       GameBoard,
       /**Make a move on the game-board using negamax algo.
@@ -189,11 +267,23 @@
        * @param {GameBoard} board
        * @return {any} next best move
        */
+      XXevalNegaMax(board){
+        const f= board.takeGFrame();
+        const d= board.depth;
+        let score,move;
+        [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
+        if(_.nichts(move))
+          console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${move}`);
+        return move;
+      },
       evalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        _negaMax(board, f, d,d,null, -Infinity, Infinity);
-        return f.lastBestMove;
+        let {value, move} = _negaAlphaBeta(board, f, d, d, {value: -Infinity },
+                                                           {value: Infinity  });
+        if(_.nichts(move))
+          console.log(`evalNegaMax: score= ${value}, pos= ${move}`);
+        return move;
       }
     };
 

@@ -547,9 +547,21 @@
        * @return {any}
        */
       randItem(arr){
-        if(arr && arr.length>0)
-          return arr.length===1 ? arr[0]
-                                : arr[MFL(PRNG()*arr.length)]
+        let rc;
+        if(arr){
+          switch(arr.length){
+            case 0:
+            case 1:
+              rc=arr[0];
+              break;
+            case 2:
+              rc= this.randSign()>0? arr[1]:arr[0];
+              break;
+            default:
+              rc= arr[MFL(PRNG()*arr.length)];
+          }
+        }
+        return rc;
       },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._
@@ -808,11 +820,24 @@
       shuffle(obj,inplace=true){
         _pre(isVec,obj,"array");
         const res=Slicer.call(obj,0);
-        for(let x,j,i= res.length-1; i>0; --i){
-          j= MFL(PRNG() * (i+1));
-          x= res[i];
-          res[i] = res[j];
-          res[j] = x;
+        switch(res.length){
+          case 0:
+          case 1:
+            break;
+          case 2:
+            if(this.randSign()>0){
+              let a=res[0];
+              res[0]=res[1];
+              res[1]=a;
+            }
+            break;
+          default:
+            for(let x,j,i= res.length-1; i>0; --i){
+              j= MFL(PRNG() * (i+1));
+              x= res[i];
+              res[i] = res[j];
+              res[j] = x;
+            }
         }
         return inplace?this.copy(obj,res):res;
       },
