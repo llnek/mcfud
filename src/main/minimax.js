@@ -183,7 +183,7 @@
           openMoves= _.shuffle(board.getNextMoves(game));
       if(maxing){
         let rc,pos,move,
-            bestMove=null, maxValue = -Infinity;
+            bestMove=openMoves[0], maxValue = -Infinity;
         for(let i=0; i<openMoves.length; ++i){
           if(!board.undoMove){
             _.assert(copier,"Missing state copier!");
@@ -204,7 +204,7 @@
         return [maxValue,bestMove];
       }else{
 			  let rc,pos,move,
-            bestMove=null, minValue = Infinity;
+            bestMove=openMoves[0], minValue = Infinity;
         for(let i=0; i<openMoves.length; ++i){
           if(!board.undoMove){
             _.assert(copier, "Missing state copier!");
