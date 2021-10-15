@@ -409,7 +409,7 @@
       /**2d cross product.
        * The sign of the cross product (AxB) tells you whether the 2nd vector (B)
        * is on the left or right side of the 1st vector (A), +ve implies
-       * B is left of B, (rotate ccw to B), -ve means B is right of A (rotate cw to B).
+       * B is left of A, (rotate ccw to B), -ve means B is right of A (rotate cw to B).
        * The absolute value of the 2D cross product is the sine of the angle
        * in between the two vectors.
        * @memberof module:mcfud/vec2
