@@ -221,6 +221,19 @@
         MVPool.drop(p1,p2);
         return out;
       },
+      /**Check if these 2 points are equal.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} a
+       * @param {Vec2} b
+       * @return {boolean}
+       */
+      equals(a,b){
+        let p1=MVPool.take().bind(a);
+        let p2=MVPool.take().bind(b);
+        ok= p1.x==p2.x && p1.y==p2.y;
+        MVPool.drop(p1,p2);
+        return ok;
+      },
       /**Create a vector A->B, calculated by doing B-A.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
