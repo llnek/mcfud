@@ -21,9 +21,10 @@
   function _module(Core,Basic){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    const CMP=(a,b)=>{ return a<b?-1:(a>b?1:0) };
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {Bag,Stack,Node}= Basic;
+    const {Bag,Stack,Queue}= Basic;
 
     /**
      * @module mcfud/algo_search
@@ -1829,7 +1830,563 @@
       }
     }
 
-    DepthFirstPaths.test();
+    /**Represents an ordered symbol table of generic key-value pairs.
+     * @memberof module:mcfud/algo_search
+     * @class
+     * @property {object} root the root node
+     */
+    class AVLTreeST{
+      Node(key, val, height, size){
+        // height: height of the subtree
+        // size: number of nodes in subtree
+        return {key, val, height, size, left:null, right: null}
+      }
+      constructor(compareFn){
+        this.compare=compareFn;
+        this.root=null;
+      }
+      /**Checks if the symbol table is empty.
+       * @return {@code true} if the symbol table is empty.
+       */
+      isEmpty(){
+        return this.root == null;
+      }
+      /**Returns the number key-value pairs in the symbol table.
+       * @return the number key-value pairs in the symbol table
+       */
+      size(){
+        return this._sizeNode(root);
+      }
+      /**Returns the number of nodes in the subtree.
+       * @param x the subtree
+       * @return the number of nodes in the subtree
+       */
+      _sizeNode(x){
+        return x == null? 0:x.size;
+      }
+      /**Returns the height of the internal AVL tree. It is assumed that the
+       * height of an empty tree is -1 and the height of a tree with just one node
+       * is 0.
+       * @return the height of the internal AVL tree
+       */
+      height(){
+        return this._heightNode(this.root);
+      }
+      /**Returns the height of the subtree.
+       * @param x the subtree
+       * @return the height of the subtree.
+       */
+      _heightNode(x){
+        return x == null? -1: x.height;
+      }
+      /**Returns the value associated with the given key.
+       * @param key the key
+       * @return the value associated with the given key if the key is in the
+       *         symbol table and {@code null} if the key is not in the
+       *         symbol table
+       * @throws Error if {@code key} is {@code null}
+       */
+      get(key){
+        if(_.nichts(key)) throw Error("argument to get() is null");
+        let x = this._getNode(this.root, key);
+        if(x) return x.val;
+      }
+      /**Returns value associated with the given key in the subtree or
+       * {@code null} if no such key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return value associated with the given key in the subtree or
+       *         {@code null} if no such key
+       */
+      _getNode(x, key){
+        if(!x) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0) return this._getNode(x.left, key);
+        if(cmp > 0) return this._getNode(x.right, key);
+        return x;
+      }
+      /**Checks if the symbol table contains the given key.
+       *
+       * @param key the key
+       * @return {@code true} if the symbol table contains {@code key}
+       *         and {@code false} otherwise
+       * @throws Error if {@code key} is {@code null}
+       */
+      contains(key){
+        return this.get(key) !== undefined;
+      }
+      /**
+       * Inserts the specified key-value pair into the symbol table, overwriting
+       * the old value with the new value if the symbol table already contains the
+       * specified key. Deletes the specified key (and its associated value) from
+       * this symbol table if the specified value is {@code null}.
+       *
+       * @param key the key
+       * @param val the value
+       * @throws Error if {@code key} is {@code null}
+       */
+      put(key, val){
+        if(_.nichts(key)) throw Error("first argument to put() is null");
+        if(val === undefined ){
+          this.delete(key);
+        }else{
+          this.root = this._putNode(this.root, key, val);
+        }
+      }
+      /**Inserts the key-value pair in the subtree. It overrides the old value
+       * with the new value if the symbol table already contains the specified key
+       * and deletes the specified key (and its associated value) from this symbol
+       * table if the specified value is {@code null}.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @param val the value
+       * @return the subtree
+       */
+      _putNode(x, key, val){
+        if(!x) return this.Node(key, val, 0, 1);
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0){
+          x.left = this._putNode(x.left, key, val);
+        }else if(cmp > 0){
+          x.right = this._putNode(x.right, key, val);
+        }else{
+          x.val = val;
+          return x;
+        }
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balanceNode(x);
+      }
+      /**
+       * Restores the AVL tree property of the subtree.
+       *
+       * @param x the subtree
+       * @return the subtree with restored AVL property
+       */
+      _balanceNode(x){
+        if(this._balanceFactor(x) < -1){
+          if(this._balanceFactor(x.right) > 0) x.right = this._rotateRight(x.right);
+          x = this._rotateLeft(x);
+        }else if(this._balanceFactor(x) > 1){
+          if(this._balanceFactor(x.left) < 0) x.left = this._rotateLeft(x.left);
+          x = this._rotateRight(x);
+        }
+        return x;
+      }
+      /**
+       * Returns the balance factor of the subtree. The balance factor is defined
+       * as the difference in height of the left subtree and right subtree, in
+       * this order. Therefore, a subtree with a balance factor of -1, 0 or 1 has
+       * the AVL property since the heights of the two child subtrees differ by at
+       * most one.
+       *
+       * @param x the subtree
+       * @return the balance factor of the subtree
+       */
+      _balanceFactor(x){
+        return this._heightNode(x.left) - this._heightNode(x.right);
+      }
+      /**
+       * Rotates the given subtree to the right.
+       *
+       * @param x the subtree
+       * @return the right rotated subtree
+       */
+      _rotateRight(x){
+        let y = x.left;
+        x.left = y.right;
+        y.right = x;
+        y.size = x.size;
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
+        return y;
+      }
+      /**
+       * Rotates the given subtree to the left.
+       *
+       * @param x the subtree
+       * @return the left rotated subtree
+       */
+      _rotateLeft(x){
+        let y = x.right;
+        x.right = y.left;
+        y.left = x;
+        y.size = x.size;
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
+        return y;
+      }
+      /**
+       * Removes the specified key and its associated value from the symbol table
+       * (if the key is in the symbol table).
+       *
+       * @param key the key
+       * @throws Error if {@code key} is {@code null}
+       */
+      delete(key){
+        if(_.nichts(key)) throw Error("argument to delete() is null");
+        if(this.contains(key))
+          this.root = this._deleteNode(this.root, key);
+      }
+      /**
+       * Removes the specified key and its associated value from the given
+       * subtree.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the updated subtree
+       */
+      _deleteNode(x, key){
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0){
+          x.left = this._deleteNode(x.left, key);
+        }else if(cmp > 0){
+          x.right = this._deleteNode(x.right, key);
+        }else{
+          if(!x.left) return x.right;
+          if(!x.right) return x.left;
+          let y = x;
+          x = min(y.right);
+          x.right = this.deleteMin(y.right);
+          x.left = y.left;
+        }
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Removes the smallest key and associated value from the symbol table.
+       * @throws Error if the symbol table is empty
+       */
+      deleteMin(){
+        if(this.isEmpty()) throw Error("called deleteMin() with empty symbol table");
+        this.root = this._deleteMinNode(this.root);
+      }
+      /**Removes the smallest key and associated value from the given subtree.
+       *
+       * @param x the subtree
+       * @return the updated subtree
+       */
+      _deleteMinNode(x){
+        if(!x.left) return x.right;
+        x.left = this._deleteMinNode(x.left);
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Removes the largest key and associated value from the symbol table.
+       *
+       * @throws Error if the symbol table is empty
+       */
+      deleteMax(){
+        if(this.isEmpty()) throw Error("called deleteMax() with empty symbol table");
+        this.root = this._deleteMaxNode(this.root);
+      }
+      /**Removes the largest key and associated value from the given subtree.
+       *
+       * @param x the subtree
+       * @return the updated subtree
+       */
+      _deleteMaxNode(x){
+        if(!x.right) return x.left;
+        x.right = this._deleteMaxNode(x.right);
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Returns the smallest key in the symbol table.
+       *
+       * @return the smallest key in the symbol table
+       * @throws Error if the symbol table is empty
+       */
+      min(){
+        if(this.isEmpty()) throw Error("called min() with empty symbol table");
+        return this._minNode(root).key;
+      }
+      /**Returns the node with the smallest key in the subtree.
+       *
+       * @param x the subtree
+       * @return the node with the smallest key in the subtree
+       */
+      _minNode(x){
+        return !x.left ? x: this._minNode(x.left);
+      }
+      /**Returns the largest key in the symbol table.
+       *
+       * @return the largest key in the symbol table
+       * @throws Error if the symbol table is empty
+       */
+      max(){
+        if(this.isEmpty()) throw Error("called max() with empty symbol table");
+        return this._maxNode(root).key;
+      }
+      /**Returns the node with the largest key in the subtree.
+       *
+       * @param x the subtree
+       * @return the node with the largest key in the subtree
+       */
+      _maxNode(x){
+        return !x.right ? x: this._maxNode(x.right);
+      }
+      /**
+       * Returns the largest key in the symbol table less than or equal to
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the largest key in the symbol table less than or equal to
+       *         {@code key}
+       * @throws Error if the symbol table is empty
+       * @throws Error if {@code key} is {@code null}
+       */
+      floor(key){
+        if(_.nichts(key)) throw Error("argument to floor() is null");
+        if(this.isEmpty()) throw Error("called floor() with empty symbol table");
+        let x = this._floorNode(this.root, key);
+        if(x) return x.key;
+      }
+      /**
+       * Returns the node in the subtree with the largest key less than or equal
+       * to the given key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the node in the subtree with the largest key less than or equal
+       *         to the given key
+       */
+      _floorNode(x, key){
+        if(_.nichts(x)) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp == 0) return x;
+        if(cmp < 0) return this._floorNode(x.left, key);
+        let y = this._floorNode(x.right, key);
+        return y?  y : x;
+      }
+      /**Returns the smallest key in the symbol table greater than or equal to
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the smallest key in the symbol table greater than or equal to
+       *         {@code key}
+       * @throws Error if the symbol table is empty
+       * @throws Error if {@code key} is {@code null}
+       */
+      ceiling(key){
+        if(_.nichts(key)) throw Error("argument to ceiling() is null");
+        if(this.isEmpty()) throw Error("called ceiling() with empty symbol table");
+        let x = this._ceilingNode(this.root, key);
+        if(x) return x.key;
+      }
+      /**Returns the node in the subtree with the smallest key greater than or
+       * equal to the given key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the node in the subtree with the smallest key greater than or
+       *         equal to the given key
+       */
+      _ceilingNode(x, key){
+        if(_.nichts(x)) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp == 0) return x;
+        if(cmp > 0) return this._ceilingNode(x.right, key);
+        let y = this._ceilingNode(x.left, key);
+        return y? y: x;
+      }
+      /**Returns the kth smallest key in the symbol table.
+       *
+       * @param k the order statistic
+       * @return the kth smallest key in the symbol table
+       * @throws Error unless {@code k} is between 0 and {@code size() -1 }
+       */
+      select(k){
+        if(k < 0 || k >= this.size()) throw Error("k is not in range 0-" + (this.size() - 1));
+        let n= this._selectNode(root, k);
+        if(n) return n.key;
+      }
+      /**Returns the node with key the kth smallest key in the subtree.
+       *
+       * @param x the subtree
+       * @param k the kth smallest key in the subtree
+       * @return the node with key the kth smallest key in the subtree
+       */
+      _selectNode(x, k){
+        if(_.nichts(x)) return null;
+        let t = this._sizeNode(x.left);
+        if(t > k) return this._selectNode(x.left, k);
+        if(t < k) return this._selectNode(x.right, k - t - 1);
+        return x;
+      }
+      /**Returns the number of keys in the symbol table strictly less than
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the number of keys in the symbol table strictly less than
+       *         {@code key}
+       * @throws Error if {@code key} is {@code null}
+       */
+      rank(key){
+        if(_.nichts(key)) throw Error("argument to rank() is null");
+        return this._rankNode(key, this.root);
+      }
+      /**Returns the number of keys in the subtree less than key.
+       *
+       * @param key the key
+       * @param x the subtree
+       * @return the number of keys in the subtree less than key
+       */
+      _rankNode(key, x){
+        if(_.nichts(x)) return 0;
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0) return this._rankNode(key, x.left);
+        if(cmp > 0) return 1 + this._sizeNode(x.left) + this._rankNode(key, x.right);
+        return this._sizeNode(x.left);
+      }
+      /**Returns all keys in the symbol table.
+       *
+       * @return all keys in the symbol table
+       */
+      keys(){
+        return this.keysInOrder();
+      }
+      /**Returns all keys in the symbol table following an in-order traversal.
+       *
+       * @return all keys in the symbol table following an in-order traversal
+       */
+      keysInOrder(){
+        let queue = new Queue();
+        this._keysInOrderNode(this.root, queue);
+        return queue;
+      }
+      /**Adds the keys in the subtree to queue following an in-order traversal.
+       *
+       * @param x the subtree
+       * @param queue the queue
+       */
+      _keysInOrderNode(x, queue){
+        if(!_.nichts(x)){
+          this._keysInOrderNode(x.left, queue);
+          queue.enqueue(x.key);
+          this._keysInOrderNode(x.right, queue);
+        }
+      }
+      /**Returns all keys in the symbol table following a level-order traversal.
+       * @return all keys in the symbol table following a level-order traversal.
+       */
+      keysLevelOrder(){
+        let queue = new Queue();
+        if(!this.isEmpty()){
+          let queue2 = new Queue();
+          queue2.enqueue(this.root);
+          while(!queue2.isEmpty()){
+            let x = queue2.dequeue();
+            queue.enqueue(x.key);
+            if(!x.left ){
+              queue2.enqueue(x.left);
+            }
+            if(x.right ){
+              queue2.enqueue(x.right);
+            }
+          }
+        }
+        return queue;
+      }
+      /**Returns all keys in the symbol table in the given range.
+       *
+       * @param lo the lowest key
+       * @param hi the highest key
+       * @return all keys in the symbol table between {@code lo} (inclusive)
+       *         and {@code hi} (exclusive)
+       * @throws Error if either {@code lo} or {@code hi} is {@code null}
+       */
+      keysBetween(lo, hi){
+        if(_.nichts(lo)) throw Error("first argument to keys() is null");
+        if(_.nichts(hi)) throw Error("second argument to keys() is null");
+        let queue = new Queue();
+        this._keysNode(this.root, queue, lo, hi);
+        return queue;
+      }
+      /**
+       * Adds the keys between {@code lo} and {@code hi} in the subtree
+       * to the {@code queue}.
+       *
+       * @param x the subtree
+       * @param queue the queue
+       * @param lo the lowest key
+       * @param hi the highest key
+       */
+      _keysNode(x, queue, lo, hi){
+        if(x){
+          let cmplo = this.compare(lo,x.key);
+          let cmphi = this.compare(hi,x.key);
+          if(cmplo < 0) this._keysNode(x.left, queue, lo, hi);
+          if(cmplo <= 0 && cmphi >= 0) queue.enqueue(x.key);
+          if(cmphi > 0) this._keysNode(x.right, queue, lo, hi);
+        }
+      }
+      /**Returns the number of keys in the symbol table in the given range.
+       *
+       * @param lo minimum endpoint
+       * @param hi maximum endpoint
+       * @return the number of keys in the symbol table between {@code lo}
+       *         (inclusive) and {@code hi} (exclusive)
+       * @throws Error if either {@code lo} or {@code hi} is {@code null}
+       */
+      sizeBetween(lo, hi){
+        if(_.nichts(lo)) throw Error("first argument to size() is null");
+        if(_.nichts(hi)) throw Error("second argument to size() is null");
+        if(this.compare(lo,hi) > 0) return 0;
+        if(this.contains(hi)) return this.rank(hi) - this.rank(lo) + 1;
+        return this.rank(hi) - this.rank(lo);
+      }
+      /**Checks if the AVL tree invariants are fine.
+       *
+       * @return {@code true} if the AVL tree invariants are fine
+       */
+      check(){
+        let self=this;
+        function isAVL(x){
+          if(!x) return true;
+          let bf = self._balanceFactor(x);
+          if(bf > 1 || bf < -1) return false;
+          return isAVL(x.left) && isAVL(x.right);
+        }
+        function isBST(x, min, max){
+          if(!x) return true;
+          if(!min && self.compare(x.key,min) <= 0) return false;
+          if(!max && self.compare(x.key,max) >= 0) return false;
+          return isBST(x.left, min, x.key) && isBST(x.right, x.key, max);
+        }
+        function isSizeConsistent(x){
+          if(!x) return true;
+          if(x.size != self._sizeNode(x.left) + self._sizeNode(x.right) + 1) return false;
+          return isSizeConsistent(x.left) && isSizeConsistent(x.right);
+        }
+        function isRankConsistent(){
+          for(let i = 0; i < self.size(); i++)
+            if(i != self.rank(self.select(i))) return false;
+          for(let k, it=self.keys().iterator();it.hasNext();){
+            k=it.next();
+            if(this.compare(k,self.select(self.rank(key))) != 0) return false;
+          }
+          return true;
+        }
+        return isBST(this.root,null,null) && isAVL(this.root) && isSizeConsistent(this.root) && isRankConsistent();
+      }
+      static test(){
+        let st = new AVLTreeST(CMP);
+        "SEARCHEXAMPLE".split("").forEach((s,i)=> st.put(s,i));
+        for(let s,it=st.keys().iterator();it.hasNext();){
+          s=it.next();
+          console.log(s + " " + st.get(s));
+        }
+      }
+    }
+
+    //AVLTreeST.test();
+    //DepthFirstPaths.test();
     //NonrecursiveDFS.test();
     //DepthFirstSearch.test();
     //Graph.test();
@@ -1841,6 +2398,17 @@
     //FrequencyCounter.test();
 
     const _$={
+      AVLTreeST,
+      DepthFirstPaths,
+      NonrecursiveDFS,
+      DepthFirstSearch,
+      Graph,
+      BinarySearch,
+      RedBlackBST,
+      BST,
+      BinarySearchST,
+      SequentialSearchST,
+      FrequencyCounter
     };
 
     return _$;
