@@ -847,6 +847,23 @@
         }
         return inplace?this.copy(obj,res):res;
       },
+      shuffle2(obj,inplace=true){
+        _pre(isVec,obj,"array");
+        if(obj.length<3){
+          obj= this.shuffle(obj,inplace)
+        }else{
+          const n = obj.length,
+                res=Slicer.call(obj,0);
+          for(let s,r,i=0; i<n; ++i){
+            // choose index uniformly in [i, n-1]
+            r = i + MFL(PRNG() * (n - i));
+            s= obj[r];
+            obj[r] = obj[i];
+            obj[i] = s;
+          }
+        }
+        return obj;
+      },
       /**Get the distinct items only.
        * @memberof module:mcfud/core._
        * @param {any[]} arr

@@ -21,6 +21,10 @@ const jsFiles = [
   "src/main/quadtree.js",
   "src/main/negamax.js",
   "src/main/minimax.js",
+  "src/algo/basic.js",
+  "src/algo/sort.js",
+  "src/algo/search.js",
+  "src/algo/graph.js",
   "src/main/test.js"
 ];
 
@@ -36,8 +40,7 @@ gulp.task("bundleJS", function(){
 });
 
 gulp.task('doc', function (cb) {
-    gulp.src(['README.md', './src/main/**/*.js'], {read: false})
-        .pipe(jsdoc(cb));
+  gulp.src(['README.md', './src/main/**/*.js','./src/algo/**/*.js'], {read: false}).pipe(jsdoc(cb));
 });
 
 gulp.task("default", gulp.series("bundleJS"), function(){
