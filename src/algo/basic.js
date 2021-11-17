@@ -711,271 +711,7 @@
       }
     }
 
-    /**Represents an indexed priority queue of generic keys.
-     * @memberof module:mcfud/algo_basic
-     * @class
-     * @property {number} maxN  maximum number of elements on PQ
-     * @property {number} n number of elements on PQ
-     * @property {array} pq  binary heap using 1-based indexing
-     * @property {array} qp  inverse of pq - qp[pq[i]] = pq[qp[i]] = i
-     * @property {array} mKeys  keys[i] = priority of i
-     */
-    class IndexMinPQ{
-      /**
-       * Initializes an empty indexed priority queue with indices between {@code 0}
-       * and {@code maxN - 1}.
-       * @param  maxN the keys on this priority queue are index from {@code 0} {@code maxN - 1}
-       * @throws Error if {@code maxN < 0}
-       */
-      constructor(maxN,compareFn){
-        if(maxN < 0) throw Error(`IllegalArgumentException`);
-        this.compare=compareFn;
-        this.maxN = maxN;
-        this.n = 0;
-        this.mKeys = new Array(maxN+1);    // make this of length maxN??
-        this.pq = new Array(maxN + 1);
-        this.qp   = new Array(maxN + 1);                   // make this of length maxN??
-        for(let i = 0; i <= maxN; i++) this.qp[i] = -1;
-      }
-      /**Returns true if this priority queue is empty.
-       *
-       * @return {@code true} if this priority queue is empty;
-       *         {@code false} otherwise
-       */
-      isEmpty() {
-        return this.n == 0;
-      }
-      /**Is {@code i} an index on this priority queue?
-       *
-       * @param  i an index
-       * @return {@code true} if {@code i} is an index on this priority queue;
-       *         {@code false} otherwise
-       * @throws Error unless {@code 0 <= i < maxN}
-       */
-      contains(i){
-        this.validateIndex(i);
-        return this.qp[i] != -1;
-      }
-      /**Returns the number of keys on this priority queue.
-       * @return the number of keys on this priority queue
-       */
-      size(){
-        return this.n;
-      }
-      /**Associates key with index {@code i}.
-       *
-       * @param  i an index
-       * @param  key the key to associate with index {@code i}
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if there already is an item associated
-       *         with index {@code i}
-       */
-      insert(i, key){
-        this.validateIndex(i);
-        if(this.contains(i)) throw Error("index is already in the priority queue");
-        this.n++;
-        this.qp[i] = this.n;
-        this.pq[this.n] = i;
-        this.mKeys[i] = key;
-        this.swim(this.n);
-      }
-      /**Returns an index associated with a minimum key.
-       *
-       * @return an index associated with a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      minIndex(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        return this.pq[1];
-      }
-      /**Returns a minimum key.
-       *
-       * @return a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      minKey(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        return this.mKeys[this.pq[1]];
-      }
-      /**
-       * Removes a minimum key and returns its associated index.
-       * @return an index associated with a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      delMin(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        let min = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
-        _.assert(min == this.pq[this.n+1], "No good");
-        this.qp[min] = -1;        // delete
-        this.mKeys[min] = null;    // to help with garbage collection
-        this.pq[this.n+1] = -1;        // not needed
-        return min;
-      }
-      /**
-       * Returns the key associated with index {@code i}.
-       *
-       * @param  i the index of the key to return
-       * @return the key associated with index {@code i}
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error no key is associated with index {@code i}
-       */
-      keyOf(i){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        return this.mKeys[i];
-      }
-      /**
-       * Change the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to change
-       * @param  key change the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error no key is associated with index {@code i}
-       */
-      changeKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
-      }
-      /**
-       * Decrease the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to decrease
-       * @param  key decrease the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if {@code key >= keyOf(i)}
-       * @throws Error no key is associated with index {@code i}
-       */
-      decreaseKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let c=this.compare(this.mKeys[i],key);
-        if(c== 0)
-          throw Error("Calling decreaseKey() with a key equal to the key in the priority queue");
-        if(c< 0)
-          throw Error("Calling decreaseKey() with a key strictly greater than the key in the priority queue");
-        this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-      }
-      /**
-       * Increase the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to increase
-       * @param  key increase the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if {@code key <= keyOf(i)}
-       * @throws Error no key is associated with index {@code i}
-       */
-      increaseKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let c= this.compare(this.mKeys[i],key);
-        if(c==0)
-          throw Error("Calling increaseKey() with a key equal to the key in the priority queue");
-        if(c>0)
-          throw Error("Calling increaseKey() with a key strictly less than the key in the priority queue");
-        this.mKeys[i] = key;
-        this.sink(this.qp[i]);
-      }
-      /**
-       * Remove the key associated with index {@code i}.
-       *
-       * @param  i the index of the key to remove
-       * @throws IllegalArgumentException unless {@code 0 <= i < maxN}
-       * @throws NoSuchElementException no key is associated with index {@code i}
-       */
-      delete(i){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
-        this.mKeys[i] = null;
-        this.qp[i] = -1;
-      }
-      validateIndex(i){
-        if(i < 0) throw Error("index is negative: " + i);
-        if(i >= this.maxN) throw Error("index >= capacity: " + i);
-      }
-      greater(i, j){
-        return this.compare(this.mKeys[this.pq[i]],this.mKeys[this.pq[j]]) > 0;
-      }
-      exch(i, j){
-        let swap = this.pq[i];
-        this.pq[i] = this.pq[j];
-        this.pq[j] = swap;
-        this.qp[this.pq[i]] = i;
-        this.qp[this.pq[j]] = j;
-      }
-      swim(k){
-        while(k > 1 && this.greater(k/2, k)) {
-          this.exch(k, k/2);
-          k = k/2;
-        }
-      }
-      sink(k){
-        while(2*k <= this.n){
-            let j = 2*k;
-            if(j < this.n && this.greater(j, j+1)) j++;
-            if(!this.greater(k, j)) break;
-            this.exch(k, j);
-            k = j;
-        }
-      }
-      /**
-       * Returns an iterator that iterates over the keys on the
-       * priority queue in ascending order.
-       * The iterator doesn't implement {@code remove()} since it's optional.
-       *
-       * @return an iterator that iterates over the keys in ascending order
-       */
-      iterator(){
-        // create a new pq
-        let copy= new IndexMinPQ(this.pq.length-1, this.compare);
-        // add all elements to copy of heap
-        // takes linear time since already in heap order so no keys move
-        for(let i = 1; i <= this.n; i++)
-          copy.insert(this.pq[i], this.mKeys[this.pq[i]]);
-        return{
-          remove(){ throw Error(`UnsupportedOperationException`) },
-          hasNext(){ return !copy.isEmpty() },
-          next(){
-            if(!this.hasNext()) throw Error(`NoSuchElementException`);
-            return copy.delMin();
-          }
-        }
-      }
-      static test(){
-        // insert a bunch of strings
-        let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
-        let pq = new IndexMinPQ(strings.length,CMP);
-        for(let i = 0; i < strings.length; i++)
-          pq.insert(i, strings[i]);
-        // delete and print each key
-        while(!pq.isEmpty()){
-          let i = pq.delMin();
-          console.log(i + " " + strings[i]);
-        }
-        console.log("");
-        // reinsert the same strings
-        for(let i = 0; i < strings.length; i++) {
-            pq.insert(i, strings[i]);
-        }
-        // print each key using the iterator
-        for(let i,it=pq.iterator();it.hasNext();){
-          i=it.next();
-          console.log(i + " " + strings[i]);
-        }
-        while(!pq.isEmpty()){ pq.delMin() }
-      }
-    }
-
-    /**
+    /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
      * @property {number} height  height of tree
@@ -1161,8 +897,162 @@
       }
     }
 
+    /**Represents a <em>d</em>-dimensional mathematical vector.
+     *  Vectors are mutable: their values can be changed after they are created.
+     *  It includes methods for addition, subtraction,
+     *  dot product, scalar product, unit vector, and Euclidean norm.
+     * @memberof module:mcfud/algo_basic
+     * @class
+     * @property {number} d  dimension
+     * @property {ST} st the vector, represented by index-value pairs
+     */
+    class SparseVector{
+     /**Initializes a d-dimensional zero vector.
+       * @param d the dimension of the vector
+       */
+      constructor(d){
+        this.d  = d;
+        this.st = new ST();
+      }
+     /**Sets the ith coordinate of this vector to the specified value.
+       * @param  i the index
+       * @param  value the new value
+       * @throws Error unless i is between 0 and d-1
+       */
+      put(i, value){
+        if(i < 0 || i >= this.d) throw Error("Illegal index");
+        if(_.feq0(value)) this.st.remove(i);
+        else this.st.put(i, value);
+      }
+      /**Returns the ith coordinate of this vector.
+       * @param  i the index
+       * @return the value of the ith coordinate of this vector
+       * @throws Error unless i is between 0 and d-1
+       */
+      get(i){
+        if(i < 0 || i >= this.d) throw Error("Illegal index");
+        return this.st.contains(i)? this.st.get(i): 0;
+      }
+      /**Returns the number of nonzero entries in this vector.
+       * @return the number of nonzero entries in this vector
+       */
+      nnz(){
+        return this.st.size();
+      }
+      /**Returns the dimension of this vector.
+       *
+       * @return the dimension of this vector
+       */
+      dimension(){
+        return this.d;
+      }
+      /**Returns the inner product of this vector with the specified vector.
+       *
+       * @param  that the other vector
+       * @return the dot product between this vector and that vector
+       * @throws Error if the lengths of the two vectors are not equal
+       */
+      dot(that){
+        if(this.d != that.d) throw Error("Vector lengths disagree");
+        let sum = 0.0;
+        // iterate over the vector with the fewest nonzeros
+        if(this.st.size() <= that.st.size()){
+          for(let i,it=this.st.keys().iterator();it.hasNext();){
+            i=it.next();
+            if(that.st.contains(i)) sum += this.get(i) * that.get(i);
+          }
+        }else {
+          for(let i,it= that.st.keys().iterator();it.hasNext();){
+            i=it.next();
+            if(this.st.contains(i)) sum += this.get(i) * that.get(i);
+          }
+        }
+        return sum;
+      }
+      /**Returns the inner product of this vector with the specified array.
+       *
+       * @param  vec the array
+       * @return the dot product between this vector and that array
+       * @throws Error if the dimensions of the vector and the array are not equal
+       */
+      dotWith(vec){
+        let sum = 0;
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          sum += vec[i] * this.get(i);
+        }
+        return sum;
+      }
+      /**Returns the magnitude of this vector.
+       * This is also known as the L2 norm or the Euclidean norm.
+       *
+       * @return the magnitude of this vector
+       */
+      magnitude(){
+        return Math.sqrt(this.dot(this));
+      }
+      /**Returns the scalar-vector product of this vector with the specified scalar.
+       *
+       * @param  alpha the scalar
+       * @return the scalar-vector product of this vector with the specified scalar
+       */
+      scale(alpha){
+        let c = new SparseVector(this.d);
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, alpha * this.get(i));
+        }
+        return c;
+      }
+      /**Returns the sum of this vector and the specified vector.
+       *
+       * @param  that the vector to add to this vector
+       * @return the sum of this vector and that vector
+       * @throws Error if the dimensions of the two vectors are not equal
+       */
+      plus(that){
+        if(this.d != that.d) throw Error("Vector lengths disagree");
+        let c = new SparseVector(this.d);
+        for(let i, it=this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, this.get(i)); // c = this
+        }
+        for(let i,it= that.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, that.get(i) + c.get(i));     // c = c + that
+        }
+        return c;
+      }
+      /**Returns a string representation of this vector.
+       * @return a string representation of this vector, which consists of the
+       *         the vector entries, separates by commas, enclosed in parentheses
+       */
+      toString(){
+        let s="";
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          s+= `(${i}, ${this.st.get(i)}) `;
+        }
+        return s;
+      }
+      static test(){
+        let a = new SparseVector(10),
+            b = new SparseVector(10);
+        a.put(3, 0.50);
+        a.put(9, 0.75);
+        a.put(6, 0.11);
+        a.put(6, 0.00);
+        b.put(3, 0.60);
+        b.put(4, 0.90);
+        console.log("a = " + a.toString());
+        console.log("b = " + b.toString());
+        console.log("a dot b = " + a.dot(b));
+        console.log("a + b   = " + a.plus(b).toString());
+      }
+    }
+
+    //SparseVector.test();
     //BTree.test();
-    //IndexMinPQ.test();
     //ST.test();
     //TreeMap.test();
     //Queue.test();
@@ -1171,7 +1061,7 @@
     //Bag.test();
 
     const _$={
-      BTree,Bag,Stack,LinkedQueue,Queue,ST,TreeMap,IndexMinPQ
+      BTree,Bag,Stack,LinkedQueue,Queue,ST,TreeMap,SparseVector
     };
 
     return _$;

@@ -18,14 +18,15 @@
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,Basic,Sort){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const CMP=(a,b)=>{return a<b?-1:(a>b?1:0)};
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {Bag,Stack,Queue,ST,IndexMinPQ}= Basic;
-
+    const {Bag,Stack,Queue,ST}= Basic;
+    const {IndexMinPQ}= Sort;
     /**
      * @module mcfud/algo_graph
      */
@@ -2054,8 +2055,7 @@
       }
     }
 
-    DijkstraSP.test();
-
+    //DijkstraSP.test();
     //Topological.test();
     //SymbolDigraph.test();
     //EdgeWeightedDirectedCycle.test();
@@ -2083,7 +2083,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+    module.exports=_module(require("../main/core"),require("./basic"), require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/graph"]=_module
   }
