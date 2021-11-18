@@ -50,7 +50,8 @@
      * @property {n} number of elements in map
      */
     class TreeMap{
-      constructor(){
+      constructor(C){
+        this.compare=C || CMP;
         this.root=null;
         this.n=0;
       }
@@ -77,9 +78,10 @@
             self.n+=1;
             return{key,value,left:null,right:null};
           }
-          if(key < node.key){
+          let c= self.compare(key,node.key);
+          if(c<0){
             node.left = _set(key, value, node.left);
-          }else if(key > node.key){
+          }else if(c>0){
             node.right = _set(key, value, node.right);
           }else{
             node.value = value;

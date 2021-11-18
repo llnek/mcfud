@@ -5869,7 +5869,8 @@
      * @property {n} number of elements in map
      */
     class TreeMap{
-      constructor(){
+      constructor(C){
+        this.compare=C || CMP;
         this.root=null;
         this.n=0;
       }
@@ -5896,9 +5897,10 @@
             self.n+=1;
             return{key,value,left:null,right:null};
           }
-          if(key < node.key){
+          let c= self.compare(key,node.key);
+          if(c<0){
             node.left = _set(key, value, node.left);
-          }else if(key > node.key){
+          }else if(c>0){
             node.right = _set(key, value, node.right);
           }else{
             node.value = value;
@@ -6530,271 +6532,7 @@
       }
     }
 
-    /**Represents an indexed priority queue of generic keys.
-     * @memberof module:mcfud/algo_basic
-     * @class
-     * @property {number} maxN  maximum number of elements on PQ
-     * @property {number} n number of elements on PQ
-     * @property {array} pq  binary heap using 1-based indexing
-     * @property {array} qp  inverse of pq - qp[pq[i]] = pq[qp[i]] = i
-     * @property {array} mKeys  keys[i] = priority of i
-     */
-    class IndexMinPQ{
-      /**
-       * Initializes an empty indexed priority queue with indices between {@code 0}
-       * and {@code maxN - 1}.
-       * @param  maxN the keys on this priority queue are index from {@code 0} {@code maxN - 1}
-       * @throws Error if {@code maxN < 0}
-       */
-      constructor(maxN,compareFn){
-        if(maxN < 0) throw Error(`IllegalArgumentException`);
-        this.compare=compareFn;
-        this.maxN = maxN;
-        this.n = 0;
-        this.mKeys = new Array(maxN+1);    // make this of length maxN??
-        this.pq = new Array(maxN + 1);
-        this.qp   = new Array(maxN + 1);                   // make this of length maxN??
-        for(let i = 0; i <= maxN; i++) this.qp[i] = -1;
-      }
-      /**Returns true if this priority queue is empty.
-       *
-       * @return {@code true} if this priority queue is empty;
-       *         {@code false} otherwise
-       */
-      isEmpty() {
-        return this.n == 0;
-      }
-      /**Is {@code i} an index on this priority queue?
-       *
-       * @param  i an index
-       * @return {@code true} if {@code i} is an index on this priority queue;
-       *         {@code false} otherwise
-       * @throws Error unless {@code 0 <= i < maxN}
-       */
-      contains(i){
-        this.validateIndex(i);
-        return this.qp[i] != -1;
-      }
-      /**Returns the number of keys on this priority queue.
-       * @return the number of keys on this priority queue
-       */
-      size(){
-        return this.n;
-      }
-      /**Associates key with index {@code i}.
-       *
-       * @param  i an index
-       * @param  key the key to associate with index {@code i}
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if there already is an item associated
-       *         with index {@code i}
-       */
-      insert(i, key){
-        this.validateIndex(i);
-        if(this.contains(i)) throw Error("index is already in the priority queue");
-        this.n++;
-        this.qp[i] = this.n;
-        this.pq[this.n] = i;
-        this.mKeys[i] = key;
-        this.swim(this.n);
-      }
-      /**Returns an index associated with a minimum key.
-       *
-       * @return an index associated with a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      minIndex(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        return this.pq[1];
-      }
-      /**Returns a minimum key.
-       *
-       * @return a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      minKey(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        return this.mKeys[this.pq[1]];
-      }
-      /**
-       * Removes a minimum key and returns its associated index.
-       * @return an index associated with a minimum key
-       * @throws Error if this priority queue is empty
-       */
-      delMin(){
-        if(this.n == 0) throw Error("Priority queue underflow");
-        let min = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
-        _.assert(min == this.pq[this.n+1], "No good");
-        this.qp[min] = -1;        // delete
-        this.mKeys[min] = null;    // to help with garbage collection
-        this.pq[this.n+1] = -1;        // not needed
-        return min;
-      }
-      /**
-       * Returns the key associated with index {@code i}.
-       *
-       * @param  i the index of the key to return
-       * @return the key associated with index {@code i}
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error no key is associated with index {@code i}
-       */
-      keyOf(i){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        return this.mKeys[i];
-      }
-      /**
-       * Change the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to change
-       * @param  key change the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error no key is associated with index {@code i}
-       */
-      changeKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
-      }
-      /**
-       * Decrease the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to decrease
-       * @param  key decrease the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if {@code key >= keyOf(i)}
-       * @throws Error no key is associated with index {@code i}
-       */
-      decreaseKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let c=this.compare(this.mKeys[i],key);
-        if(c== 0)
-          throw Error("Calling decreaseKey() with a key equal to the key in the priority queue");
-        if(c< 0)
-          throw Error("Calling decreaseKey() with a key strictly greater than the key in the priority queue");
-        this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-      }
-      /**
-       * Increase the key associated with index {@code i} to the specified value.
-       *
-       * @param  i the index of the key to increase
-       * @param  key increase the key associated with index {@code i} to this key
-       * @throws Error unless {@code 0 <= i < maxN}
-       * @throws Error if {@code key <= keyOf(i)}
-       * @throws Error no key is associated with index {@code i}
-       */
-      increaseKey(i, key){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let c= this.compare(this.mKeys[i],key);
-        if(c==0)
-          throw Error("Calling increaseKey() with a key equal to the key in the priority queue");
-        if(c>0)
-          throw Error("Calling increaseKey() with a key strictly less than the key in the priority queue");
-        this.mKeys[i] = key;
-        this.sink(this.qp[i]);
-      }
-      /**
-       * Remove the key associated with index {@code i}.
-       *
-       * @param  i the index of the key to remove
-       * @throws IllegalArgumentException unless {@code 0 <= i < maxN}
-       * @throws NoSuchElementException no key is associated with index {@code i}
-       */
-      delete(i){
-        this.validateIndex(i);
-        if(!this.contains(i)) throw Error("index is not in the priority queue");
-        let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
-        this.mKeys[i] = null;
-        this.qp[i] = -1;
-      }
-      validateIndex(i){
-        if(i < 0) throw Error("index is negative: " + i);
-        if(i >= this.maxN) throw Error("index >= capacity: " + i);
-      }
-      greater(i, j){
-        return this.compare(this.mKeys[this.pq[i]],this.mKeys[this.pq[j]]) > 0;
-      }
-      exch(i, j){
-        let swap = this.pq[i];
-        this.pq[i] = this.pq[j];
-        this.pq[j] = swap;
-        this.qp[this.pq[i]] = i;
-        this.qp[this.pq[j]] = j;
-      }
-      swim(k){
-        while(k > 1 && this.greater(k/2, k)) {
-          this.exch(k, k/2);
-          k = k/2;
-        }
-      }
-      sink(k){
-        while(2*k <= this.n){
-            let j = 2*k;
-            if(j < this.n && this.greater(j, j+1)) j++;
-            if(!this.greater(k, j)) break;
-            this.exch(k, j);
-            k = j;
-        }
-      }
-      /**
-       * Returns an iterator that iterates over the keys on the
-       * priority queue in ascending order.
-       * The iterator doesn't implement {@code remove()} since it's optional.
-       *
-       * @return an iterator that iterates over the keys in ascending order
-       */
-      iterator(){
-        // create a new pq
-        let copy= new IndexMinPQ(this.pq.length-1, this.compare);
-        // add all elements to copy of heap
-        // takes linear time since already in heap order so no keys move
-        for(let i = 1; i <= this.n; i++)
-          copy.insert(this.pq[i], this.mKeys[this.pq[i]]);
-        return{
-          remove(){ throw Error(`UnsupportedOperationException`) },
-          hasNext(){ return !copy.isEmpty() },
-          next(){
-            if(!this.hasNext()) throw Error(`NoSuchElementException`);
-            return copy.delMin();
-          }
-        }
-      }
-      static test(){
-        // insert a bunch of strings
-        let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
-        let pq = new IndexMinPQ(strings.length,CMP);
-        for(let i = 0; i < strings.length; i++)
-          pq.insert(i, strings[i]);
-        // delete and print each key
-        while(!pq.isEmpty()){
-          let i = pq.delMin();
-          console.log(i + " " + strings[i]);
-        }
-        console.log("");
-        // reinsert the same strings
-        for(let i = 0; i < strings.length; i++) {
-            pq.insert(i, strings[i]);
-        }
-        // print each key using the iterator
-        for(let i,it=pq.iterator();it.hasNext();){
-          i=it.next();
-          console.log(i + " " + strings[i]);
-        }
-        while(!pq.isEmpty()){ pq.delMin() }
-      }
-    }
-
-    /**
+    /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
      * @property {number} height  height of tree
@@ -6980,8 +6718,162 @@
       }
     }
 
+    /**Represents a <em>d</em>-dimensional mathematical vector.
+     *  Vectors are mutable: their values can be changed after they are created.
+     *  It includes methods for addition, subtraction,
+     *  dot product, scalar product, unit vector, and Euclidean norm.
+     * @memberof module:mcfud/algo_basic
+     * @class
+     * @property {number} d  dimension
+     * @property {ST} st the vector, represented by index-value pairs
+     */
+    class SparseVector{
+     /**Initializes a d-dimensional zero vector.
+       * @param d the dimension of the vector
+       */
+      constructor(d){
+        this.d  = d;
+        this.st = new ST();
+      }
+     /**Sets the ith coordinate of this vector to the specified value.
+       * @param  i the index
+       * @param  value the new value
+       * @throws Error unless i is between 0 and d-1
+       */
+      put(i, value){
+        if(i < 0 || i >= this.d) throw Error("Illegal index");
+        if(_.feq0(value)) this.st.remove(i);
+        else this.st.put(i, value);
+      }
+      /**Returns the ith coordinate of this vector.
+       * @param  i the index
+       * @return the value of the ith coordinate of this vector
+       * @throws Error unless i is between 0 and d-1
+       */
+      get(i){
+        if(i < 0 || i >= this.d) throw Error("Illegal index");
+        return this.st.contains(i)? this.st.get(i): 0;
+      }
+      /**Returns the number of nonzero entries in this vector.
+       * @return the number of nonzero entries in this vector
+       */
+      nnz(){
+        return this.st.size();
+      }
+      /**Returns the dimension of this vector.
+       *
+       * @return the dimension of this vector
+       */
+      dimension(){
+        return this.d;
+      }
+      /**Returns the inner product of this vector with the specified vector.
+       *
+       * @param  that the other vector
+       * @return the dot product between this vector and that vector
+       * @throws Error if the lengths of the two vectors are not equal
+       */
+      dot(that){
+        if(this.d != that.d) throw Error("Vector lengths disagree");
+        let sum = 0.0;
+        // iterate over the vector with the fewest nonzeros
+        if(this.st.size() <= that.st.size()){
+          for(let i,it=this.st.keys().iterator();it.hasNext();){
+            i=it.next();
+            if(that.st.contains(i)) sum += this.get(i) * that.get(i);
+          }
+        }else {
+          for(let i,it= that.st.keys().iterator();it.hasNext();){
+            i=it.next();
+            if(this.st.contains(i)) sum += this.get(i) * that.get(i);
+          }
+        }
+        return sum;
+      }
+      /**Returns the inner product of this vector with the specified array.
+       *
+       * @param  vec the array
+       * @return the dot product between this vector and that array
+       * @throws Error if the dimensions of the vector and the array are not equal
+       */
+      dotWith(vec){
+        let sum = 0;
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          sum += vec[i] * this.get(i);
+        }
+        return sum;
+      }
+      /**Returns the magnitude of this vector.
+       * This is also known as the L2 norm or the Euclidean norm.
+       *
+       * @return the magnitude of this vector
+       */
+      magnitude(){
+        return Math.sqrt(this.dot(this));
+      }
+      /**Returns the scalar-vector product of this vector with the specified scalar.
+       *
+       * @param  alpha the scalar
+       * @return the scalar-vector product of this vector with the specified scalar
+       */
+      scale(alpha){
+        let c = new SparseVector(this.d);
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, alpha * this.get(i));
+        }
+        return c;
+      }
+      /**Returns the sum of this vector and the specified vector.
+       *
+       * @param  that the vector to add to this vector
+       * @return the sum of this vector and that vector
+       * @throws Error if the dimensions of the two vectors are not equal
+       */
+      plus(that){
+        if(this.d != that.d) throw Error("Vector lengths disagree");
+        let c = new SparseVector(this.d);
+        for(let i, it=this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, this.get(i)); // c = this
+        }
+        for(let i,it= that.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          c.put(i, that.get(i) + c.get(i));     // c = c + that
+        }
+        return c;
+      }
+      /**Returns a string representation of this vector.
+       * @return a string representation of this vector, which consists of the
+       *         the vector entries, separates by commas, enclosed in parentheses
+       */
+      toString(){
+        let s="";
+        for(let i,it= this.st.keys().iterator();it.hasNext();){
+          i=it.next();
+          s+= `(${i}, ${this.st.get(i)}) `;
+        }
+        return s;
+      }
+      static test(){
+        let a = new SparseVector(10),
+            b = new SparseVector(10);
+        a.put(3, 0.50);
+        a.put(9, 0.75);
+        a.put(6, 0.11);
+        a.put(6, 0.00);
+        b.put(3, 0.60);
+        b.put(4, 0.90);
+        console.log("a = " + a.toString());
+        console.log("b = " + b.toString());
+        console.log("a dot b = " + a.dot(b));
+        console.log("a + b   = " + a.plus(b).toString());
+      }
+    }
+
+    //SparseVector.test();
     //BTree.test();
-    //IndexMinPQ.test();
     //ST.test();
     //TreeMap.test();
     //Queue.test();
@@ -6990,7 +6882,7 @@
     //Bag.test();
 
     const _$={
-      BTree,Bag,Stack,LinkedQueue,Queue,ST,TreeMap,IndexMinPQ
+      BTree,Bag,Stack,LinkedQueue,Queue,ST,TreeMap,SparseVector
     };
 
     return _$;
@@ -7357,6 +7249,44 @@
       // now, a[lo .. j-1] <= a[j] <= a[j+1 .. hi]
       return j;
     }
+
+    /**Provides static methods for sorting an array using bubble sort.
+     * @memberof module:mcfud/algo_sort
+     * @class
+     */
+    class Bubble{
+      /**
+       * Rearranges the array in ascending order, using the natural order.
+       * @param a the array to be sorted
+       */
+      static sort(a,C){
+        function less(v, w){ return C(v,w) < 0 }
+        function exch(a, i, j){
+          let swap = a[i];
+          a[i] = a[j];
+          a[j] = swap;
+        }
+        let n = a.length;
+        for(let x, i = 0; i < n; i++){
+          x = 0;
+          for(let j = n-1; j > i; j--){
+            if(less(a[j], a[j-1])){
+              exch(a, j, j-1);
+              x++;
+            }
+          }
+          if(x == 0) break;
+        }
+        return a;
+      }
+      static test(){
+        let obj="bed bug dad yes zoo all bad yet".split(" ");
+        Bubble.sort(obj,CMP);
+        for(let i=0;i<obj.length;++i)
+          console.log(obj[i]);
+      }
+    }
+
     /**Provides static methods for sorting an array and
      * selecting the ith smallest element in an array using quicksort.
      * @memberof module:mcfud/algo_sort
@@ -7404,6 +7334,7 @@
         obj.forEach((s,i)=> console.log(Quick.select(obj,i,CMP)));
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function less4(a,i, j,C){ return less(a[i], a[j],C) }
     function swim(k, M){
@@ -7452,6 +7383,7 @@
       for(let i = 1; i <= M.n; ++i) temp[i] = M.pq[i];
       M.pq = temp;
     }
+
     /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -7459,11 +7391,9 @@
      * @property {number} n // number of items on priority queue
      * @property {array} pq // store items at indices 1 to n
      */
-    class MaxPQ{
-      /**Initializes an empty priority queue with the given initial capacity,
-       * using the given comparator.
-       * @param {function} compareFn
-       * @param {any} keys
+    class MinPQ{
+      /**Initializes an empty priority queue with the given initial capacity.
+       * @param  initCapacity the initial capacity of this priority queue
        */
       constructor(compareFn, keys){
         this.comparator = compareFn;
@@ -7472,170 +7402,848 @@
           this.pq = new Array(keys.length + 1);
           this.n = keys.length;
           for(let i = 0; i < this.n; ++i) this.pq[i+1] = keys[i];
-          for(let k = int(this.n/2); k >= 1; --k) sink(k,this);
+          for(let k = int(this.n/2); k >= 1; --k) this.sink(k,this);
+        }else{
+          this.pq= new Array(is.num(keys)? keys: 2);
         }
-        this.pq= new Array(is.num(keys)? keys: 2);
       }
       /**Returns true if this priority queue is empty.
-       * @return {@code true} if this priority queue is empty;
-       *         {@code false} otherwise
+       * @return {@code true} if this priority queue is empty; {@code false} otherwise
        */
       isEmpty(){
-        return this.n == 0
+        return this.n == 0;
       }
       /**Returns the number of keys on this priority queue.
        * @return the number of keys on this priority queue
        */
       size(){
-        return this.n
+        return this.n;
       }
-      /**Returns a largest key on this priority queue.
-       * @return a largest key on this priority queue
+      /**Returns a smallest key on this priority queue.
+       * @return a smallest key on this priority queue
        * @throws Error if this priority queue is empty
        */
-      max(){
-        if(this.isEmpty())
-          throw Error("Priority queue underflow");
+      min(){
+        if(this.isEmpty()) throw Error("Priority queue underflow");
         return this.pq[1];
       }
+      // resize the underlying array to have the given capacity
+      _resize(c){
+        _.assert(c> this.n,"bad resize capacity");
+        let temp = new Array(c);
+        for(let i = 1; i <= this.n; i++) temp[i] = this.pq[i];
+        this.pq = temp;
+      }
       /**Adds a new key to this priority queue.
-       * @param  x the new key to add to this priority queue
+       * @param  x the key to add to this priority queue
        */
       insert(x){
         // double size of array if necessary
-        if(this.n == this.pq.length-1) _resize(2 * this.pq.length, this);
+        if(this.n == this.pq.length - 1) this._resize(2 * this.pq.length);
         // add x, and percolate it up to maintain heap invariant
-        this.n+=1;
-        this.pq[this.n] = x;
-        swim(this.n, this);
-        //assert isMaxHeap();
+        this.pq[++this.n] = x;
+        this.swim(this.n);
+        //assert isMinHeap();
       }
-      /**Removes and returns a largest key on this priority queue.
-       * @return a largest key on this priority queue
+      /**Removes and returns a smallest key on this priority queue.
+       * @return a smallest key on this priority queue
        * @throws Error if this priority queue is empty
        */
-      delMax(){
-        if(this.isEmpty())
-          throw Error("Priority queue underflow");
-        let max = this.pq[1];
-        exch(this.pq, 1, this.n, this.comparator);
-        this.n-=1;
-        sink(1,this);
+      delMin(){
+        if(this.isEmpty()) throw Error("Priority queue underflow");
+        let min = this.pq[1];
+        exch(this.pq, 1, this.n--);
+        this.sink(1);
         this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
-        if(this.n > 0 &&
-           this.n == (this.pq.length - 1)/4) _resize(int(this.pq.length / 2), this);
-        return max;
+        if((this.n > 0) && (this.n == (this.pq.length - 1) / 4)) this._resize(this.pq.length / 2);
+        //assert isMinHeap();
+        return min;
+      }
+      swim(k){
+        while(k > 1 && this.greater(int(k/2), k)){
+          exch(this.pq, k, int(k/2));
+          k = int(k/2);
+        }
+      }
+      sink(k){
+        while(2*k <= this.n){
+          let j = 2*k;
+          if(j < this.n && this.greater(j, j+1)) j++;
+          if(!this.greater(k, j)) break;
+          exch(this.pq, k, j);
+          k = j;
+        }
+      }
+      greater(i, j){
+        return this.comparator(this.pq[i], this.pq[j]) > 0;
+      }
+      // is pq[1..n] a min heap?
+      isMinHeap(){
+        for(let i = 1; i <= this.n; i++) if(_.nichts(this.pq[i])) return false;
+        for(let i = this.n+1; i < this.pq.length; i++) if(!_.nichts(this.pq[i])) return false;
+        if(!_.nichts(this.pq[0])) return false;
+        return this.isMinHeapOrdered(1);
+      }
+      // is subtree of pq[1..n] rooted at k a min heap?
+      isMinHeapOrdered(k){
+        if(k > this.n) return true;
+        let left = 2*k;
+        let right = 2*k + 1;
+        if(left  <= this.n && this.greater(k, left))  return false;
+        if(right <= this.n && this.greater(k, right)) return false;
+        return this.isMinHeapOrdered(left) && this.isMinHeapOrdered(right);
       }
       /**Returns an iterator that iterates over the keys on this priority queue
-       * in descending order.
+       * in ascending order.
+       * <p>
        * The iterator doesn't implement {@code remove()} since it's optional.
-       * @return an iterator that iterates over the keys in descending order
+       *
+       * @return an iterator that iterates over the keys in ascending order
        */
       iterator(){
-        // add all items to copy of heap
-        // takes linear time since already in heap order so no keys move
-        const copy = new MaxPQ(this.comparator, this.size());
-        for(let i = 1; i <= this.n; ++i) copy.insert(this.pq[i]);
+        // add all items to copy of heap takes linear time since already in heap order so no keys move
+        let copy = new MinPQ(this.comparator, this.size());
+        for(let i = 1; i <= this.n; i++) copy.insert(this.pq[i]);
         return{
           remove(){ throw Error("UnsupportedOperationException") },
           hasNext(){ return !copy.isEmpty() },
           next(){
             if(!this.hasNext()) throw Error("NoSuchElementException");
-            return copy.delMax();
+            return copy.delMin();
           }
         }
       }
       static test(){
         let msg="",
-            obj= new MaxPQ(CMP);
+            obj= new MinPQ(CMP);
         "PQE".split("").forEach(s=>obj.insert(s));
-        msg += obj.delMax() + " ";
+        msg += obj.delMin() + " ";
         "XAM".split("").forEach(s=>obj.insert(s));
-        msg += obj.delMax() + " ";
+        msg += obj.delMin() + " ";
         "PLE".split("").forEach(s=>obj.insert(s));
-        msg += obj.delMax() + " ";
+        msg += obj.delMin() + " ";
         console.log(msg)
         console.log("(" + obj.size() + " left on pq)");
       }
     }
 
-    /***************************************************************************
-     * Helper functions for comparisons and swaps.
-     * Indices are "off-by-one" to support 1-based indexing.
-     ***************************************************************************/
-    function lessOneOff(pq, i, j, C){
-      return C(pq[i-1], pq[j-1]) < 0
+      /**Represents a priority queue of generic keys.
+       * @memberof module:mcfud/algo_sort
+       * @class
+       * @property {function} comparator
+       * @property {number} n // number of items on priority queue
+       * @property {array} pq // store items at indices 1 to n
+       */
+      class MaxPQ{
+        /**Initializes an empty priority queue with the given initial capacity,
+         * using the given comparator.
+         * @param {function} compareFn
+         * @param {any} keys
+         */
+        constructor(compareFn, keys){
+          this.comparator = compareFn;
+          this.n=0;
+          if(is.vec(keys)){
+            this.pq = new Array(keys.length + 1);
+            this.n = keys.length;
+            for(let i = 0; i < this.n; ++i) this.pq[i+1] = keys[i];
+            for(let k = int(this.n/2); k >= 1; --k) sink(k,this);
+          }else{
+            this.pq= new Array(is.num(keys)? keys: 2);
+          }
+        }
+        /**Returns true if this priority queue is empty.
+         * @return {@code true} if this priority queue is empty;
+         *         {@code false} otherwise
+         */
+        isEmpty(){
+          return this.n == 0
+        }
+        /**Returns the number of keys on this priority queue.
+         * @return the number of keys on this priority queue
+         */
+        size(){
+          return this.n
+        }
+        /**Returns a largest key on this priority queue.
+         * @return a largest key on this priority queue
+         * @throws Error if this priority queue is empty
+         */
+        max(){
+          if(this.isEmpty())
+            throw Error("Priority queue underflow");
+          return this.pq[1];
+        }
+        /**Adds a new key to this priority queue.
+         * @param  x the new key to add to this priority queue
+         */
+        insert(x){
+          // double size of array if necessary
+          if(this.n == this.pq.length-1) _resize(2 * this.pq.length, this);
+          // add x, and percolate it up to maintain heap invariant
+          this.n+=1;
+          this.pq[this.n] = x;
+          swim(this.n, this);
+          //assert isMaxHeap();
+        }
+        /**Removes and returns a largest key on this priority queue.
+         * @return a largest key on this priority queue
+         * @throws Error if this priority queue is empty
+     */
+    delMax(){
+      if(this.isEmpty())
+        throw Error("Priority queue underflow");
+      let max = this.pq[1];
+      exch(this.pq, 1, this.n, this.comparator);
+      this.n-=1;
+      sink(1,this);
+      this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
+      if(this.n > 0 &&
+         this.n == (this.pq.length - 1)/4) _resize(int(this.pq.length / 2), this);
+      return max;
     }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function exchOneOff(pq, i, j){
-      const swap = pq[i-1];
-      pq[i-1] = pq[j-1];
-      pq[j-1] = swap;
+    /**Returns an iterator that iterates over the keys on this priority queue
+     * in descending order.
+     * The iterator doesn't implement {@code remove()} since it's optional.
+     * @return an iterator that iterates over the keys in descending order
+     */
+    iterator(){
+      // add all items to copy of heap
+      // takes linear time since already in heap order so no keys move
+      const copy = new MaxPQ(this.comparator, this.size());
+      for(let i = 1; i <= this.n; ++i) copy.insert(this.pq[i]);
+      return{
+        remove(){ throw Error("UnsupportedOperationException") },
+        hasNext(){ return !copy.isEmpty() },
+        next(){
+          if(!this.hasNext()) throw Error("NoSuchElementException");
+          return copy.delMax();
+        }
+      }
     }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function sink4(pq, k, n,C){
-      while(2*k <= n){
+    static test(){
+      let msg="",
+          obj= new MaxPQ(CMP);
+      "PQE".split("").forEach(s=>obj.insert(s));
+      msg += obj.delMax() + " ";
+      "XAM".split("").forEach(s=>obj.insert(s));
+      msg += obj.delMax() + " ";
+      "PLE".split("").forEach(s=>obj.insert(s));
+      msg += obj.delMax() + " ";
+      console.log(msg)
+      console.log("(" + obj.size() + " left on pq)");
+    }
+  }
+
+  /***************************************************************************
+   * Helper functions for comparisons and swaps.
+   * Indices are "off-by-one" to support 1-based indexing.
+   ***************************************************************************/
+  function lessOneOff(pq, i, j, C){
+    return C(pq[i-1], pq[j-1]) < 0
+  }
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  function exchOneOff(pq, i, j){
+    const swap = pq[i-1];
+    pq[i-1] = pq[j-1];
+    pq[j-1] = swap;
+  }
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  function sink4(pq, k, n,C){
+    while(2*k <= n){
+      let j = 2*k;
+      if(j < n && lessOneOff(pq, j, j+1,C)) j++;
+      if(!lessOneOff(pq, k, j,C)) break;
+      exchOneOff(pq, k, j);
+      k = j;
+    }
+  }
+
+  /**Provides a static method to sort an array using <em>heapsort</em>.
+   * @memberof module:mcfud/algo_sort
+   * @class
+   */
+  class Heap{
+    /**Rearranges the array in ascending order, using the natural order.
+     * @param {array} pq the array to be sorted
+     * @param {function} compareFn
+     */
+    static sort(pq,compareFn){
+      let n = pq.length;
+      // heapify phase
+      for(let k = int(n/2); k >= 1; --k)
+        sink4(pq, k, n, compareFn);
+      // sortdown phase
+      let k = n;
+      while(k > 1){
+        exchOneOff(pq, 1, k--);
+        sink4(pq, 1, k,compareFn);
+      }
+      //////
+      return pq;
+    }
+    static test(){
+      let obj="SORTEXAMPLE".split("");
+      show(Heap.sort(obj,CMP));
+      obj="bed bug dad yes zoo all bad yet".split(" ");
+      show(Heap.sort(obj,CMP));
+    }
+  }
+
+  /**Represents an indexed priority queue of generic keys.
+   * @memberof module:mcfud/algo_sort
+   * @class
+   * @property {number} maxN  maximum number of elements on PQ
+   * @property {number} n number of elements on PQ
+   * @property {array} pq  binary heap using 1-based indexing
+   * @property {array} qp  inverse of pq - qp[pq[i]] = pq[qp[i]] = i
+   * @property {array} mKeys  keys[i] = priority of i
+   */
+  class IndexMinPQ{
+    /**
+     * Initializes an empty indexed priority queue with indices between {@code 0}
+     * and {@code maxN - 1}.
+     * @param  maxN the keys on this priority queue are index from {@code 0} {@code maxN - 1}
+     * @throws Error if {@code maxN < 0}
+     */
+    constructor(maxN,compareFn){
+      if(maxN < 0) throw Error(`IllegalArgumentException`);
+      this.compare=compareFn;
+      this.maxN = maxN;
+      this.n = 0;
+      this.mKeys = new Array(maxN+1);    // make this of length maxN??
+      this.pq = new Array(maxN + 1);
+      this.qp   = new Array(maxN + 1);                   // make this of length maxN??
+      for(let i = 0; i <= maxN; i++) this.qp[i] = -1;
+    }
+    /**Returns true if this priority queue is empty.
+     *
+     * @return {@code true} if this priority queue is empty;
+     *         {@code false} otherwise
+     */
+    isEmpty() {
+      return this.n == 0;
+    }
+    /**Is {@code i} an index on this priority queue?
+     *
+     * @param  i an index
+     * @return {@code true} if {@code i} is an index on this priority queue;
+     *         {@code false} otherwise
+     * @throws Error unless {@code 0 <= i < maxN}
+     */
+    contains(i){
+      this.validateIndex(i);
+      return this.qp[i] != -1;
+    }
+    /**Returns the number of keys on this priority queue.
+     * @return the number of keys on this priority queue
+     */
+    size(){
+      return this.n;
+    }
+    /**Associates key with index {@code i}.
+     *
+     * @param  i an index
+     * @param  key the key to associate with index {@code i}
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if there already is an item associated
+     *         with index {@code i}
+     */
+    insert(i, key){
+      this.validateIndex(i);
+      if(this.contains(i)) throw Error("index is already in the priority queue");
+      this.n++;
+      this.qp[i] = this.n;
+      this.pq[this.n] = i;
+      this.mKeys[i] = key;
+      this.swim(this.n);
+    }
+    /**Returns an index associated with a minimum key.
+     *
+     * @return an index associated with a minimum key
+     * @throws Error if this priority queue is empty
+     */
+    minIndex(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      return this.pq[1];
+    }
+    /**Returns a minimum key.
+     *
+     * @return a minimum key
+     * @throws Error if this priority queue is empty
+     */
+    minKey(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      return this.mKeys[this.pq[1]];
+    }
+    /**
+     * Removes a minimum key and returns its associated index.
+     * @return an index associated with a minimum key
+     * @throws Error if this priority queue is empty
+     */
+    delMin(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      let min = this.pq[1];
+      this.exch(1, this.n--);
+      this.sink(1);
+      _.assert(min == this.pq[this.n+1], "No good");
+      this.qp[min] = -1;        // delete
+      this.mKeys[min] = null;    // to help with garbage collection
+      this.pq[this.n+1] = -1;        // not needed
+      return min;
+    }
+    /**
+     * Returns the key associated with index {@code i}.
+     *
+     * @param  i the index of the key to return
+     * @return the key associated with index {@code i}
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error no key is associated with index {@code i}
+     */
+    keyOf(i){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      return this.mKeys[i];
+    }
+    /**
+     * Change the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to change
+     * @param  key change the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error no key is associated with index {@code i}
+     */
+    changeKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      this.mKeys[i] = key;
+      this.swim(this.qp[i]);
+      this.sink(this.qp[i]);
+    }
+    /**
+     * Decrease the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to decrease
+     * @param  key decrease the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if {@code key >= keyOf(i)}
+     * @throws Error no key is associated with index {@code i}
+     */
+    decreaseKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      let c=this.compare(this.mKeys[i],key);
+      if(c== 0)
+        throw Error("Calling decreaseKey() with a key equal to the key in the priority queue");
+      if(c< 0)
+        throw Error("Calling decreaseKey() with a key strictly greater than the key in the priority queue");
+      this.mKeys[i] = key;
+      this.swim(this.qp[i]);
+    }
+    /**
+     * Increase the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to increase
+     * @param  key increase the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if {@code key <= keyOf(i)}
+     * @throws Error no key is associated with index {@code i}
+     */
+    increaseKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      let c= this.compare(this.mKeys[i],key);
+      if(c==0)
+        throw Error("Calling increaseKey() with a key equal to the key in the priority queue");
+      if(c>0)
+        throw Error("Calling increaseKey() with a key strictly less than the key in the priority queue");
+      this.mKeys[i] = key;
+      this.sink(this.qp[i]);
+    }
+    /**
+     * Remove the key associated with index {@code i}.
+     *
+     * @param  i the index of the key to remove
+     * @throws IllegalArgumentException unless {@code 0 <= i < maxN}
+     * @throws NoSuchElementException no key is associated with index {@code i}
+     */
+    delete(i){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      let index = this.qp[i];
+      this.exch(index, this.n--);
+      this.swim(index);
+      this.sink(index);
+      this.mKeys[i] = null;
+      this.qp[i] = -1;
+    }
+    validateIndex(i){
+      if(i < 0) throw Error("index is negative: " + i);
+      if(i >= this.maxN) throw Error("index >= capacity: " + i);
+    }
+    greater(i, j){
+      return this.compare(this.mKeys[this.pq[i]],this.mKeys[this.pq[j]]) > 0;
+    }
+    exch(i, j){
+      let swap = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = swap;
+      this.qp[this.pq[i]] = i;
+      this.qp[this.pq[j]] = j;
+    }
+    swim(k){
+      while(k > 1 && this.greater(k/2, k)) {
+        this.exch(k, k/2);
+        k = k/2;
+      }
+    }
+    sink(k){
+      while(2*k <= this.n){
+          let j = 2*k;
+          if(j < this.n && this.greater(j, j+1)) j++;
+          if(!this.greater(k, j)) break;
+          this.exch(k, j);
+          k = j;
+      }
+    }
+    /**
+     * Returns an iterator that iterates over the keys on the
+     * priority queue in ascending order.
+     * The iterator doesn't implement {@code remove()} since it's optional.
+     *
+     * @return an iterator that iterates over the keys in ascending order
+     */
+    iterator(){
+      // create a new pq
+      let copy= new IndexMinPQ(this.pq.length-1, this.compare);
+      // add all elements to copy of heap
+      // takes linear time since already in heap order so no keys move
+      for(let i = 1; i <= this.n; i++)
+        copy.insert(this.pq[i], this.mKeys[this.pq[i]]);
+      return{
+        remove(){ throw Error(`UnsupportedOperationException`) },
+        hasNext(){ return !copy.isEmpty() },
+        next(){
+          if(!this.hasNext()) throw Error(`NoSuchElementException`);
+          return copy.delMin();
+        }
+      }
+    }
+    static test(){
+      // insert a bunch of strings
+      let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
+      let pq = new IndexMinPQ(strings.length,CMP);
+      for(let i = 0; i < strings.length; i++)
+        pq.insert(i, strings[i]);
+      // delete and print each key
+      while(!pq.isEmpty()){
+        let i = pq.delMin();
+        console.log(i + " " + strings[i]);
+      }
+      console.log("");
+      // reinsert the same strings
+      for(let i = 0; i < strings.length; i++) {
+          pq.insert(i, strings[i]);
+      }
+      // print each key using the iterator
+      for(let i,it=pq.iterator();it.hasNext();){
+        i=it.next();
+        console.log(i + " " + strings[i]);
+      }
+      while(!pq.isEmpty()){ pq.delMin() }
+    }
+  }
+
+  /**Represents an indexed priority queue of generic keys.
+   * @memberof module:mcfud/algo_sort
+   * @class
+   * @property {number} maxN  maximum number of elements on PQ
+   * @property {number} n number of elements on PQ
+   * @property {array} pq  binary heap using 1-based indexing
+   * @property {array} qp  inverse of pq - qp[pq[i]] = pq[qp[i]] = i
+   * @property {array} mKeys  keys[i] = priority of i
+   */
+  class IndexMaxPQ{
+    /**Initializes an empty indexed priority queue with indices between {@code 0}
+     * and {@code maxN - 1}.
+     * @param  maxN the keys on this priority queue are index from {@code 0} to {@code maxN - 1}
+     * @throws Error if {@code maxN < 0}
+     */
+    constructor(maxN,compareFn){
+      if(maxN < 0) throw Error("IllegalArgumentException");
+      this.compare=compareFn;
+      this.maxN = maxN;
+      this.n = 0;
+      this.mKeys = new Array(maxN + 1);    // make this of length maxN??
+      this.pq   = new Array(maxN + 1);
+      this.qp   = new Array(maxN + 1);  // make this of length maxN??
+      for(let i = 0; i <= maxN; i++) this.qp[i] = -1;
+    }
+    /**Returns true if this priority queue is empty.
+     * @return {@code true} if this priority queue is empty; {@code false} otherwise
+     */
+    isEmpty(){
+      return this.n == 0;
+    }
+    /**Is {@code i} an index on this priority queue?
+     *
+     * @param  i an index
+     * @return {@code true} if {@code i} is an index on this priority queue; {@code false} otherwise
+     * @throws Error unless {@code 0 <= i < maxN}
+     */
+    contains(i){
+      this.validateIndex(i);
+      return this.qp[i] != -1;
+    }
+    /**Returns the number of keys on this priority queue.
+     * @return the number of keys on this priority queue
+     */
+    size(){
+      return this.n;
+    }
+   /**Associate key with index i.
+     *
+     * @param  i an index
+     * @param  key the key to associate with index {@code i}
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if there already is an item associated with index {@code i}
+     */
+    insert(i, key){
+      this.validateIndex(i);
+      if(this.contains(i)) throw Error("index is already in the priority queue");
+      this.n++;
+      this.qp[i] = this.n;
+      this.pq[this.n] = i;
+      this.mKeys[i] = key;
+      this.swim(this.n);
+    }
+    /**Returns an index associated with a maximum key.
+     *
+     * @return an index associated with a maximum key
+     * @throws Error if this priority queue is empty
+     */
+    maxIndex(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      return this.pq[1];
+    }
+    /**Returns a maximum key.
+     *
+     * @return a maximum key
+     * @throws Error if this priority queue is empty
+     */
+    maxKey(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      return this.mKeys[this.pq[1]];
+    }
+    /**Removes a maximum key and returns its associated index.
+     *
+     * @return an index associated with a maximum key
+     * @throws Error if this priority queue is empty
+     */
+    delMax(){
+      if(this.n == 0) throw Error("Priority queue underflow");
+      let max = this.pq[1];
+      this.exch(1, this.n--);
+      this.sink(1);
+      _.assert(this.pq[this.n+1] == max,"bad delMax");
+      this.qp[max] = -1;        // delete
+      this.mKeys[max] = null;    // to help with garbage collection
+      this.pq[this.n+1] = -1;        // not needed
+      return max;
+    }
+    /**Returns the key associated with index {@code i}.
+     *
+     * @param  i the index of the key to return
+     * @return the key associated with index {@code i}
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error no key is associated with index {@code i}
+     */
+    keyOf(i){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      return this.mKeys[i];
+    }
+    /**Change the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to change
+     * @param  key change the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     */
+    changeKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      this.mKeys[i] = key;
+      this.swim(this.qp[i]);
+      this.sink(this.qp[i]);
+    }
+    /**Increase the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to increase
+     * @param  key increase the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if {@code key <= keyOf(i)}
+     * @throws Error no key is associated with index {@code i}
+     */
+    increaseKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      if(this.compare(this.mKeys[i],key) == 0)
+        throw Error("Calling increaseKey() with a key equal to the key in the priority queue");
+      if(this.compare(this.mKeys[i],key) > 0)
+        throw Error("Calling increaseKey() with a key that is strictly less than the key in the priority queue");
+      this.mKeys[i] = key;
+      this.swim(this.qp[i]);
+    }
+    /**Decrease the key associated with index {@code i} to the specified value.
+     *
+     * @param  i the index of the key to decrease
+     * @param  key decrease the key associated with index {@code i} to this key
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error if {@code key >= keyOf(i)}
+     * @throws Error no key is associated with index {@code i}
+     */
+    decreaseKey(i, key){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      if(this.compare(this.mKeys[i],key) == 0)
+        throw Error("Calling decreaseKey() with a key equal to the key in the priority queue");
+      if(this.compare(this.mKeys[i],key) < 0)
+        throw Error("Calling decreaseKey() with a key that is strictly greater than the key in the priority queue");
+      this.mKeys[i] = key;
+      this.sink(this.qp[i]);
+    }
+    /**Remove the key on the priority queue associated with index {@code i}.
+     *
+     * @param  i the index of the key to remove
+     * @throws Error unless {@code 0 <= i < maxN}
+     * @throws Error no key is associated with index {@code i}
+     */
+    delete(i){
+      this.validateIndex(i);
+      if(!this.contains(i)) throw Error("index is not in the priority queue");
+      let index = this.qp[i];
+      this.exch(index, this.n--);
+      this.swim(index);
+      this.sink(index);
+      this.mKeys[i] = null;
+      this.qp[i] = -1;
+    }
+    validateIndex(i){
+      if(i < 0) throw Error("index is negative: " + i);
+      if(i >= this.maxN) throw Error("index >= capacity: " + i);
+    }
+    less(i,j){
+      return this.compare(this.mKeys[this.pq[i]], this.mKeys[this.pq[j]]) < 0;
+    }
+    exch(i, j){
+      let swap = this.pq[i];
+      this.pq[i] = this.pq[j];
+      this.pq[j] = swap;
+      this.qp[this.pq[i]] = i;
+      this.qp[this.pq[j]] = j;
+    }
+    swim(k){
+      while(k > 1 && this.less(int(k/2), k)) {
+        this.exch(k, int(k/2));
+        k = int(k/2);
+      }
+    }
+    sink(k){
+      while (2*k <= this.n){
         let j = 2*k;
-        if(j < n && lessOneOff(pq, j, j+1,C)) j++;
-        if(!lessOneOff(pq, k, j,C)) break;
-        exchOneOff(pq, k, j);
+        if(j < this.n && this.less(j, j+1)) j++;
+        if(!this.less(k, j)) break;
+        this.exch(k, j);
         k = j;
       }
     }
-
-    /**Provides a static method to sort an array using <em>heapsort</em>.
-     * @memberof module:mcfud/algo_sort
-     * @class
+    /**Returns an iterator that iterates over the keys on the
+     * priority queue in descending order.
+     * The iterator doesn't implement {@code remove()} since it's optional.
+     *
+     * @return an iterator that iterates over the keys in descending order
      */
-    class Heap{
-      /**Rearranges the array in ascending order, using the natural order.
-       * @param {array} pq the array to be sorted
-       * @param {function} compareFn
-       */
-      static sort(pq,compareFn){
-        let n = pq.length;
-        // heapify phase
-        for(let k = int(n/2); k >= 1; --k)
-          sink4(pq, k, n, compareFn);
-        // sortdown phase
-        let k = n;
-        while(k > 1){
-          exchOneOff(pq, 1, k--);
-          sink4(pq, 1, k,compareFn);
+    iterator(){
+      // add all elements to copy of heap takes linear time since already in heap order so no keys move
+      let copy = new IndexMaxPQ(this.pq.length - 1,this.compare);
+      for(let i = 1; i <= this.n; i++) copy.insert(this.pq[i], this.mKeys[this.pq[i]]);
+      return{
+        remove() { throw Error("UnsupportedOperationException")  },
+        hasNext() { return !copy.isEmpty() },
+        next(){
+          if(!this.hasNext()) throw Error("NoSuchElementException");
+          return copy.delMax();
         }
-        //////
-        return pq;
-      }
-      static test(){
-        let obj="SORTEXAMPLE".split("");
-        show(Heap.sort(obj,CMP));
-        obj="bed bug dad yes zoo all bad yet".split(" ");
-        show(Heap.sort(obj,CMP));
       }
     }
-
-    //Heap.test();
-    //MaxPQ.test();
-    //Quick.test();
-    //Merge.test();
-    //Shell.test();
-    //Selection.test();
-    //BinaryInsertion.test();
-    //Insertion.test();
-
-    const _$={
-      Insertion,BinaryInsertion,Selection,Shell,Merge,Quick,MaxPQ,Heap
-    };
-
-    return _$;
+    static test(){
+      // insert a bunch of strings
+      let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
+      let pq = new IndexMaxPQ(strings.length, CMP);
+      for(let i = 0; i < strings.length; i++){
+        pq.insert(i, strings[i]);
+      }
+      for(let i,it=pq.iterator(); it.hasNext();){
+        i=it.next();
+        console.log(i + " " + strings[i]);
+      }
+      console.log("");
+      // increase or decrease the key
+      for(let i = 0; i < strings.length; i++){
+        if(_.rand()<0.5)
+          pq.increaseKey(i, strings[i] + strings[i]);
+        else
+          pq.decreaseKey(i, strings[i].substring(0, 1));
+      }
+      // delete and print each key
+      while(!pq.isEmpty()){
+        let key = pq.maxKey();
+        let i = pq.delMax();
+        console.log(i + " " + key);
+      }
+      console.log("");
+      // reinsert the same strings
+      for(let i = 0; i < strings.length; i++) {
+        pq.insert(i, strings[i]);
+      }
+      // delete them in random order
+      let perm = new Array(strings.length);
+      for(let i = 0; i < strings.length; i++) perm[i] = i;
+      _.shuffle(perm);
+      for(let i = 0; i < perm.length; i++){
+        let key = pq.keyOf(perm[i]);
+        pq.delete(perm[i]);
+        console.log(perm[i] + " " + key);
+      }
+    }
   }
 
-  //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
-  }else{
-    gscope["io/czlab/mcfud/algo/sort"]=_module
-  }
+  //Bubble.test();
+  //IndexMaxPQ.test();
+  //MinPQ.test();
+  //IndexMinPQ.test();
+  //Heap.test();
+  //MaxPQ.test();
+  //Quick.test();
+  //Merge.test();
+  //Shell.test();
+  //Selection.test();
+  //BinaryInsertion.test();
+  //Insertion.test();
+
+  const _$={
+    Insertion,BinaryInsertion,Selection,Shell,Merge,Bubble,Quick,MinPQ, MaxPQ,Heap,IndexMinPQ,IndexMaxPQ
+  };
+
+  return _$;
+}
+
+//export--------------------------------------------------------------------
+if(typeof module === "object" && module.exports){
+  module.exports=_module(require("../main/core"),require("./basic"))
+}else{
+  gscope["io/czlab/mcfud/algo/sort"]=_module
+}
 
 })(this);
 
@@ -7664,9 +8272,10 @@
   function _module(Core,Basic){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    const CMP=(a,b)=>{ return a<b?-1:(a>b?1:0) };
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {Bag,Stack,Node}= Basic;
+    const {Bag,Stack,Queue}= Basic;
 
     /**
      * @module mcfud/algo_search
@@ -9472,7 +10081,563 @@
       }
     }
 
-    DepthFirstPaths.test();
+    /**Represents an ordered symbol table of generic key-value pairs.
+     * @memberof module:mcfud/algo_search
+     * @class
+     * @property {object} root the root node
+     */
+    class AVLTreeST{
+      Node(key, val, height, size){
+        // height: height of the subtree
+        // size: number of nodes in subtree
+        return {key, val, height, size, left:null, right: null}
+      }
+      constructor(compareFn){
+        this.compare=compareFn;
+        this.root=null;
+      }
+      /**Checks if the symbol table is empty.
+       * @return {@code true} if the symbol table is empty.
+       */
+      isEmpty(){
+        return this.root == null;
+      }
+      /**Returns the number key-value pairs in the symbol table.
+       * @return the number key-value pairs in the symbol table
+       */
+      size(){
+        return this._sizeNode(root);
+      }
+      /**Returns the number of nodes in the subtree.
+       * @param x the subtree
+       * @return the number of nodes in the subtree
+       */
+      _sizeNode(x){
+        return x == null? 0:x.size;
+      }
+      /**Returns the height of the internal AVL tree. It is assumed that the
+       * height of an empty tree is -1 and the height of a tree with just one node
+       * is 0.
+       * @return the height of the internal AVL tree
+       */
+      height(){
+        return this._heightNode(this.root);
+      }
+      /**Returns the height of the subtree.
+       * @param x the subtree
+       * @return the height of the subtree.
+       */
+      _heightNode(x){
+        return x == null? -1: x.height;
+      }
+      /**Returns the value associated with the given key.
+       * @param key the key
+       * @return the value associated with the given key if the key is in the
+       *         symbol table and {@code null} if the key is not in the
+       *         symbol table
+       * @throws Error if {@code key} is {@code null}
+       */
+      get(key){
+        if(_.nichts(key)) throw Error("argument to get() is null");
+        let x = this._getNode(this.root, key);
+        if(x) return x.val;
+      }
+      /**Returns value associated with the given key in the subtree or
+       * {@code null} if no such key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return value associated with the given key in the subtree or
+       *         {@code null} if no such key
+       */
+      _getNode(x, key){
+        if(!x) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0) return this._getNode(x.left, key);
+        if(cmp > 0) return this._getNode(x.right, key);
+        return x;
+      }
+      /**Checks if the symbol table contains the given key.
+       *
+       * @param key the key
+       * @return {@code true} if the symbol table contains {@code key}
+       *         and {@code false} otherwise
+       * @throws Error if {@code key} is {@code null}
+       */
+      contains(key){
+        return this.get(key) !== undefined;
+      }
+      /**
+       * Inserts the specified key-value pair into the symbol table, overwriting
+       * the old value with the new value if the symbol table already contains the
+       * specified key. Deletes the specified key (and its associated value) from
+       * this symbol table if the specified value is {@code null}.
+       *
+       * @param key the key
+       * @param val the value
+       * @throws Error if {@code key} is {@code null}
+       */
+      put(key, val){
+        if(_.nichts(key)) throw Error("first argument to put() is null");
+        if(val === undefined ){
+          this.delete(key);
+        }else{
+          this.root = this._putNode(this.root, key, val);
+        }
+      }
+      /**Inserts the key-value pair in the subtree. It overrides the old value
+       * with the new value if the symbol table already contains the specified key
+       * and deletes the specified key (and its associated value) from this symbol
+       * table if the specified value is {@code null}.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @param val the value
+       * @return the subtree
+       */
+      _putNode(x, key, val){
+        if(!x) return this.Node(key, val, 0, 1);
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0){
+          x.left = this._putNode(x.left, key, val);
+        }else if(cmp > 0){
+          x.right = this._putNode(x.right, key, val);
+        }else{
+          x.val = val;
+          return x;
+        }
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balanceNode(x);
+      }
+      /**
+       * Restores the AVL tree property of the subtree.
+       *
+       * @param x the subtree
+       * @return the subtree with restored AVL property
+       */
+      _balanceNode(x){
+        if(this._balanceFactor(x) < -1){
+          if(this._balanceFactor(x.right) > 0) x.right = this._rotateRight(x.right);
+          x = this._rotateLeft(x);
+        }else if(this._balanceFactor(x) > 1){
+          if(this._balanceFactor(x.left) < 0) x.left = this._rotateLeft(x.left);
+          x = this._rotateRight(x);
+        }
+        return x;
+      }
+      /**
+       * Returns the balance factor of the subtree. The balance factor is defined
+       * as the difference in height of the left subtree and right subtree, in
+       * this order. Therefore, a subtree with a balance factor of -1, 0 or 1 has
+       * the AVL property since the heights of the two child subtrees differ by at
+       * most one.
+       *
+       * @param x the subtree
+       * @return the balance factor of the subtree
+       */
+      _balanceFactor(x){
+        return this._heightNode(x.left) - this._heightNode(x.right);
+      }
+      /**
+       * Rotates the given subtree to the right.
+       *
+       * @param x the subtree
+       * @return the right rotated subtree
+       */
+      _rotateRight(x){
+        let y = x.left;
+        x.left = y.right;
+        y.right = x;
+        y.size = x.size;
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
+        return y;
+      }
+      /**
+       * Rotates the given subtree to the left.
+       *
+       * @param x the subtree
+       * @return the left rotated subtree
+       */
+      _rotateLeft(x){
+        let y = x.right;
+        x.right = y.left;
+        y.left = x;
+        y.size = x.size;
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
+        return y;
+      }
+      /**
+       * Removes the specified key and its associated value from the symbol table
+       * (if the key is in the symbol table).
+       *
+       * @param key the key
+       * @throws Error if {@code key} is {@code null}
+       */
+      delete(key){
+        if(_.nichts(key)) throw Error("argument to delete() is null");
+        if(this.contains(key))
+          this.root = this._deleteNode(this.root, key);
+      }
+      /**
+       * Removes the specified key and its associated value from the given
+       * subtree.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the updated subtree
+       */
+      _deleteNode(x, key){
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0){
+          x.left = this._deleteNode(x.left, key);
+        }else if(cmp > 0){
+          x.right = this._deleteNode(x.right, key);
+        }else{
+          if(!x.left) return x.right;
+          if(!x.right) return x.left;
+          let y = x;
+          x = min(y.right);
+          x.right = this.deleteMin(y.right);
+          x.left = y.left;
+        }
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Removes the smallest key and associated value from the symbol table.
+       * @throws Error if the symbol table is empty
+       */
+      deleteMin(){
+        if(this.isEmpty()) throw Error("called deleteMin() with empty symbol table");
+        this.root = this._deleteMinNode(this.root);
+      }
+      /**Removes the smallest key and associated value from the given subtree.
+       *
+       * @param x the subtree
+       * @return the updated subtree
+       */
+      _deleteMinNode(x){
+        if(!x.left) return x.right;
+        x.left = this._deleteMinNode(x.left);
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Removes the largest key and associated value from the symbol table.
+       *
+       * @throws Error if the symbol table is empty
+       */
+      deleteMax(){
+        if(this.isEmpty()) throw Error("called deleteMax() with empty symbol table");
+        this.root = this._deleteMaxNode(this.root);
+      }
+      /**Removes the largest key and associated value from the given subtree.
+       *
+       * @param x the subtree
+       * @return the updated subtree
+       */
+      _deleteMaxNode(x){
+        if(!x.right) return x.left;
+        x.right = this._deleteMaxNode(x.right);
+        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
+        x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
+        return this._balance(x);
+      }
+      /**Returns the smallest key in the symbol table.
+       *
+       * @return the smallest key in the symbol table
+       * @throws Error if the symbol table is empty
+       */
+      min(){
+        if(this.isEmpty()) throw Error("called min() with empty symbol table");
+        return this._minNode(root).key;
+      }
+      /**Returns the node with the smallest key in the subtree.
+       *
+       * @param x the subtree
+       * @return the node with the smallest key in the subtree
+       */
+      _minNode(x){
+        return !x.left ? x: this._minNode(x.left);
+      }
+      /**Returns the largest key in the symbol table.
+       *
+       * @return the largest key in the symbol table
+       * @throws Error if the symbol table is empty
+       */
+      max(){
+        if(this.isEmpty()) throw Error("called max() with empty symbol table");
+        return this._maxNode(root).key;
+      }
+      /**Returns the node with the largest key in the subtree.
+       *
+       * @param x the subtree
+       * @return the node with the largest key in the subtree
+       */
+      _maxNode(x){
+        return !x.right ? x: this._maxNode(x.right);
+      }
+      /**
+       * Returns the largest key in the symbol table less than or equal to
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the largest key in the symbol table less than or equal to
+       *         {@code key}
+       * @throws Error if the symbol table is empty
+       * @throws Error if {@code key} is {@code null}
+       */
+      floor(key){
+        if(_.nichts(key)) throw Error("argument to floor() is null");
+        if(this.isEmpty()) throw Error("called floor() with empty symbol table");
+        let x = this._floorNode(this.root, key);
+        if(x) return x.key;
+      }
+      /**
+       * Returns the node in the subtree with the largest key less than or equal
+       * to the given key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the node in the subtree with the largest key less than or equal
+       *         to the given key
+       */
+      _floorNode(x, key){
+        if(_.nichts(x)) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp == 0) return x;
+        if(cmp < 0) return this._floorNode(x.left, key);
+        let y = this._floorNode(x.right, key);
+        return y?  y : x;
+      }
+      /**Returns the smallest key in the symbol table greater than or equal to
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the smallest key in the symbol table greater than or equal to
+       *         {@code key}
+       * @throws Error if the symbol table is empty
+       * @throws Error if {@code key} is {@code null}
+       */
+      ceiling(key){
+        if(_.nichts(key)) throw Error("argument to ceiling() is null");
+        if(this.isEmpty()) throw Error("called ceiling() with empty symbol table");
+        let x = this._ceilingNode(this.root, key);
+        if(x) return x.key;
+      }
+      /**Returns the node in the subtree with the smallest key greater than or
+       * equal to the given key.
+       *
+       * @param x the subtree
+       * @param key the key
+       * @return the node in the subtree with the smallest key greater than or
+       *         equal to the given key
+       */
+      _ceilingNode(x, key){
+        if(_.nichts(x)) return null;
+        let cmp = this.compare(key,x.key);
+        if(cmp == 0) return x;
+        if(cmp > 0) return this._ceilingNode(x.right, key);
+        let y = this._ceilingNode(x.left, key);
+        return y? y: x;
+      }
+      /**Returns the kth smallest key in the symbol table.
+       *
+       * @param k the order statistic
+       * @return the kth smallest key in the symbol table
+       * @throws Error unless {@code k} is between 0 and {@code size() -1 }
+       */
+      select(k){
+        if(k < 0 || k >= this.size()) throw Error("k is not in range 0-" + (this.size() - 1));
+        let n= this._selectNode(root, k);
+        if(n) return n.key;
+      }
+      /**Returns the node with key the kth smallest key in the subtree.
+       *
+       * @param x the subtree
+       * @param k the kth smallest key in the subtree
+       * @return the node with key the kth smallest key in the subtree
+       */
+      _selectNode(x, k){
+        if(_.nichts(x)) return null;
+        let t = this._sizeNode(x.left);
+        if(t > k) return this._selectNode(x.left, k);
+        if(t < k) return this._selectNode(x.right, k - t - 1);
+        return x;
+      }
+      /**Returns the number of keys in the symbol table strictly less than
+       * {@code key}.
+       *
+       * @param key the key
+       * @return the number of keys in the symbol table strictly less than
+       *         {@code key}
+       * @throws Error if {@code key} is {@code null}
+       */
+      rank(key){
+        if(_.nichts(key)) throw Error("argument to rank() is null");
+        return this._rankNode(key, this.root);
+      }
+      /**Returns the number of keys in the subtree less than key.
+       *
+       * @param key the key
+       * @param x the subtree
+       * @return the number of keys in the subtree less than key
+       */
+      _rankNode(key, x){
+        if(_.nichts(x)) return 0;
+        let cmp = this.compare(key,x.key);
+        if(cmp < 0) return this._rankNode(key, x.left);
+        if(cmp > 0) return 1 + this._sizeNode(x.left) + this._rankNode(key, x.right);
+        return this._sizeNode(x.left);
+      }
+      /**Returns all keys in the symbol table.
+       *
+       * @return all keys in the symbol table
+       */
+      keys(){
+        return this.keysInOrder();
+      }
+      /**Returns all keys in the symbol table following an in-order traversal.
+       *
+       * @return all keys in the symbol table following an in-order traversal
+       */
+      keysInOrder(){
+        let queue = new Queue();
+        this._keysInOrderNode(this.root, queue);
+        return queue;
+      }
+      /**Adds the keys in the subtree to queue following an in-order traversal.
+       *
+       * @param x the subtree
+       * @param queue the queue
+       */
+      _keysInOrderNode(x, queue){
+        if(!_.nichts(x)){
+          this._keysInOrderNode(x.left, queue);
+          queue.enqueue(x.key);
+          this._keysInOrderNode(x.right, queue);
+        }
+      }
+      /**Returns all keys in the symbol table following a level-order traversal.
+       * @return all keys in the symbol table following a level-order traversal.
+       */
+      keysLevelOrder(){
+        let queue = new Queue();
+        if(!this.isEmpty()){
+          let queue2 = new Queue();
+          queue2.enqueue(this.root);
+          while(!queue2.isEmpty()){
+            let x = queue2.dequeue();
+            queue.enqueue(x.key);
+            if(!x.left ){
+              queue2.enqueue(x.left);
+            }
+            if(x.right ){
+              queue2.enqueue(x.right);
+            }
+          }
+        }
+        return queue;
+      }
+      /**Returns all keys in the symbol table in the given range.
+       *
+       * @param lo the lowest key
+       * @param hi the highest key
+       * @return all keys in the symbol table between {@code lo} (inclusive)
+       *         and {@code hi} (exclusive)
+       * @throws Error if either {@code lo} or {@code hi} is {@code null}
+       */
+      keysBetween(lo, hi){
+        if(_.nichts(lo)) throw Error("first argument to keys() is null");
+        if(_.nichts(hi)) throw Error("second argument to keys() is null");
+        let queue = new Queue();
+        this._keysNode(this.root, queue, lo, hi);
+        return queue;
+      }
+      /**
+       * Adds the keys between {@code lo} and {@code hi} in the subtree
+       * to the {@code queue}.
+       *
+       * @param x the subtree
+       * @param queue the queue
+       * @param lo the lowest key
+       * @param hi the highest key
+       */
+      _keysNode(x, queue, lo, hi){
+        if(x){
+          let cmplo = this.compare(lo,x.key);
+          let cmphi = this.compare(hi,x.key);
+          if(cmplo < 0) this._keysNode(x.left, queue, lo, hi);
+          if(cmplo <= 0 && cmphi >= 0) queue.enqueue(x.key);
+          if(cmphi > 0) this._keysNode(x.right, queue, lo, hi);
+        }
+      }
+      /**Returns the number of keys in the symbol table in the given range.
+       *
+       * @param lo minimum endpoint
+       * @param hi maximum endpoint
+       * @return the number of keys in the symbol table between {@code lo}
+       *         (inclusive) and {@code hi} (exclusive)
+       * @throws Error if either {@code lo} or {@code hi} is {@code null}
+       */
+      sizeBetween(lo, hi){
+        if(_.nichts(lo)) throw Error("first argument to size() is null");
+        if(_.nichts(hi)) throw Error("second argument to size() is null");
+        if(this.compare(lo,hi) > 0) return 0;
+        if(this.contains(hi)) return this.rank(hi) - this.rank(lo) + 1;
+        return this.rank(hi) - this.rank(lo);
+      }
+      /**Checks if the AVL tree invariants are fine.
+       *
+       * @return {@code true} if the AVL tree invariants are fine
+       */
+      check(){
+        let self=this;
+        function isAVL(x){
+          if(!x) return true;
+          let bf = self._balanceFactor(x);
+          if(bf > 1 || bf < -1) return false;
+          return isAVL(x.left) && isAVL(x.right);
+        }
+        function isBST(x, min, max){
+          if(!x) return true;
+          if(!min && self.compare(x.key,min) <= 0) return false;
+          if(!max && self.compare(x.key,max) >= 0) return false;
+          return isBST(x.left, min, x.key) && isBST(x.right, x.key, max);
+        }
+        function isSizeConsistent(x){
+          if(!x) return true;
+          if(x.size != self._sizeNode(x.left) + self._sizeNode(x.right) + 1) return false;
+          return isSizeConsistent(x.left) && isSizeConsistent(x.right);
+        }
+        function isRankConsistent(){
+          for(let i = 0; i < self.size(); i++)
+            if(i != self.rank(self.select(i))) return false;
+          for(let k, it=self.keys().iterator();it.hasNext();){
+            k=it.next();
+            if(this.compare(k,self.select(self.rank(key))) != 0) return false;
+          }
+          return true;
+        }
+        return isBST(this.root,null,null) && isAVL(this.root) && isSizeConsistent(this.root) && isRankConsistent();
+      }
+      static test(){
+        let st = new AVLTreeST(CMP);
+        "SEARCHEXAMPLE".split("").forEach((s,i)=> st.put(s,i));
+        for(let s,it=st.keys().iterator();it.hasNext();){
+          s=it.next();
+          console.log(s + " " + st.get(s));
+        }
+      }
+    }
+
+    //AVLTreeST.test();
+    //DepthFirstPaths.test();
     //NonrecursiveDFS.test();
     //DepthFirstSearch.test();
     //Graph.test();
@@ -9484,6 +10649,17 @@
     //FrequencyCounter.test();
 
     const _$={
+      AVLTreeST,
+      DepthFirstPaths,
+      NonrecursiveDFS,
+      DepthFirstSearch,
+      Graph,
+      BinarySearch,
+      RedBlackBST,
+      BST,
+      BinarySearchST,
+      SequentialSearchST,
+      FrequencyCounter
     };
 
     return _$;
@@ -9520,14 +10696,15 @@
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,Basic,Sort){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const CMP=(a,b)=>{return a<b?-1:(a>b?1:0)};
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {Bag,Stack,Queue,ST,IndexMinPQ}= Basic;
-
+    const {Bag,Stack,Queue,ST}= Basic;
+    const {IndexMinPQ}= Sort;
     /**
      * @module mcfud/algo_graph
      */
@@ -11208,6 +12385,117 @@
      * @class
      * @property {ST} st string -> index
      * @property {array} keys index  -> string
+     * @property {Graph} _graph the underlying digraph
+     */
+    class SymbolGraph{
+      /**
+       * Initializes a graph from a file using the specified delimiter.
+       * Each line in the file contains
+       * the name of a vertex, followed by a list of the names
+       * of the vertices adjacent to that vertex, separated by the delimiter.
+       * @param filename the name of the file
+       * @param delimiter the delimiter between fields
+       */
+      constructor(data){
+        this.st = new ST();
+        // First pass builds the index by reading strings to associate distinct strings with an index
+        data.forEach(row=> row.forEach((s,i)=>{
+          if(!this.st.contains(s)) this.st.put(s, this.st.size())
+        }));
+        //inverted index to get string keys in an array
+        this.keys = new Array(this.st.size());
+        for(let n,it= this.st.keys().iterator();it.hasNext();){
+          n=it.next();
+          this.keys[this.st.get(n)] = n;
+        }
+        // second pass builds the graph by connecting first vertex on each line to all others
+        this._graph = new Graph(this.st.size());
+        data.forEach(row=>{
+          let v = this.st.get(row[0]);
+          for(let w,i = 1; i < row.length; ++i){
+            w = this.st.get(row[i]);
+            this._graph.addEdge(v, w);
+          }
+        })
+      }
+      /**
+       * Does the graph contain the vertex named {@code s}?
+       * @param s the name of a vertex
+       * @return {@code true} if {@code s} is the name of a vertex, and {@code false} otherwise
+       */
+      contains(s){
+        return this.st.contains(s);
+      }
+      /**
+       * Returns the integer associated with the vertex named {@code s}.
+       * @param s the name of a vertex
+       * @return the integer (between 0 and <em>V</em> - 1) associated with the vertex named {@code s}
+       */
+      indexOf(s){
+        return this.st.get(s);
+      }
+      /**
+       * Returns the name of the vertex associated with the integer {@code v}.
+       * @param  v the integer corresponding to a vertex (between 0 and <em>V</em> - 1)
+       * @throws IllegalArgumentException unless {@code 0 <= v < V}
+       * @return the name of the vertex associated with the integer {@code v}
+       */
+      nameOf(v){
+        _validateVertex(v,this._graph.V());
+        return this.keys[v];
+      }
+      /**
+       * Returns the graph assoicated with the symbol graph. It is the client's responsibility
+       * not to mutate the graph.
+       * @return the graph associated with the symbol graph
+       */
+      graph(){
+        return this._graph;
+      }
+      static test(){
+        let data=`JFK MCO
+                  ORD DEN
+                  ORD HOU
+                  DFW PHX
+                  JFK ATL
+                  ORD DFW
+                  ORD PHX
+                  ATL HOU
+                  DEN PHX
+                  PHX LAX
+                  JFK ORD
+                  DEN LAS
+                  DFW HOU
+                  ORD ATL
+                  LAS LAX
+                  ATL MCO
+                  HOU MCO
+                  LAS PHX`.split(/\s+/);
+        let sg = new SymbolGraph(_.partition(2,data));
+        let graph = sg.graph();
+        ["JFK","LAX"].forEach(k=>{
+          if(sg.contains(k)){
+            let s = sg.indexOf(k);
+            console.log(k)
+            for(let v,it= graph.adj(s).iterator(); it.hasNext();)
+              console.log("   " + sg.nameOf(it.next()));
+          }else{
+            console.log("input not contain '" + k + "'");
+          }
+        });
+      }
+    }
+
+    /**Represents a digraph, where the
+     *  vertex names are arbitrary strings.
+     *  By providing mappings between string vertex names and integers,
+     *  it serves as a wrapper around the
+     *  {@link Digraph} data type, which assumes the vertex names are integers
+     *  between 0 and <em>V</em> - 1.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     * @property {ST} st string -> index
+     * @property {array} keys index  -> string
      * @property {Digraph} graph the underlying digraph
      */
     class SymbolDigraph{
@@ -11400,6 +12688,205 @@
      *  where the edge weights are non-negative.
      * @memberof module:mcfud/algo_graph
      * @class
+     * @property {array} marked  marked[v] = true iff v is reachable from s
+     * @property {array} edgeTo  edgeTo[v] = last edge on path from s to v
+     * @property {number} s source vertex
+     */
+    class DepthFirstDirectedPaths{
+      /**
+       * Computes a directed path from {@code s} to every other vertex in digraph {@code G}.
+       * @param  G the digraph
+       * @param  s the source vertex
+       * @throws Error unless {@code 0 <= s < V}
+       */
+      constructor(G, s){
+        this.bMarked = new Array(G.V());
+        this.edgeTo = new Array(G.V());
+        this.s = s;
+        _validateVertex(s,this.bMarked.length);
+        this._dfs(G, s);
+      }
+      _dfs(G, v){
+        this.bMarked[v] = true;
+        for(let w,it= G.adj(v).iterator();it.hasNext();){
+          w=it.next();
+          if(!this.bMarked[w]){
+            this.edgeTo[w] = v;
+            this._dfs(G, w);
+          }
+        }
+      }
+      /**
+       * Is there a directed path from the source vertex {@code s} to vertex {@code v}?
+       * @param  v the vertex
+       * @return {@code true} if there is a directed path from the source
+       *         vertex {@code s} to vertex {@code v}, {@code false} otherwise
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      hasPathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.bMarked[v];
+      }
+      /**
+       * Returns a directed path from the source vertex {@code s} to vertex {@code v}, or
+       * {@code null} if no such path.
+       * @param  v the vertex
+       * @return the sequence of vertices on a directed path from the source vertex
+       *         {@code s} to vertex {@code v}, as an Iterable
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      pathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        if(!this.hasPathTo(v)) return null;
+        let path = new Stack();
+        for(let x = v; x != this.s; x = this.edgeTo[x]) path.push(x);
+        path.push(this.s);
+        return path;
+      }
+      static test(){
+        let D=`4  2 2  3 3  2 6  0 0  1 2  0 11 12 12  9 9 10
+              9 11 7  9 10 12 11  4 4  3 3  5 6
+              8 8  6 5  4 0  5 6  4 6  9 7  6`.split(/\s+/).map(n=>{return +n});
+        let s=3,G = Digraph.load(13,D);
+        let msg, dfs = new DepthFirstDirectedPaths(G, s);
+        for(let v = 0; v < G.V(); v++){
+          if(dfs.hasPathTo(v)){
+            msg= `${s} to ${v}:  `;
+            for(let x,it= dfs.pathTo(v).iterator();it.hasNext();){
+              x=it.next();
+              if(x == s) msg += `${x}`;
+              else msg += `-${x}`;
+            }
+            console.log(msg);
+          }else{
+            console.log(`${s} to ${v}:  not connected\n`);
+          }
+        }
+      }
+    }
+
+    /**Represents a data type for solving the
+     *  single-source shortest paths problem in edge-weighted digraphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     * @property {array} marked marked[v] = is there an s->v path?
+     * @property {array} edgeTo edgeTo[v] = last edge on shortest s->v path
+     * @property {array} distTo distTo[v] = length of shortest s->v path
+     */
+    class BreadthFirstDirectedPaths{
+      /**Computes the shortest path from {@code s} and every other vertex in graph {@code G}.
+       * @param G the digraph
+       * @param s the source vertex
+       * @throws IllegalArgumentException unless {@code 0 <= v < V}
+       */
+      constructor(G, s){
+        if(!is.vec(s)) s= [s];
+        this.bMarked = new Array(G.V());
+        this.mDistTo = new Array(G.V());
+        this.edgeTo = new Array(G.V());
+        for(let v = 0; v < G.V(); v++)
+          this.mDistTo[v] = Infinity;
+        this._validateVertices(s);
+        this._bfs(G, s);
+      }
+      _bfs(G, sources){
+        let q = new Queue();
+        sources.forEach(s=>{
+          this.bMarked[s] = true;
+          this.mDistTo[s] = 0;
+          q.enqueue(s);
+        });
+        while(!q.isEmpty()){
+          let v = q.dequeue();
+          for(let w, it= G.adj(v).iterator();it.hasNext();){
+            w=it.next();
+            if(!this.bMarked[w]){
+              this.edgeTo[w] = v;
+              this.mDistTo[w] = this.mDistTo[v] + 1;
+              this.bMarked[w] = true;
+              q.enqueue(w);
+            }
+          }
+        }
+      }
+      /**Is there a directed path from the source {@code s} (or sources) to vertex {@code v}?
+       * @param v the vertex
+       * @return {@code true} if there is a directed path, {@code false} otherwise
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      hasPathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.bMarked[v];
+      }
+      /**
+       * Returns the number of edges in a shortest path from the source {@code s}
+       * (or sources) to vertex {@code v}?
+       * @param v the vertex
+       * @return the number of edges in such a shortest path
+       *         (or {@code Integer.MAX_VALUE} if there is no such path)
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      distTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.mDistTo[v];
+      }
+      /**
+       * Returns a shortest path from {@code s} (or sources) to {@code v}, or
+       * {@code null} if no such path.
+       * @param v the vertex
+       * @return the sequence of vertices on a shortest path, as an Iterable
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      pathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        if(!this.hasPathTo(v)) return null;
+        let x,path = new Stack();
+        for(x = v; this.mDistTo[x] != 0; x = this.edgeTo[x]) path.push(x);
+        path.push(x);
+        return path;
+      }
+      _validateVertices(vertices){
+        if(!vertices)
+          throw Error("argument is null");
+        let cnt=0,
+            V = this.bMarked.length;
+        vertices.forEach(v=>{
+          ++cnt;
+          _validateVertex(v,V);
+        });
+        if(cnt == 0)
+          throw Error("zero vertices");
+      }
+      static test(){
+       let D=`4  2 2  3 3  2 6  0 0  1 2  0 11 12 12  9 9 10
+              9 11 7  9 10 12 11  4 4  3 3  5 6
+              8 8  6 5  4 0  5 6  4 6  9 7  6`.split(/\s+/).map(n=>{return +n});
+        let s=3,G = Digraph.load(13,D);
+        //console.log(G.toString());
+        let msg,bfs = new BreadthFirstDirectedPaths(G,s);
+        for(let v = 0; v < G.V(); v++){
+          msg="";
+          if(bfs.hasPathTo(v)){
+            msg= `${s} to ${v} (${bfs.distTo(v)}):  `;
+            for(let x,it= bfs.pathTo(v).iterator();it.hasNext();){
+              x=it.next();
+              if(x == s) msg+= `${x}`;
+              else msg += `->${x}`;
+            }
+            console.log(msg);
+          }else{
+            console.log(`${s} to ${v} (-):  not connected\n`);
+          }
+        }
+      }
+    }
+
+    /**Represents a data type for solving the
+     *  single-source shortest paths problem in edge-weighted digraphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
      * @property {array} distTo   distTo[v] = distance  of shortest s->v path
      * @property {array} edgeTo   edgeTo[v] = last edge on shortest s->v path
      * @property {IndexMinPQ} pq priority queue of vertices
@@ -11556,8 +13043,10 @@
       }
     }
 
-    DijkstraSP.test();
-
+    //DepthFirstDirectedPaths.test();
+    //BreadthFirstDirectedPaths.test();
+    //SymbolGraph.test();
+    //DijkstraSP.test();
     //Topological.test();
     //SymbolDigraph.test();
     //EdgeWeightedDirectedCycle.test();
@@ -11577,7 +13066,27 @@
     //Graph.test();
 
     const _$={
-
+      DepthFirstDirectedPaths,
+      BreadthFirstDirectedPaths,
+      SymbolGraph,
+      DijkstraSP,
+      Topological,
+      SymbolDigraph,
+      EdgeWeightedDirectedCycle,
+      DepthFirstOrder,
+      EdgeWeightedDigraph,
+      DirectedEdge,
+      DirectedCycle,
+      DirectedDFS,
+      Digraph,
+      CC,
+      EdgeWeightedGraph,
+      Edge,
+      BreadthFirstPaths,
+      DepthFirstPaths,
+      NonrecursiveDFS,
+      DepthFirstSearch,
+      Graph
     };
 
     return _$;
@@ -11585,7 +13094,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+    module.exports=_module(require("../main/core"),require("./basic"), require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/graph"]=_module
   }

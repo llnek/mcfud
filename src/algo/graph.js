@@ -1707,6 +1707,117 @@
      * @class
      * @property {ST} st string -> index
      * @property {array} keys index  -> string
+     * @property {Graph} _graph the underlying digraph
+     */
+    class SymbolGraph{
+      /**
+       * Initializes a graph from a file using the specified delimiter.
+       * Each line in the file contains
+       * the name of a vertex, followed by a list of the names
+       * of the vertices adjacent to that vertex, separated by the delimiter.
+       * @param filename the name of the file
+       * @param delimiter the delimiter between fields
+       */
+      constructor(data){
+        this.st = new ST();
+        // First pass builds the index by reading strings to associate distinct strings with an index
+        data.forEach(row=> row.forEach((s,i)=>{
+          if(!this.st.contains(s)) this.st.put(s, this.st.size())
+        }));
+        //inverted index to get string keys in an array
+        this.keys = new Array(this.st.size());
+        for(let n,it= this.st.keys().iterator();it.hasNext();){
+          n=it.next();
+          this.keys[this.st.get(n)] = n;
+        }
+        // second pass builds the graph by connecting first vertex on each line to all others
+        this._graph = new Graph(this.st.size());
+        data.forEach(row=>{
+          let v = this.st.get(row[0]);
+          for(let w,i = 1; i < row.length; ++i){
+            w = this.st.get(row[i]);
+            this._graph.addEdge(v, w);
+          }
+        })
+      }
+      /**
+       * Does the graph contain the vertex named {@code s}?
+       * @param s the name of a vertex
+       * @return {@code true} if {@code s} is the name of a vertex, and {@code false} otherwise
+       */
+      contains(s){
+        return this.st.contains(s);
+      }
+      /**
+       * Returns the integer associated with the vertex named {@code s}.
+       * @param s the name of a vertex
+       * @return the integer (between 0 and <em>V</em> - 1) associated with the vertex named {@code s}
+       */
+      indexOf(s){
+        return this.st.get(s);
+      }
+      /**
+       * Returns the name of the vertex associated with the integer {@code v}.
+       * @param  v the integer corresponding to a vertex (between 0 and <em>V</em> - 1)
+       * @throws IllegalArgumentException unless {@code 0 <= v < V}
+       * @return the name of the vertex associated with the integer {@code v}
+       */
+      nameOf(v){
+        _validateVertex(v,this._graph.V());
+        return this.keys[v];
+      }
+      /**
+       * Returns the graph assoicated with the symbol graph. It is the client's responsibility
+       * not to mutate the graph.
+       * @return the graph associated with the symbol graph
+       */
+      graph(){
+        return this._graph;
+      }
+      static test(){
+        let data=`JFK MCO
+                  ORD DEN
+                  ORD HOU
+                  DFW PHX
+                  JFK ATL
+                  ORD DFW
+                  ORD PHX
+                  ATL HOU
+                  DEN PHX
+                  PHX LAX
+                  JFK ORD
+                  DEN LAS
+                  DFW HOU
+                  ORD ATL
+                  LAS LAX
+                  ATL MCO
+                  HOU MCO
+                  LAS PHX`.split(/\s+/);
+        let sg = new SymbolGraph(_.partition(2,data));
+        let graph = sg.graph();
+        ["JFK","LAX"].forEach(k=>{
+          if(sg.contains(k)){
+            let s = sg.indexOf(k);
+            console.log(k)
+            for(let v,it= graph.adj(s).iterator(); it.hasNext();)
+              console.log("   " + sg.nameOf(it.next()));
+          }else{
+            console.log("input not contain '" + k + "'");
+          }
+        });
+      }
+    }
+
+    /**Represents a digraph, where the
+     *  vertex names are arbitrary strings.
+     *  By providing mappings between string vertex names and integers,
+     *  it serves as a wrapper around the
+     *  {@link Digraph} data type, which assumes the vertex names are integers
+     *  between 0 and <em>V</em> - 1.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     * @property {ST} st string -> index
+     * @property {array} keys index  -> string
      * @property {Digraph} graph the underlying digraph
      */
     class SymbolDigraph{
@@ -1899,6 +2010,205 @@
      *  where the edge weights are non-negative.
      * @memberof module:mcfud/algo_graph
      * @class
+     * @property {array} marked  marked[v] = true iff v is reachable from s
+     * @property {array} edgeTo  edgeTo[v] = last edge on path from s to v
+     * @property {number} s source vertex
+     */
+    class DepthFirstDirectedPaths{
+      /**
+       * Computes a directed path from {@code s} to every other vertex in digraph {@code G}.
+       * @param  G the digraph
+       * @param  s the source vertex
+       * @throws Error unless {@code 0 <= s < V}
+       */
+      constructor(G, s){
+        this.bMarked = new Array(G.V());
+        this.edgeTo = new Array(G.V());
+        this.s = s;
+        _validateVertex(s,this.bMarked.length);
+        this._dfs(G, s);
+      }
+      _dfs(G, v){
+        this.bMarked[v] = true;
+        for(let w,it= G.adj(v).iterator();it.hasNext();){
+          w=it.next();
+          if(!this.bMarked[w]){
+            this.edgeTo[w] = v;
+            this._dfs(G, w);
+          }
+        }
+      }
+      /**
+       * Is there a directed path from the source vertex {@code s} to vertex {@code v}?
+       * @param  v the vertex
+       * @return {@code true} if there is a directed path from the source
+       *         vertex {@code s} to vertex {@code v}, {@code false} otherwise
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      hasPathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.bMarked[v];
+      }
+      /**
+       * Returns a directed path from the source vertex {@code s} to vertex {@code v}, or
+       * {@code null} if no such path.
+       * @param  v the vertex
+       * @return the sequence of vertices on a directed path from the source vertex
+       *         {@code s} to vertex {@code v}, as an Iterable
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      pathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        if(!this.hasPathTo(v)) return null;
+        let path = new Stack();
+        for(let x = v; x != this.s; x = this.edgeTo[x]) path.push(x);
+        path.push(this.s);
+        return path;
+      }
+      static test(){
+        let D=`4  2 2  3 3  2 6  0 0  1 2  0 11 12 12  9 9 10
+              9 11 7  9 10 12 11  4 4  3 3  5 6
+              8 8  6 5  4 0  5 6  4 6  9 7  6`.split(/\s+/).map(n=>{return +n});
+        let s=3,G = Digraph.load(13,D);
+        let msg, dfs = new DepthFirstDirectedPaths(G, s);
+        for(let v = 0; v < G.V(); v++){
+          if(dfs.hasPathTo(v)){
+            msg= `${s} to ${v}:  `;
+            for(let x,it= dfs.pathTo(v).iterator();it.hasNext();){
+              x=it.next();
+              if(x == s) msg += `${x}`;
+              else msg += `-${x}`;
+            }
+            console.log(msg);
+          }else{
+            console.log(`${s} to ${v}:  not connected\n`);
+          }
+        }
+      }
+    }
+
+    /**Represents a data type for solving the
+     *  single-source shortest paths problem in edge-weighted digraphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     * @property {array} marked marked[v] = is there an s->v path?
+     * @property {array} edgeTo edgeTo[v] = last edge on shortest s->v path
+     * @property {array} distTo distTo[v] = length of shortest s->v path
+     */
+    class BreadthFirstDirectedPaths{
+      /**Computes the shortest path from {@code s} and every other vertex in graph {@code G}.
+       * @param G the digraph
+       * @param s the source vertex
+       * @throws IllegalArgumentException unless {@code 0 <= v < V}
+       */
+      constructor(G, s){
+        if(!is.vec(s)) s= [s];
+        this.bMarked = new Array(G.V());
+        this.mDistTo = new Array(G.V());
+        this.edgeTo = new Array(G.V());
+        for(let v = 0; v < G.V(); v++)
+          this.mDistTo[v] = Infinity;
+        this._validateVertices(s);
+        this._bfs(G, s);
+      }
+      _bfs(G, sources){
+        let q = new Queue();
+        sources.forEach(s=>{
+          this.bMarked[s] = true;
+          this.mDistTo[s] = 0;
+          q.enqueue(s);
+        });
+        while(!q.isEmpty()){
+          let v = q.dequeue();
+          for(let w, it= G.adj(v).iterator();it.hasNext();){
+            w=it.next();
+            if(!this.bMarked[w]){
+              this.edgeTo[w] = v;
+              this.mDistTo[w] = this.mDistTo[v] + 1;
+              this.bMarked[w] = true;
+              q.enqueue(w);
+            }
+          }
+        }
+      }
+      /**Is there a directed path from the source {@code s} (or sources) to vertex {@code v}?
+       * @param v the vertex
+       * @return {@code true} if there is a directed path, {@code false} otherwise
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      hasPathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.bMarked[v];
+      }
+      /**
+       * Returns the number of edges in a shortest path from the source {@code s}
+       * (or sources) to vertex {@code v}?
+       * @param v the vertex
+       * @return the number of edges in such a shortest path
+       *         (or {@code Integer.MAX_VALUE} if there is no such path)
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      distTo(v){
+        _validateVertex(v,this.bMarked.length);
+        return this.mDistTo[v];
+      }
+      /**
+       * Returns a shortest path from {@code s} (or sources) to {@code v}, or
+       * {@code null} if no such path.
+       * @param v the vertex
+       * @return the sequence of vertices on a shortest path, as an Iterable
+       * @throws Error unless {@code 0 <= v < V}
+       */
+      pathTo(v){
+        _validateVertex(v,this.bMarked.length);
+        if(!this.hasPathTo(v)) return null;
+        let x,path = new Stack();
+        for(x = v; this.mDistTo[x] != 0; x = this.edgeTo[x]) path.push(x);
+        path.push(x);
+        return path;
+      }
+      _validateVertices(vertices){
+        if(!vertices)
+          throw Error("argument is null");
+        let cnt=0,
+            V = this.bMarked.length;
+        vertices.forEach(v=>{
+          ++cnt;
+          _validateVertex(v,V);
+        });
+        if(cnt == 0)
+          throw Error("zero vertices");
+      }
+      static test(){
+       let D=`4  2 2  3 3  2 6  0 0  1 2  0 11 12 12  9 9 10
+              9 11 7  9 10 12 11  4 4  3 3  5 6
+              8 8  6 5  4 0  5 6  4 6  9 7  6`.split(/\s+/).map(n=>{return +n});
+        let s=3,G = Digraph.load(13,D);
+        //console.log(G.toString());
+        let msg,bfs = new BreadthFirstDirectedPaths(G,s);
+        for(let v = 0; v < G.V(); v++){
+          msg="";
+          if(bfs.hasPathTo(v)){
+            msg= `${s} to ${v} (${bfs.distTo(v)}):  `;
+            for(let x,it= bfs.pathTo(v).iterator();it.hasNext();){
+              x=it.next();
+              if(x == s) msg+= `${x}`;
+              else msg += `->${x}`;
+            }
+            console.log(msg);
+          }else{
+            console.log(`${s} to ${v} (-):  not connected\n`);
+          }
+        }
+      }
+    }
+
+    /**Represents a data type for solving the
+     *  single-source shortest paths problem in edge-weighted digraphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
      * @property {array} distTo   distTo[v] = distance  of shortest s->v path
      * @property {array} edgeTo   edgeTo[v] = last edge on shortest s->v path
      * @property {IndexMinPQ} pq priority queue of vertices
@@ -2055,6 +2365,9 @@
       }
     }
 
+    //DepthFirstDirectedPaths.test();
+    //BreadthFirstDirectedPaths.test();
+    //SymbolGraph.test();
     //DijkstraSP.test();
     //Topological.test();
     //SymbolDigraph.test();
@@ -2075,7 +2388,27 @@
     //Graph.test();
 
     const _$={
-
+      DepthFirstDirectedPaths,
+      BreadthFirstDirectedPaths,
+      SymbolGraph,
+      DijkstraSP,
+      Topological,
+      SymbolDigraph,
+      EdgeWeightedDirectedCycle,
+      DepthFirstOrder,
+      EdgeWeightedDigraph,
+      DirectedEdge,
+      DirectedCycle,
+      DirectedDFS,
+      Digraph,
+      CC,
+      EdgeWeightedGraph,
+      Edge,
+      BreadthFirstPaths,
+      DepthFirstPaths,
+      NonrecursiveDFS,
+      DepthFirstSearch,
+      Graph
     };
 
     return _$;
