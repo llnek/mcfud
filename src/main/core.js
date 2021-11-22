@@ -320,6 +320,12 @@
        * @return {boolean}
        */
       nichts(a){return a===undefined||a===null},
+      /**Check if a is not null and not undefined.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @return {boolean}
+       */
+      echt(a){return a!==undefined&&a!==null},
       /**If a is `not-real` return b.
        * @memberof module:mcfud/core._
        * @param {any} a

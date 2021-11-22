@@ -21,10 +21,9 @@
   function _module(Core,Basic){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
-    const CMP=(a,b)=>{ return a<b?-1:(a>b?1:0) };
+    const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {Bag,Stack,Queue}= Basic;
 
     /**
      * @module mcfud/algo_search
@@ -37,16 +36,14 @@
      * @class
      */
     class FrequencyCounter{
-      /**
+      /**Compute frequency count.
        * @param {array} input the list of words
        * @param {number} keySize the minimum word length
-       * @return {array} [word, max]
+       * @return {array} [max, maxCount, [distinct,words]]
        */
       static count(input,keySize){
         let m=new Map(),
-            words=0,
-            max="", distinct=0;
-        // compute frequency counts
+            words=0, max="", distinct=0;
         for(let s,i=0;i<input.length;++i){
           s=input[i];
           if(s.length<keySize)continue;
@@ -63,7 +60,7 @@
         Array.from(m.keys()).forEach(k=>{
           if(m.get(k) > m.get(max)) max = k;
         });
-        return [max, m.get(max)];
+        return [max, m.get(max),[distinct,words]];
       }
       static test(){
         let s= `it was the best of times it was the worst of times
@@ -71,60 +68,56 @@
         it was the epoch of belief it was the epoch of incredulity
         it was the season of light it was the season of darkness
         it was the spring of hope it was the winter of despair`.split(" ");
-        let [m,v]= FrequencyCounter.count(s,1);
+        let [m,v,extra]= FrequencyCounter.count(s,1);
         console.log("" + m + " " + v);
-        //console.log("distinct = " + distinct);
-        //console.log("words= " + words);
+        console.log("distinct = " + extra[0]);
+        console.log("words= " + extra[1]);
       }
     }
+    //FrequencyCounter.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function SNode(key,val,next){ return {key,val,next} }
-    /**
+    /**Represents an (unordered) symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
-     * @property {object} first // the linked list of key-value pairs
-     * @property {number} n // number of key-value pairs
      */
     class SequentialSearchST{
       constructor(){
-        this.n=0;
+      //* @property {object} first the linked list of key-value pairs
+      //* @property {number} n number of key-value pairs
         this.first=null;
+        this.n=0;
       }
       /**Returns the number of key-value pairs in this symbol table.
-       * @return the number of key-value pairs in this symbol table
+       * @return {number}
        */
       size(){
         return this.n;
       }
       /**Returns true if this symbol table is empty.
-       * @return {@code true} if this symbol table is empty;
-       *         {@code false} otherwise
+       * @return {boolean}
        */
       isEmpty(){
         return this.size() == 0;
       }
       /**Returns true if this symbol table contains the specified key.
-       * @param  key the key
-       * @return {@code true} if this symbol table contains {@code key};
-       *         {@code false} otherwise
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
+       * @return {boolean}
        */
       contains(key){
-        if(key === null)
+        if(_.nichts(key))
           throw Error(`argument to contains is null`);
-        return this.get(key) != undefined;
+        return this.get(key) !== undefined;
       }
       /**Returns the value associated with the given key in this symbol table.
-       * @param  key the key
-       * @return the value associated with the given key if the key is in the symbol table
-       *     and {@code null} if the key is not in the symbol table
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
+       * @return {any}
        */
       get(key){
-        if(key == null)
+        if(_.nichts(key))
           throw Error(`argument to get is null`);
-        for(let x = this.first; x != null; x = x.next){
+        for(let x=this.first; x; x=x.next){
           if(key==x.key)
             return x.val;
         }
@@ -133,95 +126,101 @@
        * value with the new value if the symbol table already contains the specified key.
        * Deletes the specified key (and its associated value) from this symbol table
        * if the specified value is {@code null}.
-       *
-       * @param  key the key
-       * @param  val the value
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
+       * @param  {any} val the value
        */
       put(key, val){
-        if(key == null)
+        if(_.nichts(key))
           throw Error(`first argument to put is null`);
-        if(val == null){
+        if(val === undefined){
           this.delete(key);
-          return;
-        }
-        for(let x = this.first; x != null; x = x.next){
-          if(key==x.key){
-            x.val = val;
-            return;
+        }else{
+          let f,x;
+          for(x=this.first; x && !f; x=x.next){
+            if(key==x.key){
+              x.val = val;
+              f=true;
+            }
+          }
+          if(!f){//add to head
+            this.first = SNode(key, val, this.first);
+            this.n +=1;
           }
         }
-        //add to head
-        this.first = SNode(key, val, this.first);
-        this.n +=1;
       }
       /**Removes the specified key and its associated value from this symbol table
        * (if the key is in this symbol table).
-       * @param  key the key
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
        */
       delete(key){
-        let self=this;
         // delete key in linked list beginning at Node x
         // warning: function call stack too large if table is large
-        function _delete(x, key){
-          if(x == null) return null;
+        const _delete=(x,key)=>{
+          if(!x) return null;
           if(key==x.key){
-            self.n -= 1;
+            this.n -= 1;
             return x.next;
           }
           x.next = _delete(x.next, key);
           return x;
         }
-        if(key == null)
+        if(_.nichts(key))
           throw Error(`argument to delete is null`);
         this.first = _delete(this.first, key);
       }
       /**Returns all keys in the symbol table as an {@code Iterable}.
        * To iterate over all of the keys in the symbol table named {@code st},
        * use the foreach notation: {@code for (Key key : st.keys())}.
-       *
-       * @return all keys in the symbol table
+       * @return {Iterator}
        */
       keys(){
-        let out=[];
-        for(let x = this.first; x != null; x = x.next) out.push(x.key);
-        return out;
+        let out=new Queue();
+        for(let x=this.first; x; x=x.next) out.enqueue(x.key);
+        return out.iter();
       }
-      /////
-      static eval(input){
+      static load(input){
         let obj=new SequentialSearchST();
         input.forEach((s,i)=> obj.put(s,i));
         return obj
       }
       static test(){
-        let obj=SequentialSearchST.eval("SEARCHEXAMPLE".split(""));
-        obj.keys().forEach(k=>{
-          console.log(`key=${k}, val=${obj.get(k)}`)
-        })
+        let obj=SequentialSearchST.load("SEARCHEXAMPLE".split(""));
+        let fn=(s="",k=0,it=0)=>{
+          for(it=obj.keys(); it.hasNext();){
+            k=it.next(); s+=`${k}=${obj.get(k)} `; } return s};
+        console.log(fn());
+        console.log("size= " + obj.size());
+        console.log("contains R= " + obj.contains("R"));
+        console.log("get R= " + obj.get("R"));
+        obj.delete("R");
+        obj.isEmpty();
+        console.log("contains R= " + obj.contains("R"));
+        console.log("get R= " + obj.get("R"));
+        console.log("size= " + obj.size());
       }
     }
+    //SequentialSearchST.test();
 
-    /**
+    /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
-     * @property {array} mKeys
-     * @property {array} vals
-     * @property {number} n
-     * @property {function} compare
      */
     class BinarySearchST{
-      /**
-       * Initializes an empty symbol table with the specified initial capacity.
-       * @param capacity the maximum capacity
+      /**Initializes an empty symbol table with the specified initial capacity.
+       * @param {function} compareFn
+       * @param {number} capacity
        */
-      constructor(compareFn){
-        this.mKeys= new Array(2);
-        this.vals= new Array(2);
+      constructor(compareFn,capacity=2){
+        //* @property {array} mKeys
+        //* @property {array} vals
+        //* @property {number} n
+        //* @property {function} compare
+        this.mKeys= new Array(capacity);
+        this.vals= new Array(capacity);
         this.compare=compareFn;
         this.n=0;
-        // resize the underlying arrays
-        this.resize=(c)=>{
+        //resize the underlying arrays
+        this._resize=(c)=>{
           let tempk = new Array(c),
               tempv = new Array(c);
           for(let i=0; i<this.n; ++i){
@@ -231,23 +230,15 @@
           this.vals = tempv;
           this.mKeys = tempk;
         };
-        this.assertOk=(p)=>{
-          if(p===null||p===undefined)
-            throw Error("Invalid argument");
-          return true;
-        }
-        this.nnil=(p)=>{ return p===null || p===undefined };
-        /***************************************************************************
-         *  Check internal invariants.
-         ***************************************************************************/
-        this.assertCheck=()=>{
-          let isSorted=()=>{
+        this._argOk=(p)=> _.echt(p, "Invalid argument");
+        this._check=()=>{
+          const isSorted=()=>{
             // are the items in the array in ascending order?
             for(let i=1; i<this.size(); ++i)
-              if(this.compare(this.mKeys[i],this.mKeys[i-1]) < 0) return false;
+              if(this.compare(this.mKeys[i],this.mKeys[i-1])<0) return false;
             return true;
           };
-          let rankCheck=()=>{
+          const rankCheck=()=>{
             // check that rank(select(i)) = i
             for(let i=0; i<this.size(); ++i)
               if(i != this.rank(this.select(i))) return false;
@@ -258,292 +249,240 @@
           return isSorted() && rankCheck();
         };
       }
-      /**
-       * Returns true if this symbol table is empty.
-       *
-       * @return {@code true} if this symbol table is empty;
-       *         {@code false} otherwise
+      /**Returns true if this symbol table is empty.
+       * @return {boolean}
        */
       isEmpty(){
         return this.size() == 0;
       }
-      /**
-       * Does this symbol table contain the given key?
-       *
+      /**Does this symbol table contain the given key?
        * @param  key the key
-       * @return {@code true} if this symbol table contains {@code key} and
-       *         {@code false} otherwise
-       * @throws Error if {@code key} is {@code null}
+       * @return {boolean}
        */
       contains(key){
-        return this.assertOk(key) && this.get(key) !== undefined
+        return this._argOk(key) && this.get(key) !== undefined
       }
-      /**
-       * Returns the value associated with the given key in this symbol table.
-       *
-       * @param  key the key
-       * @return the value associated with the given key if the key is in the symbol table
-       *         and {@code null} if the key is not in the symbol table
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the value associated with the given key in this symbol table.
+       * @param  {any} key the key
+       * @return {any}
        */
       get(key){
-        if(this.assertOk(key) && !this.isEmpty()){
+        if(this._argOk(key) && !this.isEmpty()){
           let i = this.rank(key);
-          if(i < this.n &&
+          if(i<this.n &&
              this.compare(this.mKeys[i],key) == 0) return this.vals[i];
         }
       }
-      /**
-       * Returns the number of keys in this symbol table strictly less than {@code key}.
-       *
-       * @param  key the key
-       * @return the number of keys in the symbol table strictly less than {@code key}
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the number of keys in this symbol table strictly less than {@code key}.
+       * @param  {any} key the key
+       * @return {number}
        */
       rank(key){
-        this.assertOk(key);
         let mid,cmp,
-            lo = 0, hi = this.n-1;
+            lo=0, hi=this.n-1;
+        this._argOk(key);
         while(lo <= hi){
-          mid = lo + Math.floor((hi - lo) / 2);
+          mid = lo+int((hi-lo)/2);
           cmp = this.compare(key,this.mKeys[mid]);
-          if(cmp < 0) hi = mid - 1;
-          else if(cmp > 0) lo = mid + 1;
+          if(cmp < 0) hi = mid-1;
+          else if(cmp > 0) lo = mid+1;
           else return mid;
         }
         return lo;
       }
-      /**
-       * Inserts the specified key-value pair into the symbol table, overwriting the old
+      /**Inserts the specified key-value pair into the symbol table, overwriting the old
        * value with the new value if the symbol table already contains the specified key.
        * Deletes the specified key (and its associated value) from this symbol table
        * if the specified value is {@code null}.
-       *
-       * @param  key the key
-       * @param  val the value
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
+       * @param  {any} val the value
        */
       put(key, val){
-        if(this.assertOk(key) && this.nnil(val)){
+        if(this._argOk(key) && val===undefined){
           this.delete(key);
         }else{
-          let i = this.rank(key);
+          let i=this.rank(key);
           // key is already in table
-          if(i < this.n && this.compare(this.mKeys[i],key) == 0){
+          if(i<this.n && this.compare(this.mKeys[i],key) == 0){
             this.vals[i] = val;
           }else{
             // insert new key-value pair
             if(this.n == this.mKeys.length)
-              this.resize(2*this.mKeys.length);
-            for(let j = this.n; j > i; --j){
+              this._resize(2*this.mKeys.length);
+            for(let j=this.n; j>i; --j){
               this.mKeys[j] = this.mKeys[j-1];
               this.vals[j] = this.vals[j-1];
             }
             this.n+=1;
             this.mKeys[i] = key;
             this.vals[i] = val;
-            this.assertCheck();
+            //this._check();
           }
         }
       }
-      /**
-       * Removes the specified key and associated value from this symbol table
+      /**Removes the specified key and associated value from this symbol table
        * (if the key is in the symbol table).
-       *
-       * @param  key the key
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
        */
       delete(key){
-        if(this.assertOk(key) && this.isEmpty()){
-          return
+        if(this._argOk(key) && this.isEmpty()){
         }else{
           // compute rank
-          let i = this.rank(key);
+          let i=this.rank(key);
           // key not in table
-          if(i == this.n || this.compare(this.mKeys[i],key) != 0){
-            return;
+          if(i==this.n || this.compare(this.mKeys[i],key) != 0){
           }else{
-            for(let j = i; j < this.n-1; j++){
+            for(let j=i; j<this.n-1; ++j){
               this.mKeys[j] = this.mKeys[j+1];
               this.vals[j] = this.vals[j+1];
             }
             this.n-=1;
-            this.mKeys[n] = null;  // to avoid loitering
-            this.vals[n] = null;
+            this.mKeys[this.n] = null;  // to avoid loitering
+            this.vals[this.n] = null;
             // resize if 1/4 full
-            if(this.n > 0 &&
-               this.n == Math.floor(this.mKeys.length/4))
-              this.resize(this.mKeys.length/2);
-            this.assertCheck();
+            if(this.n>0 &&
+               this.n == int(this.mKeys.length/4))
+              this._resize(int(this.mKeys.length/2));
+            this._check();
           }
         }
       }
-      /**
-       * Removes the smallest key and associated value from this symbol table.
-       *
-       * @throws Error if the symbol table is empty
+      /**Removes the smallest key and associated value from this symbol table.
        */
       deleteMin(){
         if(this.isEmpty())
           throw Error(`Symbol table underflow error`);
         this.delete(this.min());
       }
-      /**
-       * Removes the largest key and associated value from this symbol table.
-       *
-       * @throws Error if the symbol table is empty
+      /**Removes the largest key and associated value from this symbol table.
        */
       deleteMax(){
         if(this.isEmpty())
           throw Error(`Symbol table underflow error`);
         this.delete(this.max());
       }
-      /***************************************************************************
-       *  Ordered symbol table methods.
-       ***************************************************************************/
-      /**
-       * Returns the smallest key in this symbol table.
-       *
-       * @return the smallest key in this symbol table
-       * @throws Error if this symbol table is empty
+      /**Returns the smallest key in this symbol table.
+       * @return {any}
        */
       min(){
         if(this.isEmpty())
           throw Error(`called min with empty symbol table`);
         return this.mKeys[0];
       }
-      /**
-       * Returns the largest key in this symbol table.
-       *
-       * @return the largest key in this symbol table
-       * @throws Error if this symbol table is empty
+      /**Returns the largest key in this symbol table.
+       * @return {any}
        */
       max(){
         if(this.isEmpty())
           throw Error(`called max with empty symbol table`);
         return this.mKeys[this.n-1];
       }
-      /**
-       * Return the kth smallest key in this symbol table.
-       *
-       * @param  k the order statistic
-       * @return the {@code k}th smallest key in this symbol table
-       * @throws Error unless {@code k} is between 0 and
-       *        <em>n</em>–1
+      /**Return the kth smallest key in this symbol table.
+       * @param  {number} k the order statistic
+       * @return {any}
        */
       select(k){
-        if(k < 0 || k >= this.size())
+        if(k<0 || k>=this.size())
           throw Error(`called select with invalid argument: ${k}`);
         return this.mKeys[k];
       }
-      /**
-       * Returns the largest key in this symbol table less than or equal to {@code key}.
-       *
-       * @param  key the key
-       * @return the largest key in this symbol table less than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the largest key in this symbol table less than or equal to {@code key}.
+       * @param  {any} key the key
+       * @return {any}
        */
       floor(key){
-        let i = this.assertOk(key) && this.rank(key);
-        if(i < this.n &&
+        let i = this._argOk(key) && this.rank(key);
+        if(i<this.n &&
            this.compare(key,this.mKeys[i]) == 0)
           return this.mKeys[i];
-        if(i == 0)
+        if(i==0)
           throw Error(`argument to floor is too small`);
         return this.mKeys[i-1];
       }
-      /**
-       * Returns the smallest key in this symbol table greater than or equal to {@code key}.
-       *
-       * @param  key the key
-       * @return the smallest key in this symbol table greater than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the smallest key in this symbol table greater than or equal to {@code key}.
+       * @param  {any} key the key
+       * @return {any}
        */
       ceiling(key){
-        let i = this.assertOk(key) && this.rank(key);
-        if(i == n)
+        let i=this._argOk(key) && this.rank(key);
+        if(i==this.n)
           throw Error(`argument to ceiling is too large`);
         return this.mKeys[i];
       }
-      /**
-       * Returns the number of keys in this symbol table in the specified range.
-       *
-       * @param lo minimum endpoint
-       * @param hi maximum endpoint
-       * @return the number of keys in this symbol table between {@code lo}
-       *         (inclusive) and {@code hi} (inclusive)
-       * @throws Error if either {@code lo} or {@code hi}
-       *         is {@code null}
+      /**Returns the number of keys in this symbol table in the specified range.
+       * @param {number} lo minimum endpoint
+       * @param {number} hi maximum endpoint
+       * @return {number} the number of keys in this symbol table between {@code lo}
+       *                  (inclusive) and {@code hi} (inclusive)
        */
       size(lo, hi){
         if(arguments.length==0){
           return this.n;
         }
-        this.assertOk(lo) && this.assertOk(hi);
+        this._argOk(lo) && this._argOk(hi);
         return this.compare(lo,hi)>0 ?0
                                      :(this.contains(hi)?(this.rank(hi)-this.rank(lo)+1)
                                                         :(this.rank(hi)-this.rank(lo)));
       }
-      /**
-       * Returns all keys in this symbol table in the given range,
+      /**Returns all keys in this symbol table in the given range,
        * as an {@code Iterable}.
-       *
        * @param lo minimum endpoint
        * @param hi maximum endpoint
-       * @return all keys in this symbol table between {@code lo}
-       *         (inclusive) and {@code hi} (inclusive)
-       * @throws Error if either {@code lo} or {@code hi}
-       *         is {@code null}
+       * @return {Iterator} all keys in this symbol table between {@code lo}
+       *                    (inclusive) and {@code hi} (inclusive)
        */
       keys(lo, hi){
         if(arguments.length==0){
           lo=this.min();
           hi=this.max();
         }
-        this.assertOk(lo) && this.assertOk(hi);
-        let out=[];
+        this._argOk(lo) && this._argOk(hi);
+        let out=new Queue();
         if(this.compare(lo,hi) > 0){}else{
-          for(let i=this.rank(lo); i<this.rank(hi); i++)
-            out.push(this.mKeys[i]);
+          for(let i=this.rank(lo); i<this.rank(hi); ++i)
+            out.enqueue(this.mKeys[i]);
           if(this.contains(hi))
-            out.push(this.mKeys[this.rank(hi)]);
+            out.enqueue(this.mKeys[this.rank(hi)]);
         }
-        return out;
+        return out.iter();
       }
-      static eval(input,compareFn){
+      static load(input,compareFn){
         let obj= new BinarySearchST(compareFn);
         input.forEach((s,i)=> obj.put(s,i));
         return obj;
       }
       static test(){
-        let b= BinarySearchST.eval("SEARCHEXAMPLE".split(""),(a,b)=>{
-          return a<b?-1:(a>b?1:0)
-        });
-        b.keys().forEach(k=>{
-          console.log(`${k} = ${b.get(k)}`)
-        });
+        let b= BinarySearchST.load("SEARCHEXAMPLE".split(""),CMP);
+        let fn=(s)=>{s="";
+          for(let k,it=b.keys();it.hasNext();){
+            k=it.next(); s+=`${k}=${b.get(k)} ` } return s}
+        console.log(fn());
+        b.deleteMin();
+        console.log(fn());
+        b.deleteMax();
+        b.isEmpty();
+        console.log(fn());
+        console.log("floor of Q= " + b.floor("Q"));
+        console.log("ceil of Q= " + b.ceiling("Q"));
+        console.log("size= " + b.size());
+        console.log("size= " + b.size("E","P"));
+        console.log("keys E->P = " + prnIter(b.keys("E","P")));
       }
     }
+    //BinarySearchST.test();
 
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
-     * @property {object} root
-     * @property {function} compare
      */
     class BST{
       constructor(compareFn){
-        this.nil=(x)=>{ return x===null || x===undefined };
+        //* @property {object} root
+        //* @property {function} compare
         this.compare=compareFn;
         this.root=null;
-        this.assertOk=(x)=>{
-          if(x===null || x===undefined)
-            throw Error("Invalid argument");
-          return true;
-        };
-        this.assertCheck=()=>{
+        this._argOk=(x)=> _.assert(x, "Invalid argument");
+        this._check=()=>{
           if(!this.isBST(this.root,null,null)) console.log("Not in symmetric order");
           if(!this.isSizeConsistent(this.root)) console.log("Subtree counts not consistent");
           if(!this.isRankConsistent()) console.log("Ranks not consistent");
@@ -553,13 +492,13 @@
         // (if min or max is null, treat as empty constraint)
         // Credit: Bob Dondero's elegant solution
         this.isBST=(x, min, max)=>{
-          if(this.nil(x)) return true;
-          if(!this.nil(min) && this.compare(x.key,min) <= 0) return false;
-          if(!this.nil(max) && this.compare(x.key,max) >= 0) return false;
+          if(_.nichts(x)) return true;
+          if(_.echt(min) && this.compare(x.key,min) <= 0) return false;
+          if(_.echt(max) && this.compare(x.key,max) >= 0) return false;
           return this.isBST(x.left, min, x.key) && this.isBST(x.right, x.key, max);
         };
         this.isSizeConsistent=(x)=>{
-          if(this.nil(x)) return true;
+          if(_.nichts(x)) return true;
           if(x.size != (this._sizeNode(x.left) + this._sizeNode(x.right) + 1)) return false;
           return this.isSizeConsistent(x.left) && this.isSizeConsistent(x.right);
         };
@@ -567,144 +506,122 @@
         this.isRankConsistent=()=>{
           for(let i=0; i<this.size(); ++i)
             if(i != this.rank(this.select(i))) return false;
-          for(let i=0,ks=this.keys();i<ks.length;++i)
-            if(this.compare(ks[i],this.select(this.rank(ks[i]))) != 0) return false;
+          for(let k, it=this.keys(); it.hasNext();){
+            k=it.next();
+            if(this.compare(k,this.select(this.rank(k))) != 0) return false;
+          }
           return true;
         };
       }
       Node(key, val, size){
         return{ key,val,size, left:null, right:null }
       }
-      /**
-       * Returns true if this symbol table is empty.
-       * @return {@code true} if this symbol table is empty; {@code false} otherwise
+      /**Returns true if this symbol table is empty.
+       * @return {boolean}
        */
       isEmpty(){
         return this.size() == 0;
       }
-      /**
-       * Does this symbol table contain the given key?
-       *
-       * @param  key the key
-       * @return {@code true} if this symbol table contains {@code key} and
-       *         {@code false} otherwise
-       * @throws IllegalArgumentException if {@code key} is {@code null}
+      /**Does this symbol table contain the given key?
+       * @param  {any} key the key
+       * @return {boolean}
        */
       contains(key){
-        return this.assertOk(key) && this.get(key) != undefined;
+        return this._argOk(key) && this.get(key) !== undefined;
       }
-      /**
-       * Returns the value associated with the given key.
-       *
-       * @param  key the key
-       * @return the value associated with the given key if the key is in the symbol table
-       *         and {@code null} if the key is not in the symbol table
-       * @throws IllegalArgumentException if {@code key} is {@code null}
+      /**Returns the value associated with the given key.
+       * @param  {any} key the key
+       * @return {any}
        */
       get(key){
         return this._getNode(this.root, key);
       }
       _getNode(x, key){
-        if(this.assertOk(key) && this.nil(x)){
-          return undefined;
+        if(this._argOk(key) && _.nichts(x)){}else{
+          let cmp = this.compare(key,x.key);
+          return cmp < 0? this._getNode(x.left, key) :(cmp > 0? this._getNode(x.right, key) : x.val)
         }
-        let cmp = this.compare(key,x.key);
-        return cmp < 0? this._getNode(x.left, key) :(cmp > 0? this._getNode(x.right, key) : x.val);
       }
-      /**
-       * Inserts the specified key-value pair into the symbol table, overwriting the old
+      /**Inserts the specified key-value pair into the symbol table, overwriting the old
        * value with the new value if the symbol table already contains the specified key.
        * Deletes the specified key (and its associated value) from this symbol table
        * if the specified value is {@code null}.
-       *
-       * @param  key the key
-       * @param  val the value
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
+       * @param  {any} val the value
        */
       put(key, val){
-        if(this.assertOk(key) && this.nil(val)){
+        if(this._argOk(key) && _.nichts(val)){
           this.delete(key);
         }else{
           this.root = this._putNode(this.root, key, val);
-          this.assertCheck();
+          this._check();
         }
       }
       _putNode(x, key, val){
-        if(this.nil(x)){
-          return this.Node(key, val, 1);
+        if(_.nichts(x)){ x=this.Node(key, val, 1) }else{
+          let cmp = this.compare(key,x.key);
+          if(cmp < 0) x.left = this._putNode(x.left,  key, val);
+          else if(cmp > 0) x.right = this._putNode(x.right, key, val);
+          else x.val = val;
+          x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
         }
-        let cmp = this.compare(key,x.key);
-        if(cmp < 0) x.left = this._putNode(x.left,  key, val);
-        else if(cmp > 0) x.right = this._putNode(x.right, key, val);
-        else x.val = val;
-        x.size = 1 + this._sizeNode(x.left) + this._sizeNode(x.right);
         return x;
       }
-      /**
-       * Removes the smallest key and associated value from the symbol table.
-       *
-       * @throws Error if the symbol table is empty
+      /**Removes the smallest key and associated value from the symbol table.
        */
       deleteMin(){
         if(this.isEmpty()) throw Error("Symbol table underflow");
         this.root = this._deleteMinNode(this.root);
-        this.assertCheck();
+        this._check();
       }
       _deleteMinNode(x){
-        if(this.nil(x.left)) return x.right;
-        x.left = this._deleteMinNode(x.left);
-        x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
+        if(_.nichts(x.left)){ x= x.right }else{
+          x.left = this._deleteMinNode(x.left);
+          x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
+        }
         return x;
       }
-      /**
-       * Removes the largest key and associated value from the symbol table.
-       *
-       * @throws Error if the symbol table is empty
+      /**Removes the largest key and associated value from the symbol table.
        */
       deleteMax(){
         if(this.isEmpty()) throw Error("Symbol table underflow");
         this.root = this._deleteMaxNode(this.root);
-        this.assertCheck();
+        this._check();
       }
       _deleteMaxNode(x){
-        if(this.nil(x.right)) return x.left;
-        x.right = this._deleteMaxNode(x.right);
-        x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
+        if(_.nichts(x.right)){ x= x.left }else{
+          x.right = this._deleteMaxNode(x.right);
+          x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
+        }
         return x;
       }
-      /**
-       * Removes the specified key and its associated value from this symbol table
+      /**Removes the specified key and its associated value from this symbol table
        * (if the key is in this symbol table).
-       *
-       * @param  key the key
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
        */
       delete(key){
-        this.assertOk(key);
-        this.root = this._deleteNode(root, key);
-        this.assertCheck();
+        this.root= this._argOk(key) && this._deleteNode(this.root, key);
+        this._check();
       }
       _deleteNode(x, key){
-        if(this.nil(x)) return null;
-        let cmp = this.compare(key,x.key);
-        if(cmp < 0) x.left = this._deleteNode(x.left,  key);
-        else if(cmp > 0) x.right = this._deleteNode(x.right, key);
-        else{
-          if(this.nil(x.right)) return x.left;
-          if(this.nil(x.left)) return x.right;
-          let t = x;
-          x = this._minNode(t.right);
-          x.right = this._deleteMinNode(t.right);
-          x.left = t.left;
+        if(_.echt(x)){
+          let cmp = this.compare(key,x.key);
+          if(cmp < 0) x.left = this._deleteNode(x.left,  key);
+          else if(cmp > 0) x.right = this._deleteNode(x.right, key);
+          else{
+            if(_.nichts(x.right)) return x.left;
+            if(_.nichts(x.left)) return x.right;
+            let t = x;
+            x= this._minNode(t.right);
+            x.right = this._deleteMinNode(t.right);
+            x.left = t.left;
+          }
+          x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
         }
-        x.size = this._sizeNode(x.left) + this._sizeNode(x.right) + 1;
         return x;
       }
-      /**
-       * Returns the smallest key in the symbol table.
-       *
-       * @return the smallest key in the symbol table
-       * @throws Error if the symbol table is empty
+      /**Returns the smallest key in the symbol table.
+       * @return {any}
        */
       min(){
         if(this.isEmpty())
@@ -712,13 +629,10 @@
         return this._minNode(this.root).key;
       }
       _minNode(x){
-        return this.nil(x.left)? x: this._minNode(x.left);
+        return _.nichts(x.left)? x: this._minNode(x.left);
       }
-      /**
-       * Returns the largest key in the symbol table.
-       *
-       * @return the largest key in the symbol table
-       * @throws Error if the symbol table is empty
+      /**Returns the largest key in the symbol table.
+       * @return {any}
        */
       max(){
         if(this.isEmpty())
@@ -726,65 +640,42 @@
         return this._maxNode(this.root).key;
       }
       _maxNode(x){
-        return this.nil(x.right)? x: this._maxNode(x.right);
+        return _.nichts(x.right)? x: this._maxNode(x.right);
       }
-      /**
-       * Returns the largest key in the symbol table less than or equal to {@code key}.
-       *
-       * @param  key the key
-       * @return the largest key in the symbol table less than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the largest key in the symbol table less than or equal to {@code key}.
+       * @param  {any} key the key
+       * @return {any}
        */
       floor(key){
-        if(this.assertOk(key) && this.isEmpty())
+        if(this._argOk(key) && this.isEmpty())
           throw Error(`calls floor with empty symbol table`);
-        let x = this._floorNode(this.root, key);
-        if(this.nil(x))
+        let x= this._floorNode(this.root, key);
+        if(_.nichts(x))
           throw Error(`argument to floor is too small`);
         return x.key;
       }
       _floorNode(x, key){
-        if(this.nil(x)){
-          return null;
-        }
+        if(_.nichts(x)){ return null }
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0) return this._floorNode(x.left, key);
         let t = this._floorNode(x.right, key);
-        return this.nil(t)?x: t;
+        return _.nichts(t)?x: t;
       }
-      floor2(key){
-        let x = this._floor2(root, key, null);
-        if(this.nil(x))
-          throw Error(`argument to floor is too small`);
-        return x;
-      }
-      _floor2(x, key, best){
-        if(this.nil(x)){
-          return best;
-        }
-        let cmp = this.compare(key,x.key);
-        return cmp < 0? this._floor2(x.left, key, best): (cmp > 0? this._floor2(x.right, key, x.key): x.key);
-      }
-      /**
-       * Returns the smallest key in the symbol table greater than or equal to {@code key}.
-       *
-       * @param  key the key
-       * @return the smallest key in the symbol table greater than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the smallest key in the symbol table greater than or equal to {@code key}.
+       * @param  {any} key the key
+       * @return {any}
        */
       ceiling(key){
-        if(this.assertOk(key) && this.isEmpty())
+        if(this._argOk(key) && this.isEmpty())
           throw Error(`calls ceiling with empty symbol table`);
-        let x = this._ceilingNode(root, key);
-        if(this.nil(x))
+        let x = this._ceilingNode(this.root, key);
+        if(_.nichts(x))
           throw Error(`argument to floor is too large`);
         return x.key;
       }
       _ceilingNode(x, key){
-        if(this.nil(x)) return null;
+        if(_.nichts(x)){return null}
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0){
@@ -793,16 +684,12 @@
         }
         return this._ceilingNode(x.right, key);
       }
-      /**
-       * Return the key in the symbol table of a given {@code rank}.
+      /**Return the key in the symbol table of a given {@code rank}.
        * This key has the property that there are {@code rank} keys in
        * the symbol table that are smaller. In other words, this key is the
        * ({@code rank}+1)st smallest key in the symbol table.
-       *
-       * @param  rank the order statistic
-       * @return the key in the symbol table of given {@code rank}
-       * @throws IllegalArgumentException unless {@code rank} is between 0 and
-       *        <em>n</em>–1
+       * @param  {number} rank the order statistic
+       * @return {any}
        */
       select(rank){
         if(rank < 0 || rank >= this.size())
@@ -812,194 +699,206 @@
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(this.nil(x)) return null;
+        if(_.nichts(x)){return null}
         let leftSize = this._sizeNode(x.left);
         if(leftSize > rank) return this._selectNode(x.left,  rank);
         if(leftSize < rank) return this._selectNode(x.right, rank - leftSize - 1);
         return x.key;
       }
-      /**
-       * Return the number of keys in the symbol table strictly less than {@code key}.
-       *
-       * @param  key the key
-       * @return the number of keys in the symbol table strictly less than {@code key}
-       * @throws Error if {@code key} is {@code null}
+      /**Return the number of keys in the symbol table strictly less than {@code key}.
+       * @param  {any} key the key
+       * @return {number}
        */
       rank(key){
-        return this.assertOk(key) && this._rankNode(key, this.root);
+        return this._argOk(key) && this._rankNode(key, this.root);
       }
       // Number of keys in the subtree less than key.
       _rankNode(key, x){
-        if(this.nil(x)) return 0;
+        if(_.nichts(x)){return 0}
         let cmp = this.compare(key,x.key);
         return cmp < 0? this._rankNode(key, x.left)
                       : (cmp > 0? (1 + this._sizeNode(x.left) + this._rankNode(key, x.right)) :this._sizeNode(x.left));
       }
-      /**
-       * Returns all keys in the symbol table in the given range,
+      /**Returns all keys in the symbol table in the given range,
        * as an {@code Iterable}.
-       *
-       * @param  lo minimum endpoint
-       * @param  hi maximum endpoint
-       * @return all keys in the symbol table between {@code lo}
+       * @param  {any} lo minimum endpoint
+       * @param  {any} hi maximum endpoint
+       * @return {Iterator} all keys in the symbol table between {@code lo}
        *         (inclusive) and {@code hi} (inclusive)
-       * @throws Error if either {@code lo} or {@code hi}
-       *         is {@code null}
        */
       keys(lo, hi){
+        let Q=new Queue();
         if(arguments.length==0){
-          if(this.isEmpty()) return [];
-          lo=this.min();
-          hi=this.max();
+          if(!this.isEmpty()){
+            lo=this.min();
+            hi=this.max();
+          }
         }
-        this.assertOk(lo) && this.assertOk(hi);
-        return this._keysNode(this.root, [], lo, hi);
+        if(!this.isEmpty() && this._argOk(lo) && this._argOk(hi)){
+          this._keysNode(this.root, Q, lo, hi);
+        }
+        return Q.iter();
       }
       _keysNode(x, queue, lo, hi){
-        if(this.nil(x)){}else{
+        if(_.nichts(x)){}else{
           let cmplo = this.compare(lo,x.key);
           let cmphi = this.compare(hi,x.key);
           if(cmplo < 0) this._keysNode(x.left, queue, lo, hi);
-          if(cmplo <= 0 && cmphi >= 0) queue.push(x.key);
+          if(cmplo <= 0 && cmphi >= 0) queue.enqueue(x.key);
           if(cmphi > 0) this._keysNode(x.right, queue, lo, hi);
         }
         return queue;
       }
       // return number of key-value pairs in BST rooted at x
       _sizeNode(x){
-        return this.nil(x)?0: x.size;
+        return _.nichts(x)?0: x.size;
       }
-      /**
-       * Returns the number of keys in the symbol table in the given range.
-       *
-       * @param  lo minimum endpoint
-       * @param  hi maximum endpoint
-       * @return the number of keys in the symbol table between {@code lo}
+      /**Returns the number of keys in the symbol table in the given range.
+       * @param  {any} lo minimum endpoint
+       * @param  {any} hi maximum endpoint
+       * @return {number} number of keys in the symbol table between {@code lo}
        *         (inclusive) and {@code hi} (inclusive)
-       * @throws Error if either {@code lo} or {@code hi}
-       *         is {@code null}
        */
       size(lo, hi){
-        if(arguments.length==0){
-          return this._sizeNode(this.root)
-        }
-        this.assertOk(lo) && this.assertOk(hi);
-        return this.compare(lo,hi)>0? 0
-                                    : (this.contains(hi)? (this.rank(hi) - this.rank(lo) + 1): (this.rank(hi) - this.rank(lo)));
+        return arguments.length==0 ? this._sizeNode(this.root)
+          : ( (this._argOk(lo) &&
+                this._argOk(hi) &&
+                this.compare(lo,hi)>0)? 0
+                                      : (this.contains(hi)? (this.rank(hi) - this.rank(lo) + 1): (this.rank(hi) - this.rank(lo))));
       }
-      /**
-       * Returns the height of the BST (for debugging).
-       *
-       * @return the height of the BST (a 1-node tree has height 0)
+      /**Returns the height of the BST (for debugging).
+       * @return {number} the height of the BST (a 1-node tree has height 0)
        */
       height(){
-        return this._heightNode(this.root);
+        return this._heightNode(this.root)
       }
       _heightNode(x){
-        return this.nil(x)? -1 : (1 + Math.max(this._heightNode(x.left), this._heightNode(x.right)))
+        return _.nichts(x)? -1 : (1 + Math.max(this._heightNode(x.left), this._heightNode(x.right)))
       }
-      /**
-       * Returns the keys in the BST in level order (for debugging).
-       *
-       * @return the keys in the BST in level order traversal
+      /**Returns the keys in the BST in level order (for debugging).
+       * @return {Iterator} the keys in the BST in level order traversal
        */
       levelOrder(){
-        let keys = [],
-            x,queue = [];
+        let x,queue = [],
+            keys = new Queue();
         queue.push(this.root);
         while(queue.length>0){
           x = queue.pop();
-          if(!this.nil(x)){
-            keys.push(x.key);
+          if(_.echt(x)){
+            keys.enqueue(x.key);
             queue.push(x.left, x.right);
           }
         }
-        return keys;
+        return keys.iter();
       }
-      static eval(input,compareFn){
+      static load(input,compareFn){
         let b=new BST(compareFn);
         input.forEach((s,i)=> b.put(s,i));
         return b;
       }
       static test(){
-        let obj= BST.eval("SEARCHEXAMPLE".split(""),(a,b)=>{
-          return a<b?-1:(a>b?1:0)
-        });
-        obj.levelOrder().forEach(s=>{
-          console.log(`${s} = ${obj.get(s)}`)
-        });
-        console.log("");
-        obj.keys().forEach(s=>{
-          console.log(`${s} = ${obj.get(s)}`)
-        });
+        let m,obj= BST.load("SEARCHEXAMPLE".split(""),CMP);
+        m="";
+        for(let s,it=obj.levelOrder(); it.hasNext();){
+          s=it.next(); m+= `${s}=${obj.get(s)} `
+        }
+        console.log("level-order:\n"+m);
+        m="";
+        for(let s,it=obj.keys(); it.hasNext();){
+          s=it.next(); m+= `${s}=${obj.get(s)} `
+        }
+        obj.isEmpty();
+        console.log("keys=\n"+m);
+        console.log("size="+obj.size());
+        console.log("size E->Q = ", obj.size("E","Q"));
+        m="";
+        for(let s,it=obj.keys("E","Q"); it.hasNext();){
+          s=it.next(); m+= `${s}=${obj.get(s)} `
+        }
+        console.log("keys[E->Q]= "+m);
+        console.log("min= "+obj.min());
+        console.log("max= "+obj.max());
+        console.log("rank P= " +obj.rank("P"));
+        console.log("contains X= "+obj.contains("X"));
+        console.log("contains Z= "+obj.contains("Z"));
+        obj.delete("X");
+        console.log("get C=" + obj.get("C"));
+        console.log("max= "+obj.max());
+        obj.deleteMin();
+        obj.deleteMax();
+        console.log("height= " +obj.height());
+        console.log("min= "+obj.min());
+        console.log("max= "+obj.max());
+        console.log("rank E= "+obj.rank("E"));
+        console.log("floor G= " +obj.floor("G"));
+        console.log("ceiling G= " +obj.ceiling("G"));
       }
     }
+    //BST.test();
 
-    /**
+    /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
-     * @property {object} root
-     * @property {function} compare
      */
     class RedBlackBST{
       static BLACK = false;
       static RED= true;
       constructor(compareFn){
-        this.nil= (x)=>{ return x===null || x===undefined };
+        //* @property {object} root
+        //* @property {function} compare
         this.compare=compareFn;
         this.root=null;
-        this.assertOk=(x)=>{
-          if(x===null||x===undefined) throw Error("Invalid argument");
-          return true;
-        }
-        this.assertCheck=()=>{
+        this._argOk=(x)=>_.assert(x, "Invalid argument");
+        this._check=()=>{
           // is the tree rooted at x a BST with all keys strictly between min and max
           // (if min or max is null, treat as empty constraint)
           // Credit: Bob Dondero's elegant solution
           let isBST3=(x, min, max)=>{
-            if(this.nil(x)) return true;
+            if(_.nichts(x)) return true;
             if(min && this.compare(x.key,min) <= 0) return false;
             if(max && this.compare(x.key,max) >= 0) return false;
             return isBST3(x.left, min, x.key) && isBST3(x.right, x.key, max);
           };
           let isSizeConsistent=(x)=>{
-            if(this.nil(x)) return true;
+            if(_.nichts(x)) return true;
             if(x.size != this._sizeNode(x.left) + this._sizeNode(x.right) + 1) return false;
             return isSizeConsistent(x.left) && isSizeConsistent(x.right);
           }
           // check that ranks are consistent
           let isRankConsistent=()=>{
-            for(let i = 0; i < this.size(); ++i)
+            for(let i=0; i<this.size(); ++i)
               if(i != this._rankNode(this.select(i))) return false;
-            for(let i=0,ks=this.keys(); i<ks.length;++i)
-              if(this.compare(ks[i],this.select(this._rankNode(key))) != 0) return false;
+            for(let k,it=this.keys(); it.hasNext();){
+              k=it.next();
+              if(this.compare(k,this.select(this._rankNode(k))) != 0) return false;
+            }
             return true;
           };
           // Does the tree have no red right links, and at most one (left)
           // red links in a row on any path?
           let is23=(x)=>{
-            if(this.nil(x)) return true;
+            if(_.nichts(x)) return true;
             if(this._isRed(x.right)) return false;
             if (x !== this.root && this._isRed(x) && this._isRed(x.left)) return false;
             return is23(x.left) && is23(x.right);
           }
           // do all paths from root to leaf have same number of black edges?
           let isBalanced=()=>{
-            let black = 0;     // number of black links on path from root to min
-            let x = this.root;
-            while(x != null){
-              if(!this._isRed(x)) black++;
-              x = x.left;
+            let black = 0,// number of black links on path from root to min
+                x = this.root;
+            while(x){
+              if(!this._isRed(x)) ++black;
+              x=x.left;
             }
             return isBalanced2(this.root, black);
           };
           // does every path from the root to a leaf have the given number of black links?
           let isBalanced2=(x, black)=>{
-            if(this.nil(x)) return black == 0;
-            if(!this._isRed(x)) black--;
+            if(_.nichts(x)) return black == 0;
+            if(!this._isRed(x)) --black;
             return isBalanced2(x.left, black) && isBalanced2(x.right, black);
           };
-          return isBST(this.root,null,null) && isSizeConsistent(this.root) && isRankConsistent() && is23(this.root) && isBalanced();
+          return isBST3(this.root,null,null) && isSizeConsistent(this.root) && isRankConsistent() && is23(this.root) && isBalanced();
         };
       }
       Node(key, val, color, size){
@@ -1008,47 +907,37 @@
       }
       // is node x red; false if x is null ?
       _isRed(x){
-        return this.nil(x)?false:x.color=== RedBlackBST.RED
+        return _.nichts(x)?false:x.color=== RedBlackBST.RED
       }
       //number of node in subtree rooted at x; 0 if x is null
       _sizeNode(x){
-        return this.nil(x)?0:x.size
+        return _.nichts(x)?0:x.size
       }
-      /**
-       * Is this symbol table empty?
-       * @return {@code true} if this symbol table is empty and {@code false} otherwise
+      /**Is this symbol table empty?
+       * @return {boolean}
        */
       isEmpty(){
-        return this.root === null;
+        return _.nichts(this.root)
       }
-      /***************************************************************************
-       *  Standard BST search.
-       ***************************************************************************/
-      /**
-       * Returns the value associated with the given key.
-       * @param key the key
-       * @return the value associated with the given key if the key is in the symbol table
-       *     and {@code null} if the key is not in the symbol table
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the value associated with the given key.
+       * @param {any} key the key
+       * @return {any}
        */
       get(key){
-        return this.assertOk(key) && this._getNode(this.root, key);
+        return this._argOk(key) && this._getNode(this.root, key);
       }
       // value associated with the given key in subtree rooted at x; null if no such key
       _getNode(x, key){
-        while(x != null){
+        while(x){
           let cmp = this.compare(key,x.key);
           if(cmp < 0) x = x.left;
           else if(cmp > 0) x = x.right;
           else return x.val;
         }
       }
-      /**
-       * Does this symbol table contain the given key?
-       * @param key the key
-       * @return {@code true} if this symbol table contains {@code key} and
-       *     {@code false} otherwise
-       * @throws Error if {@code key} is {@code null}
+      /**Does this symbol table contain the given key?
+       * @param {any} key the key
+       * @return {boolean}
        */
       contains(key){
         return this.get(key) !== undefined
@@ -1056,18 +945,15 @@
       /***************************************************************************
        *  Red-black tree insertion.
        ***************************************************************************/
-      /**
-       * Inserts the specified key-value pair into the symbol table, overwriting the old
+      /**Inserts the specified key-value pair into the symbol table, overwriting the old
        * value with the new value if the symbol table already contains the specified key.
        * Deletes the specified key (and its associated value) from this symbol table
        * if the specified value is {@code null}.
-       *
-       * @param key the key
-       * @param val the value
-       * @throws Error if {@code key} is {@code null}
+       * @param {any} key the key
+       * @param {any} val the value
        */
       put(key, val){
-        if(this.assertOk(key) && this.nil(val)){
+        if(this._argOk(key) && _.nichts(val)){
           this.delete(key);
         }else{
           this.root = this._putNode(this.root, key, val);
@@ -1076,7 +962,7 @@
       }
       // insert the key-value pair in the subtree rooted at h
       _putNode(h, key, val){
-        if(this.nil(h)) return this.Node(key, val, RedBlackBST.RED, 1);
+        if(_.nichts(h)) return this.Node(key, val, RedBlackBST.RED, 1);
         let cmp = this.compare(key,h.key);
         if(cmp < 0) h.left  = this._putNode(h.left, key, val);
         else if(cmp > 0) h.right = this._putNode(h.right, key, val);
@@ -1091,9 +977,7 @@
       /***************************************************************************
        *  Red-black tree deletion.
        ***************************************************************************/
-      /**
-       * Removes the smallest key and associated value from the symbol table.
-       * @throws Error if the symbol table is empty
+      /**Removes the smallest key and associated value from the symbol table.
        */
       deleteMin(){
         if(this.isEmpty())
@@ -1107,16 +991,14 @@
       }
       // delete the key-value pair with the minimum key rooted at h
       _deleteMinNode(h){
-        if(this.nil(h.left)) return null;
+        if(_.nichts(h.left)) return null;
         if(!this._isRed(h.left) &&
            !this._isRed(h.left.left))
           h = this._moveRedLeft(h);
         h.left = this._deleteMinNode(h.left);
         return this._balance(h);
       }
-      /**
-       * Removes the largest key and associated value from the symbol table.
-       * @throws Error if the symbol table is empty
+      /**Removes the largest key and associated value from the symbol table.
        */
       deleteMax(){
         if(this.isEmpty())
@@ -1131,28 +1013,26 @@
       // delete the key-value pair with the maximum key rooted at h
       _deleteMaxNode(h){
         if(this._isRed(h.left)) h = this._rotateRight(h);
-        if(this.nil(h.right)) return null;
+        if(_.nichts(h.right)) return null;
         if(!this._isRed(h.right) &&
            !this._isRed(h.right.left))
           h = this._moveRedRight(h);
         h.right = this._deleteMaxNode(h.right);
         return this._balance(h);
       }
-      /**
-       * Removes the specified key and its associated value from this symbol table
+      /**Removes the specified key and its associated value from this symbol table
        * (if the key is in this symbol table).
-       *
-       * @param  key the key
-       * @throws Error if {@code key} is {@code null}
+       * @param  {any} key the key
        */
       delete(key){
-        if(this.assertOk(key) && !this.contains(key)){}else{
+        if(this._argOk(key) && !this.contains(key)){}else{
           //if both children of root are black, set root to red
           if(!this._isRed(this.root.left) &&
              !this._isRed(this.root.right)) this.root.color = RedBlackBST.RED;
           this.root = this._deleteNode(this.root, key);
           if(!this.isEmpty()) this.root.color = RedBlackBST.BLACK;
         }
+        //this._check();
       }
       // delete the key-value pair with the given key rooted at h
       _deleteNode(h, key){
@@ -1165,7 +1045,7 @@
           if(this._isRed(h.left))
             h = this._rotateRight(h);
           if(this.compare(key,h.key) == 0 &&
-             this.nil(h.right)) return null;
+             _.nichts(h.right)) return null;
           if(!this._isRed(h.right) &&
              !this._isRed(h.right.left))
             h = this._moveRedRight(h);
@@ -1184,8 +1064,8 @@
        *  Red-black tree helper functions.
        ***************************************************************************/
       // make a left-leaning link lean to the right
-      _rotateRight(h){
-        if(this.nil(h) || !this._isRed(h.left))
+      _rotateRight(h){//console.log("_RR");
+        if(_.nichts(h) || !this._isRed(h.left))
           throw Error("bad input to rotateRight");
         let x = h.left;
         h.left = x.right;
@@ -1197,8 +1077,8 @@
         return x;
       }
       // make a right-leaning link lean to the left
-      _rotateLeft(h){
-        if(this.nil(h) || !this._isRed(h.right))
+      _rotateLeft(h){//console.log("RL");
+        if(_.nichts(h) || !this._isRed(h.right))
           throw Error("bad input to rotateLeft");
         let x = h.right;
         h.right = x.left;
@@ -1210,7 +1090,7 @@
         return x;
       }
       // flip the colors of a node and its two children
-      _flipColors(h){
+      _flipColors(h){//console.log("FF");
         // h must have opposite color of its two children
         // assert (h != null) && (h.left != null) && (h.right != null);
         // assert (!isRed(h) &&  isRed(h.left) &&  isRed(h.right))
@@ -1221,7 +1101,7 @@
       }
       // Assuming that h is red and both h.left and h.left.left
       // are black, make h.left or one of its children red.
-      _moveRedLeft(h){
+      _moveRedLeft(h){//console.log("MoveRL");
         // assert (h != null);
         // assert isRed(h) && !isRed(h.left) && !isRed(h.left.left);
         this._flipColors(h);
@@ -1234,7 +1114,7 @@
       }
       // Assuming that h is red and both h.right and h.right.left
       // are black, make h.right or one of its children red.
-      _moveRedRight(h){
+      _moveRedRight(h){//console.log("MoveRR");
         // assert (h != null);
         // assert isRed(h) && !isRed(h.right) && !isRed(h.right.left);
         this._flipColors(h);
@@ -1245,7 +1125,7 @@
         return h;
       }
       // restore red-black tree invariant
-      _balance(h){
+      _balance(h){//console.log("BAL");
         // assert (h != null);
         if(this._isRed(h.right) && !this._isRed(h.left))    h = this._rotateLeft(h);
         if(this._isRed(h.left) && this._isRed(h.left.left)) h = this._rotateRight(h);
@@ -1253,26 +1133,17 @@
         h.size = this._sizeNode(h.left) + this._sizeNode(h.right) + 1;
         return h;
       }
-      /***************************************************************************
-       *  Utility functions.
-       ***************************************************************************/
-      /**
-       * Returns the height of the BST (for debugging).
-       * @return the height of the BST (a 1-node tree has height 0)
+      /**Returns the height of the BST (for debugging).
+       * @return {number}
        */
       height(){
         return this._height(this.root);
       }
       _height(x){
-        return this.nil(x)? -1: (1 + Math.max(this._height(x.left), this._height(x.right)));
+        return _.nichts(x)? -1: (1 + Math.max(this._height(x.left), this._height(x.right)));
       }
-      /***************************************************************************
-       *  Ordered symbol table methods.
-       ***************************************************************************/
-      /**
-       * Returns the smallest key in the symbol table.
-       * @return the smallest key in the symbol table
-       * @throws Error if the symbol table is empty
+      /**Returns the smallest key in the symbol table.
+       * @return {any}
        */
       min(){
         if(this.isEmpty())
@@ -1281,12 +1152,10 @@
       }
       // the smallest key in subtree rooted at x; null if no such key
       _minNode(x){
-        return this.nil(x.left)? x: this._minNode(x.left);
+        return _.nichts(x.left)? x: this._minNode(x.left);
       }
-      /**
-       * Returns the largest key in the symbol table.
-       * @return the largest key in the symbol table
-       * @throws Error if the symbol table is empty
+      /**Returns the largest key in the symbol table.
+       * @return {any}
        */
       max(){
         if(this.isEmpty())
@@ -1295,165 +1164,162 @@
       }
       // the largest key in the subtree rooted at x; null if no such key
       _maxNode(x){
-        return this.nil(x.right)? x : this._maxNode(x.right);
+        return _.nichts(x.right)? x : this._maxNode(x.right);
       }
-      /**
-       * Returns the largest key in the symbol table less than or equal to {@code key}.
-       * @param key the key
-       * @return the largest key in the symbol table less than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the largest key in the symbol table less than or equal to {@code key}.
+       * @param {any} key the key
+       * @return {any}
        */
       floor(key){
-        if(this.assertOk(key) && this.isEmpty())
+        if(this._argOk(key) && this.isEmpty())
           throw Error(`calls floor with empty symbol table`);
         let x = this._floorNode(this.root, key);
-        if(this.nil(x))
+        if(_.nichts(x))
           throw Error(`argument to floor is too small`);
         return x.key;
       }
       // the largest key in the subtree rooted at x less than or equal to the given key
       _floorNode(x, key){
-        if(this.nil(x)) return null;
+        if(_.nichts(x)) return null;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0)  return this._floorNode(x.left, key);
         let t = this._floorNode(x.right, key);
         return t? t: x;
       }
-      /**
-       * Returns the smallest key in the symbol table greater than or equal to {@code key}.
-       * @param key the key
-       * @return the smallest key in the symbol table greater than or equal to {@code key}
-       * @throws Error if there is no such key
-       * @throws Error if {@code key} is {@code null}
+      /**Returns the smallest key in the symbol table greater than or equal to {@code key}.
+       * @param {any} key the key
+       * @return {any}
        */
       ceiling(key){
-        if(this.assertOk(key) && this.isEmpty())
+        if(this._argOk(key) && this.isEmpty())
           throw Error(`calls ceiling with empty symbol table`);
         let x = this._ceilingNode(this.root, key);
-        if(this.nil(x))
+        if(_.nichts(x))
           throw Error(`argument to ceiling is too small`);
         return x.key;
       }
       // the smallest key in the subtree rooted at x greater than or equal to the given key
       _ceilingNode(x, key){
-        if(this.nil(x)) return null;
+        if(_.nichts(x)) return null;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp > 0)  return this._ceilingNode(x.right, key);
         let t = this._ceilingNode(x.left, key);
         return t? t: x;
       }
-      /**
-       * Return the key in the symbol table of a given {@code rank}.
+      /**Return the key in the symbol table of a given {@code rank}.
        * This key has the property that there are {@code rank} keys in
        * the symbol table that are smaller. In other words, this key is the
        * ({@code rank}+1)st smallest key in the symbol table.
-       *
-       * @param  rank the order statistic
-       * @return the key in the symbol table of given {@code rank}
-       * @throws Error unless {@code rank} is between 0 and
-       *        <em>n</em>–1
+       * @param  {number} rank the order statistic
+       * @return {any}
        */
       select(rank){
         if(rank < 0 || rank >= this.size())
-            throw Error(`argument to select is invalid: ${rank}`);
+          throw Error(`argument to select is invalid: ${rank}`);
         return this._selectNode(this.root, rank);
       }
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(this.nil(x)) return null;
+        if(_.nichts(x)) return null;
         let leftSize = this._sizeNode(x.left);
         return leftSize > rank? this._selectNode(x.left,  rank)
                               : (leftSize < rank? this._selectNode(x.right, rank - leftSize - 1): x.key);
       }
-      /**
-       * Return the number of keys in the symbol table strictly less than {@code key}.
-       * @param key the key
-       * @return the number of keys in the symbol table strictly less than {@code key}
-       * @throws Error if {@code key} is {@code null}
+      /**Return the number of keys in the symbol table strictly less than {@code key}.
+       * @param {any} key the key
+       * @return {number}
        */
       rank(key){
-        return this.assertOk(key) && this._rankNode(key, this.root);
+        return this._argOk(key) && this._rankNode(key, this.root);
       }
       // number of keys less than key in the subtree rooted at x
       _rankNode(key, x){
-        if(this.nil(x)) return 0;
+        if(_.nichts(x)) return 0;
         let cmp = this.compare(key,x.key);
         return cmp < 0? this._rankNode(key, x.left)
                       :(cmp > 0? (1 + this._sizeNode(x.left) + this._rankNode(key, x.right)) :  this._sizeNode(x.left));
       }
-      /***************************************************************************
-       *  Range count and range search.
-       ***************************************************************************/
-      /**
-       * Returns all keys in the symbol table in the given range,
+      /**Returns all keys in the symbol table in the given range,
        * as an {@code Iterable}.
-       *
-       * @param  lo minimum endpoint
-       * @param  hi maximum endpoint
-       * @return all keys in the symbol table between {@code lo}
+       * @param  {any} lo minimum endpoint
+       * @param  {any} hi maximum endpoint
+       * @return {Iterator} all keys in the symbol table between {@code lo}
        *    (inclusive) and {@code hi} (inclusive) as an {@code Iterable}
-       * @throws Error if either {@code lo} or {@code hi}
-       *    is {@code null}
        */
       keys(lo, hi){
+        let Q=new Queue();
         if(arguments.length==0){
-          if(this.isEmpty()) return [];
-          lo=this.min();
-          hi=this.max();
+          if(!this.isEmpty()){
+            lo=this.min();
+            hi=this.max();
+          }
         }
-        this.assertOk(lo) && this.assertOk(hi);
-        return this._keysNode(this.root, [], lo, hi);
+        if(!this.isEmpty()&& this._argOk(lo) && this._argOk(hi)){
+          this._keysNode(this.root, Q, lo, hi);
+        }
+        return Q.iter();
       }
       // add the keys between lo and hi in the subtree rooted at x
       // to the queue
       _keysNode(x, queue, lo, hi){
-        if(!this.nil(x)){
+        if(x){
           let cmplo = this.compare(lo,x.key);
           let cmphi = this.compare(hi,x.key);
           if(cmplo < 0) this._keysNode(x.left, queue, lo, hi);
-          if(cmplo <= 0 && cmphi >= 0) queue.push(x.key);
+          if(cmplo <= 0 && cmphi >= 0) queue.enqueue(x.key);
           if(cmphi > 0) this._keysNode(x.right, queue, lo, hi);
         }
         return queue;
       }
-      /**
-       * Returns the number of keys in the symbol table in the given range.
-       *
-       * @param  lo minimum endpoint
-       * @param  hi maximum endpoint
-       * @return the number of keys in the symbol table between {@code lo}
+      /**Returns the number of keys in the symbol table in the given range.
+       * @param  {any} lo minimum endpoint
+       * @param  {any} hi maximum endpoint
+       * @return {number} the number of keys in the symbol table between {@code lo}
        *    (inclusive) and {@code hi} (inclusive)
-       * @throws Error if either {@code lo} or {@code hi}
-       *    is {@code null}
        */
       size(lo, hi){
-        if(argmuments.length==0){
-          return this._sizeNode(this.root);
-        }else{
-          this.assertOk(lo) && this.assertOk(hi);
-          return this.compare(lo,hi) > 0? 0
-                                        :(this.contains(hi)? (this._rankNode(hi) - this._rankNode(lo) + 1)
-                                                           : (this._rankNode(hi) - this._rankNode(lo)));
-        }
+        return arguments.length==0? this._sizeNode(this.root)
+          : (this._argOk(lo) &&
+             this._argOk(hi) &&
+             this.compare(lo,hi) > 0? 0
+                                    :(this.contains(hi)? (this.rank(hi) - this.rank(lo) + 1)
+                                                       : (this.rank(hi) - this.rank(lo))));
       }
-      static eval(input,compareFn){
+      static load(input,compareFn){
         let b= new RedBlackBST(compareFn);
         input.forEach((s,i)=> b.put(s,i));
         return b;
       }
       static test(){
-        let obj= RedBlackBST.eval("SEARCHEXAMPLE".split(""), (a,b)=>{
-          return a<b?-1:(a>b?1:0)
-        });
-        obj.keys().forEach(s=>{
-          console.log(`${s} = ${obj.get(s)}`)
-        });
+        let m,obj= RedBlackBST.load("SEARCHEXAMPLE".split(""), CMP);
+        m="";
+        for(let s,it=obj.keys();it.hasNext();){
+          s=it.next(); m+=`${s}=${obj.get(s)} `; }
+        console.log(m);
+        obj.isEmpty();
+        console.log("height= "+obj.height()+", size= "+obj.size());
+        console.log("get X= "+obj.get("X"));
+        console.log("contains X= "+obj.contains("X"));
+        console.log("min= "+obj.min()+",max= "+obj.max());
+        obj.deleteMin();
+        obj.deleteMax();
+        console.log("min= "+obj.min()+",max= "+obj.max());
+        obj.delete("R");
+        console.log("contains R= "+obj.contains("R"));
+        console.log("floor J= "+obj.floor("J"));
+        console.log("ceiling J= "+obj.ceiling("J"));
+        console.log("rank M= "+obj.rank("M"));
+        m="";
+        for(let s,it=obj.keys("D","Q");it.hasNext();){
+          s=it.next(); m+=`${s}=${obj.get(s)} `; }
+        console.log("keys[D-Q]= "+m);
+        console.log("size[E-P]= "+ obj.size("E","P"));
       }
     }
+    //RedBlackBST.test();
 
     /**Provides a static method for binary searching for an integer in a sorted array of integers.
      * @memberof module:mcfud/algo_search
@@ -1461,16 +1327,16 @@
      */
     class BinarySearch{
       /**Returns the index of the specified key in the specified array.
-       * @param  a the array of integers, must be sorted in ascending order
-       * @param  key the search key
-       * @return index of key in array {@code a} if present; {@code -1} otherwise
+       * @param  {array} a the array of integers, must be sorted in ascending order
+       * @param  {number} key the search key
+       * @return {number} index of key in array {@code a} if present; {@code -1} otherwise
        */
       static indexOf(a, key){
         let lo = 0,
             hi = a.length - 1;
         while(lo <= hi){
           // Key is in a[lo..hi] or not present.
-          let mid = lo + (hi - lo) / 2;
+          let mid = lo + int((hi-lo)/2);
           if(key < a[mid]) hi = mid - 1;
           else if(key > a[mid]) lo = mid + 1;
           else return mid;
@@ -1486,354 +1352,11 @@
         })
       }
     }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    // throw an IllegalArgumentException unless {@code 0 <= v < V}
-    function _validateVertex(v,V){
-      if(v < 0 || v >= V)
-        throw Error(`vertex ${v} is not between 0 and ${V-1}`);
-    }
-    /**Represents an undirected graph of vertices named 0 through <em>V</em> – 1.
-     * @memberof module:mcfud/algo_search
-     * @class
-     * @property {number} V number of vertices
-     * @property {number} E number of edges
-     * @property {array} adjls list of adjacents
-     */
-    class Graph{
-      static copy(G){
-        if(G.V() < 0)
-          throw Error("Number of vertices must be non-negative");
-        let ret=new Graph(G.V());
-        ret.edges= G.E();
-        // update adjacency lists
-        ret.adjls = new Array(G.V());
-        for(let v = 0; v < V; ++v) ret.adjls[v] = new Bag();
-        for(let v = 0; v < G.V(); ++v){
-          // reverse so that adjacency list is in same order as original
-          let reverse = new Stack();
-          let it= G.adjls[v].iterator();
-          while(it.hasNext()){
-            reverse.push(it.next())
-          }
-          it=reverse.iterator();
-          while(it.hasNext()){
-            this.adjls[v].add(it.next())
-          }
-        }
-        return ret;
-      }
-      /**
-       * Initializes an empty graph with {@code V} vertices and 0 edges.
-       * param V the number of vertices
-       *
-       * @param  V number of vertices
-       * @throws Error if {@code V < 0}
-       */
-      constructor(V){
-        if(V < 0)
-          throw Error("Number of vertices must be non-negative");
-        this.adjls = new Array(V);
-        this.verts = V;
-        this.edges = 0;
-        for(let v = 0; v < V; ++v) this.adjls[v] = new Bag();
-      }
-      /**
-       * Returns the number of vertices in this graph.
-       *
-       * @return the number of vertices in this graph
-       */
-      V(){
-        return this.verts;
-      }
-      /**
-       * Returns the number of edges in this graph.
-       *
-       * @return the number of edges in this graph
-       */
-      E(){
-        return this.edges;
-      }
-      /**
-       * Adds the undirected edge v-w to this graph.
-       *
-       * @param  v one vertex in the edge
-       * @param  w the other vertex in the edge
-       * @throws IllegalArgumentException unless both {@code 0 <= v < V} and {@code 0 <= w < V}
-       */
-      addEdge(v, w){
-        _validateVertex(v,this.verts);
-        _validateVertex(w,this.verts);
-        this.edges++;
-        this.adjls[v].add(w);
-        this.adjls[w].add(v);
-      }
-      /**
-       * Returns the vertices adjacent to vertex {@code v}.
-       *
-       * @param  v the vertex
-       * @return the vertices adjacent to vertex {@code v}, as an iterable
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      adj(v){
-        _validateVertex(v, this.verts);
-        return this.adjls[v];
-      }
-      /**
-       * Returns the degree of vertex {@code v}.
-       *
-       * @param  v the vertex
-       * @return the degree of vertex {@code v}
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      degree(v){
-        _validateVertex(v, this.verts);
-        return this.adjls[v].size();
-      }
-      /**
-       * Returns a string representation of this graph.
-       *
-       * @return the number of vertices <em>V</em>, followed by the number of edges <em>E</em>,
-       *         followed by the <em>V</em> adjacency lists
-       */
-      toString(){
-        let out=`${this.verts} vertices, ${this.edges} edges\n`;
-        for(let it,v = 0; v < this.verts; ++v){
-          out += `${v}: `;
-          it= this.adjls[v].iterator();
-          while(it.hasNext()){
-            out += `${it.next()} `;
-          }
-          out += "\n";
-        }
-        return out;
-      }
-      static test(){
-        let obj= new Graph(13);
-        let a=[0,5,4,3,0,1,9,12,6,4,5,4,0,2,11,12,9,10,0,6,7,8,9,11,5,3];
-        for(let i=0;i<a.length; i+=2){
-          obj.addEdge(a[i], a[i+1]);
-        }
-        console.log(obj.toString());
-      }
-    }
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    // depth first search from v
-    function _dfs(G, v,M){
-      let w,it= G.adj(v).iterator();
-      M.nCount++;
-      M.bMarked[v] = true;
-      while(it.hasNext()){
-        w=it.next();
-        if(!M.bMarked[w]) _dfs(G, w,M);
-      }
-    }
-    /**
-     * @memberof module:mcfud/algo_search
-     * @class
-     * @property {array} bMarked marked[v] = is there an s-v path?
-     * @property {number} count number of vertices connected to s
-     */
-    class DepthFirstSearch{
-      /**
-       * Computes the vertices in graph {@code G} that are
-       * connected to the source vertex {@code s}.
-       * @param G the graph
-       * @param s the source vertex
-       * @throws Error unless {@code 0 <= s < V}
-       */
-      constructor(G, s){
-        this.bMarked = new Array(G.V()); // marked[v] = is there an s-v path?
-        this.nCount=0; // number of vertices connected to s
-        _validateVertex(s,this.bMarked.length);
-        _dfs(G, s, this);
-      }
-      /**
-       * Is there a path between the source vertex {@code s} and vertex {@code v}?
-       * @param v the vertex
-       * @return {@code true} if there is a path, {@code false} otherwise
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      marked(v){
-        _validateVertex(v,this.bMarked.length);
-        return this.bMarked[v];
-      }
-      /**
-       * Returns the number of vertices connected to the source vertex {@code s}.
-       * @return the number of vertices connected to the source vertex {@code s}
-       */
-      count(){
-        return this.nCount;
-      }
-      static test(){
-        let g=new Graph(13);
-        let a=[0,5,4,3,0,1,9,12,6,4,5,4,0,2,11,12,9,10,0,6,7,8,9,11,5,3];
-        for(let i=0;i<a.length; i+=2){ g.addEdge(a[i], a[i+1]); }
-        let obj= new DepthFirstSearch(g, 0);
-        for(let v = 0; v < g.V(); ++v)
-          if(obj.marked(v)) console.log(v + " ");
-        console.log(obj.count() != g.V()? "NOT connected" :"connected");
-        obj= new DepthFirstSearch(g, 9);
-        for(let v = 0; v < g.V(); ++v)
-          if(obj.marked(v)) console.log(v + " ");
-        console.log(obj.count() != g.V()? "NOT connected" :"connected");
-      }
-    }
-    /**Represents a data type for finding the vertices connected to a source vertex <em>s</em> in the undirected graph.
-     * @memberof module:mcfud/algo_search
-     * @class
-     * @property {array} bMarked marked[v] = is there an s-v path?
-     */
-    class NonrecursiveDFS{
-      /**
-       * Computes the vertices connected to the source vertex {@code s} in the graph {@code G}.
-       * @param G the graph
-       * @param s the source vertex
-       * @throws Error unless {@code 0 <= s < V}
-       */
-      constructor(G, s){
-        this.bMarked = new Array(G.V()); // marked[v] = is there an s-v path?
-        _validateVertex(s,this.bMarked.length);
-        // to be able to iterate over each adjacency list, keeping track of which
-        // vertex in each adjacency list needs to be explored next
-        let adj = new Array(G.V());
-        for(let v = 0; v < G.V(); ++v)
-          adj[v] = G.adj(v).iterator();
-        // depth-first search using an explicit stack
-        let it,v,w,stack = new Stack();
-        this.bMarked[s] = true;
-        stack.push(s);
-        while(!stack.isEmpty()){
-          v = stack.peek();
-          it=adj[v];
-          if(it.hasNext()){
-            w = it.next();
-            //console.log(`check ${w}`);
-            if(!this.bMarked[w]){
-              // discovered vertex w for the first time
-              this.bMarked[w] = true;
-              // edgeTo[w] = v;
-              stack.push(w);
-              //console.log(`dfs(${w})`);
-            }
-          }else{
-            //console.log(`${v} done`);
-            stack.pop();
-          }
-        }
-      }
-      /**
-       * Is vertex {@code v} connected to the source vertex {@code s}?
-       * @param v the vertex
-       * @return {@code true} if vertex {@code v} is connected to the source vertex {@code s},
-       *    and {@code false} otherwise
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      marked(v){
-        _validateVertex(v,this.bMarked.length);
-        return this.bMarked[v];
-      }
-      static test(){
-        let g = new Graph(13);
-        let a=[0,5,4,3,0,1,9,12,6,4,5,4,0,2,11,12,9,10,0,6,7,8,9,11,5,3];
-        for(let i=0;i<a.length; i+=2){ g.addEdge(a[i], a[i+1]); }
-        let obj = new NonrecursiveDFS(g, 0);
-        for(let v = 0; v < g.V(); ++v)
-          if(obj.marked(v)) console.log(v + " ");
-        console.log("***");
-        obj = new NonrecursiveDFS(g, 9);
-        for(let v = 0; v < g.V(); ++v)
-          if(obj.marked(v)) console.log(v + " ");
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    // depth first search from v
-    function _dfs(G, v,M){
-      let w,it=G.adj(v).iterator();
-      M.bMarked[v] = true;
-      while(it.hasNext()){
-        w=it.next();
-        if(!M.bMarked[w]){
-          M.edgeTo[w] = v;
-          _dfs(G, w,M);
-        }
-      }
-    }
-
-    /**Represents a data type for finding paths from a source vertex <em>s</em>
-     * to every other vertex in an undirected graph.
-     * @memberof module:mcfud/algo_search
-     * @class
-     * @property {array} bMarked marked[v] = is there an s-v path?
-     * @property {number} s source index
-     * @property {array} edgeTo edgeTo[v] = last edge on s-v path
-     */
-    class DepthFirstPaths{
-      /**
-       * Computes a path between {@code s} and every other vertex in graph {@code G}.
-       * @param G the graph
-       * @param s the source vertex
-       * @throws IllegalArgumentException unless {@code 0 <= s < V}
-       */
-      constructor(G, s){
-        this.bMarked = new Array(G.V());
-        this.edgeTo = new Array(G.V());
-        this.s = s; // source vertex
-        _validateVertex(s,this.bMarked.length);
-        _dfs(G, s,this);
-      }
-      /**
-       * Is there a path between the source vertex {@code s} and vertex {@code v}?
-       * @param v the vertex
-       * @return {@code true} if there is a path, {@code false} otherwise
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      hasPathTo(v){
-        _validateVertex(v,this.bMarked.length);
-        return this.bMarked[v];
-      }
-      /**
-       * Returns a path between the source vertex {@code s} and vertex {@code v}, or
-       * {@code null} if no such path.
-       * @param  v the vertex
-       * @return the sequence of vertices on a path between the source vertex
-       *         {@code s} and vertex {@code v}, as an Iterable
-       * @throws IllegalArgumentException unless {@code 0 <= v < V}
-       */
-      pathTo(v){
-        _validateVertex(v,this.bMarked.length);
-        if(!this.hasPathTo(v)) return null;
-        let path = new Stack();
-        for(let x = v; x != this.s; x = this.edgeTo[x]) path.push(x);
-        path.push(this.s);
-        return path;
-      }
-      static test(){
-        let G = new Graph(6);
-        let s=0,a=[0,5,2,4,2,3,1,2,0,1,3,4,3,5,0,2];
-        for(let i=0;i<a.length; i+=2){ G.addEdge(a[i], a[i+1]) }
-        let obj = new DepthFirstPaths(G, s);
-        for(let m,it,x, v = 0; v < G.V(); ++v){
-          if(obj.hasPathTo(v)){
-            m= `${s} to ${v}:  `;
-            it=obj.pathTo(v).iterator();
-            while(it.hasNext()){
-              x=it.next();
-              m += x==s? x : `-${x}`;
-            }
-            console.log(m);
-          }else{
-            console.log(`${s} to ${v}:  not connected\n`);
-          }
-        }
-      }
-    }
+    //BinarySearch.test();
 
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
-     * @property {object} root the root node
      */
     class AVLTreeST{
       Node(key, val, height, size){
@@ -1841,50 +1364,40 @@
         // size: number of nodes in subtree
         return {key, val, height, size, left:null, right: null}
       }
+      /**
+       * @param {function} compareFn
+       */
       constructor(compareFn){
         this.compare=compareFn;
         this.root=null;
       }
       /**Checks if the symbol table is empty.
-       * @return {@code true} if the symbol table is empty.
+       * @return {boolean}
        */
       isEmpty(){
-        return this.root == null;
+        return _.nichts(this.root)
       }
-      /**Returns the number key-value pairs in the symbol table.
-       * @return the number key-value pairs in the symbol table
-       */
-      size(){
-        return this._sizeNode(root);
-      }
-      /**Returns the number of nodes in the subtree.
-       * @param x the subtree
-       * @return the number of nodes in the subtree
-       */
+      //Returns the number of nodes in the subtree.
       _sizeNode(x){
-        return x == null? 0:x.size;
+        return _.nichts(x) ? 0:x.size;
       }
       /**Returns the height of the internal AVL tree. It is assumed that the
        * height of an empty tree is -1 and the height of a tree with just one node
        * is 0.
-       * @return the height of the internal AVL tree
+       * @return {number}
        */
       height(){
         return this._heightNode(this.root);
       }
-      /**Returns the height of the subtree.
-       * @param x the subtree
-       * @return the height of the subtree.
-       */
+      //Returns the height of the subtree.
       _heightNode(x){
-        return x == null? -1: x.height;
+        return _.nichts(x)? -1: x.height;
       }
       /**Returns the value associated with the given key.
-       * @param key the key
-       * @return the value associated with the given key if the key is in the
+       * @param {any} key the key
+       * @return {any} the value associated with the given key if the key is in the
        *         symbol table and {@code null} if the key is not in the
        *         symbol table
-       * @throws Error if {@code key} is {@code null}
        */
       get(key){
         if(_.nichts(key)) throw Error("argument to get() is null");
@@ -1894,9 +1407,9 @@
       /**Returns value associated with the given key in the subtree or
        * {@code null} if no such key.
        *
-       * @param x the subtree
-       * @param key the key
-       * @return value associated with the given key in the subtree or
+       * @param {object} x the subtree
+       * @param {any} key the key
+       * @return {any} value associated with the given key in the subtree or
        *         {@code null} if no such key
        */
       _getNode(x, key){
@@ -1907,24 +1420,18 @@
         return x;
       }
       /**Checks if the symbol table contains the given key.
-       *
-       * @param key the key
-       * @return {@code true} if the symbol table contains {@code key}
-       *         and {@code false} otherwise
-       * @throws Error if {@code key} is {@code null}
+       * @param {any} key the key
+       * @return {boolean}
        */
       contains(key){
         return this.get(key) !== undefined;
       }
-      /**
-       * Inserts the specified key-value pair into the symbol table, overwriting
+      /**Inserts the specified key-value pair into the symbol table, overwriting
        * the old value with the new value if the symbol table already contains the
        * specified key. Deletes the specified key (and its associated value) from
        * this symbol table if the specified value is {@code null}.
-       *
-       * @param key the key
-       * @param val the value
-       * @throws Error if {@code key} is {@code null}
+       * @param {any} key the key
+       * @param {any} val the value
        */
       put(key, val){
         if(_.nichts(key)) throw Error("first argument to put() is null");
@@ -1938,11 +1445,10 @@
        * with the new value if the symbol table already contains the specified key
        * and deletes the specified key (and its associated value) from this symbol
        * table if the specified value is {@code null}.
-       *
-       * @param x the subtree
-       * @param key the key
-       * @param val the value
-       * @return the subtree
+       * @param {object} x the subtree
+       * @param {any} key the key
+       * @param {any} val the value
+       * @return {object} the subtree
        */
       _putNode(x, key, val){
         if(!x) return this.Node(key, val, 0, 1);
@@ -1959,11 +1465,9 @@
         x.height = 1 + Math.max(this._heightNode(x.left), this._heightNode(x.right));
         return this._balanceNode(x);
       }
-      /**
-       * Restores the AVL tree property of the subtree.
-       *
-       * @param x the subtree
-       * @return the subtree with restored AVL property
+      /**Restores the AVL tree property of the subtree.
+       * @param {object} x the subtree
+       * @return {object} the subtree with restored AVL property
        */
       _balanceNode(x){
         if(this._balanceFactor(x) < -1){
@@ -1975,24 +1479,20 @@
         }
         return x;
       }
-      /**
-       * Returns the balance factor of the subtree. The balance factor is defined
+      /**Returns the balance factor of the subtree. The balance factor is defined
        * as the difference in height of the left subtree and right subtree, in
        * this order. Therefore, a subtree with a balance factor of -1, 0 or 1 has
        * the AVL property since the heights of the two child subtrees differ by at
        * most one.
-       *
-       * @param x the subtree
-       * @return the balance factor of the subtree
+       * @param {object} x the subtree
+       * @return {number} the balance factor of the subtree
        */
       _balanceFactor(x){
         return this._heightNode(x.left) - this._heightNode(x.right);
       }
-      /**
-       * Rotates the given subtree to the right.
-       *
-       * @param x the subtree
-       * @return the right rotated subtree
+      /** Rotates the given subtree to the right.
+       * @param {object} x the subtree
+       * @return {object} the right rotated subtree
        */
       _rotateRight(x){
         let y = x.left;
@@ -2004,11 +1504,9 @@
         y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
         return y;
       }
-      /**
-       * Rotates the given subtree to the left.
-       *
-       * @param x the subtree
-       * @return the left rotated subtree
+      /**Rotates the given subtree to the left.
+       * @param {object} x the subtree
+       * @return {oject} the left rotated subtree
        */
       _rotateLeft(x){
         let y = x.right;
@@ -2020,25 +1518,19 @@
         y.height = 1 + Math.max(this._heightNode(y.left), this._heightNode(y.right));
         return y;
       }
-      /**
-       * Removes the specified key and its associated value from the symbol table
+      /**Removes the specified key and its associated value from the symbol table
        * (if the key is in the symbol table).
-       *
-       * @param key the key
-       * @throws Error if {@code key} is {@code null}
+       * @param {any} key the key
        */
       delete(key){
         if(_.nichts(key)) throw Error("argument to delete() is null");
         if(this.contains(key))
           this.root = this._deleteNode(this.root, key);
       }
-      /**
-       * Removes the specified key and its associated value from the given
-       * subtree.
-       *
-       * @param x the subtree
-       * @param key the key
-       * @return the updated subtree
+      /**Removes the specified key and its associated value from the given subtree.
+       * @param {object} x the subtree
+       * @param {any} key the key
+       * @return {object} the updated subtree
        */
       _deleteNode(x, key){
         let cmp = this.compare(key,x.key);
@@ -2050,7 +1542,7 @@
           if(!x.left) return x.right;
           if(!x.right) return x.left;
           let y = x;
-          x = min(y.right);
+          x = this.min(y.right);
           x.right = this.deleteMin(y.right);
           x.left = y.left;
         }
@@ -2059,16 +1551,14 @@
         return this._balance(x);
       }
       /**Removes the smallest key and associated value from the symbol table.
-       * @throws Error if the symbol table is empty
        */
       deleteMin(){
         if(this.isEmpty()) throw Error("called deleteMin() with empty symbol table");
         this.root = this._deleteMinNode(this.root);
       }
       /**Removes the smallest key and associated value from the given subtree.
-       *
-       * @param x the subtree
-       * @return the updated subtree
+       * @param {object} x the subtree
+       * @return {object} the updated subtree
        */
       _deleteMinNode(x){
         if(!x.left) return x.right;
@@ -2078,17 +1568,14 @@
         return this._balance(x);
       }
       /**Removes the largest key and associated value from the symbol table.
-       *
-       * @throws Error if the symbol table is empty
        */
       deleteMax(){
         if(this.isEmpty()) throw Error("called deleteMax() with empty symbol table");
         this.root = this._deleteMaxNode(this.root);
       }
       /**Removes the largest key and associated value from the given subtree.
-       *
-       * @param x the subtree
-       * @return the updated subtree
+       * @param {object} x the subtree
+       * @return {object} the updated subtree
        */
       _deleteMaxNode(x){
         if(!x.right) return x.left;
@@ -2098,48 +1585,38 @@
         return this._balance(x);
       }
       /**Returns the smallest key in the symbol table.
-       *
-       * @return the smallest key in the symbol table
-       * @throws Error if the symbol table is empty
+       * @return {any} the smallest key in the symbol table
        */
       min(){
         if(this.isEmpty()) throw Error("called min() with empty symbol table");
-        return this._minNode(root).key;
+        return this._minNode(this.root).key;
       }
       /**Returns the node with the smallest key in the subtree.
-       *
-       * @param x the subtree
-       * @return the node with the smallest key in the subtree
+       * @param {object} x the subtree
+       * @return {object} the node with the smallest key in the subtree
        */
       _minNode(x){
         return !x.left ? x: this._minNode(x.left);
       }
       /**Returns the largest key in the symbol table.
-       *
        * @return the largest key in the symbol table
-       * @throws Error if the symbol table is empty
        */
       max(){
         if(this.isEmpty()) throw Error("called max() with empty symbol table");
-        return this._maxNode(root).key;
+        return this._maxNode(this.root).key;
       }
       /**Returns the node with the largest key in the subtree.
-       *
-       * @param x the subtree
-       * @return the node with the largest key in the subtree
+       * @param {object} x the subtree
+       * @return {object} the node with the largest key in the subtree
        */
       _maxNode(x){
         return !x.right ? x: this._maxNode(x.right);
       }
-      /**
-       * Returns the largest key in the symbol table less than or equal to
+      /**Returns the largest key in the symbol table less than or equal to
        * {@code key}.
-       *
-       * @param key the key
-       * @return the largest key in the symbol table less than or equal to
+       * @param {any} key the key
+       * @return {any} the largest key in the symbol table less than or equal to
        *         {@code key}
-       * @throws Error if the symbol table is empty
-       * @throws Error if {@code key} is {@code null}
        */
       floor(key){
         if(_.nichts(key)) throw Error("argument to floor() is null");
@@ -2147,13 +1624,11 @@
         let x = this._floorNode(this.root, key);
         if(x) return x.key;
       }
-      /**
-       * Returns the node in the subtree with the largest key less than or equal
+      /**Returns the node in the subtree with the largest key less than or equal
        * to the given key.
-       *
-       * @param x the subtree
-       * @param key the key
-       * @return the node in the subtree with the largest key less than or equal
+       * @param {object} x the subtree
+       * @param {any} key the key
+       * @return {object} the node in the subtree with the largest key less than or equal
        *         to the given key
        */
       _floorNode(x, key){
@@ -2166,12 +1641,9 @@
       }
       /**Returns the smallest key in the symbol table greater than or equal to
        * {@code key}.
-       *
-       * @param key the key
-       * @return the smallest key in the symbol table greater than or equal to
+       * @param {any} key the key
+       * @return {any} the smallest key in the symbol table greater than or equal to
        *         {@code key}
-       * @throws Error if the symbol table is empty
-       * @throws Error if {@code key} is {@code null}
        */
       ceiling(key){
         if(_.nichts(key)) throw Error("argument to ceiling() is null");
@@ -2181,10 +1653,9 @@
       }
       /**Returns the node in the subtree with the smallest key greater than or
        * equal to the given key.
-       *
-       * @param x the subtree
-       * @param key the key
-       * @return the node in the subtree with the smallest key greater than or
+       * @param {object} x the subtree
+       * @param {any} key the key
+       * @return {object} the node in the subtree with the smallest key greater than or
        *         equal to the given key
        */
       _ceilingNode(x, key){
@@ -2196,21 +1667,18 @@
         return y? y: x;
       }
       /**Returns the kth smallest key in the symbol table.
-       *
-       * @param k the order statistic
-       * @return the kth smallest key in the symbol table
-       * @throws Error unless {@code k} is between 0 and {@code size() -1 }
+       * @param {number} k the order statistic
+       * @return {any} the kth smallest key in the symbol table
        */
       select(k){
         if(k < 0 || k >= this.size()) throw Error("k is not in range 0-" + (this.size() - 1));
-        let n= this._selectNode(root, k);
+        let n= this._selectNode(this.root, k);
         if(n) return n.key;
       }
       /**Returns the node with key the kth smallest key in the subtree.
-       *
-       * @param x the subtree
-       * @param k the kth smallest key in the subtree
-       * @return the node with key the kth smallest key in the subtree
+       * @param {object} x the subtree
+       * @param {any} k the kth smallest key in the subtree
+       * @return {object} the node with key the kth smallest key in the subtree
        */
       _selectNode(x, k){
         if(_.nichts(x)) return null;
@@ -2221,21 +1689,18 @@
       }
       /**Returns the number of keys in the symbol table strictly less than
        * {@code key}.
-       *
-       * @param key the key
-       * @return the number of keys in the symbol table strictly less than
+       * @param {any} key the key
+       * @return {number} the number of keys in the symbol table strictly less than
        *         {@code key}
-       * @throws Error if {@code key} is {@code null}
        */
       rank(key){
         if(_.nichts(key)) throw Error("argument to rank() is null");
         return this._rankNode(key, this.root);
       }
       /**Returns the number of keys in the subtree less than key.
-       *
-       * @param key the key
-       * @param x the subtree
-       * @return the number of keys in the subtree less than key
+       * @param {any} key the key
+       * @param {object} x the subtree
+       * @return {number} the number of keys in the subtree less than key
        */
       _rankNode(key, x){
         if(_.nichts(x)) return 0;
@@ -2244,26 +1709,17 @@
         if(cmp > 0) return 1 + this._sizeNode(x.left) + this._rankNode(key, x.right);
         return this._sizeNode(x.left);
       }
-      /**Returns all keys in the symbol table.
-       *
-       * @return all keys in the symbol table
-       */
-      keys(){
-        return this.keysInOrder();
-      }
       /**Returns all keys in the symbol table following an in-order traversal.
-       *
-       * @return all keys in the symbol table following an in-order traversal
+       * @return {Iterator} all keys in the symbol table following an in-order traversal
        */
       keysInOrder(){
         let queue = new Queue();
         this._keysInOrderNode(this.root, queue);
-        return queue;
+        return queue.iter();
       }
       /**Adds the keys in the subtree to queue following an in-order traversal.
-       *
-       * @param x the subtree
-       * @param queue the queue
+       * @param {object} x the subtree
+       * @param {Queue} queue the queue
        */
       _keysInOrderNode(x, queue){
         if(!_.nichts(x)){
@@ -2273,7 +1729,7 @@
         }
       }
       /**Returns all keys in the symbol table following a level-order traversal.
-       * @return all keys in the symbol table following a level-order traversal.
+       * @return {Iterator} all keys in the symbol table following a level-order traversal.
        */
       keysLevelOrder(){
         let queue = new Queue();
@@ -2294,28 +1750,21 @@
         return queue;
       }
       /**Returns all keys in the symbol table in the given range.
-       *
-       * @param lo the lowest key
-       * @param hi the highest key
-       * @return all keys in the symbol table between {@code lo} (inclusive)
+       * @param {any} lo the lowest key
+       * @param {any} hi the highest key
+       * @return {Iterator} all keys in the symbol table between {@code lo} (inclusive)
        *         and {@code hi} (exclusive)
-       * @throws Error if either {@code lo} or {@code hi} is {@code null}
        */
-      keysBetween(lo, hi){
+      keys(lo, hi){
+        if(arguments.length==0){ return this.keysInOrder()}
         if(_.nichts(lo)) throw Error("first argument to keys() is null");
         if(_.nichts(hi)) throw Error("second argument to keys() is null");
         let queue = new Queue();
         this._keysNode(this.root, queue, lo, hi);
-        return queue;
+        return queue.iter();
       }
-      /**
-       * Adds the keys between {@code lo} and {@code hi} in the subtree
+      /**Adds the keys between {@code lo} and {@code hi} in the subtree
        * to the {@code queue}.
-       *
-       * @param x the subtree
-       * @param queue the queue
-       * @param lo the lowest key
-       * @param hi the highest key
        */
       _keysNode(x, queue, lo, hi){
         if(x){
@@ -2327,25 +1776,22 @@
         }
       }
       /**Returns the number of keys in the symbol table in the given range.
-       *
        * @param lo minimum endpoint
        * @param hi maximum endpoint
        * @return the number of keys in the symbol table between {@code lo}
        *         (inclusive) and {@code hi} (exclusive)
        * @throws Error if either {@code lo} or {@code hi} is {@code null}
        */
-      sizeBetween(lo, hi){
+      size(lo, hi){
+        if(arguments.length==0){ return this._sizeNode(this.root)}
         if(_.nichts(lo)) throw Error("first argument to size() is null");
         if(_.nichts(hi)) throw Error("second argument to size() is null");
         if(this.compare(lo,hi) > 0) return 0;
         if(this.contains(hi)) return this.rank(hi) - this.rank(lo) + 1;
         return this.rank(hi) - this.rank(lo);
       }
-      /**Checks if the AVL tree invariants are fine.
-       *
-       * @return {@code true} if the AVL tree invariants are fine
-       */
-      check(){
+      //Checks if the AVL tree invariants are fine.
+      _check(){
         let self=this;
         function isAVL(x){
           if(!x) return true;
@@ -2378,31 +1824,16 @@
       static test(){
         let st = new AVLTreeST(CMP);
         "SEARCHEXAMPLE".split("").forEach((s,i)=> st.put(s,i));
-        for(let s,it=st.keys().iterator();it.hasNext();){
+        for(let s,it=st.keys();it.hasNext();){
           s=it.next();
           console.log(s + " " + st.get(s));
         }
       }
     }
-
-    //AVLTreeST.test();
-    //DepthFirstPaths.test();
-    //NonrecursiveDFS.test();
-    //DepthFirstSearch.test();
-    //Graph.test();
-    //BinarySearch.test();
-    //RedBlackBST.test();
-    //BST.test();
-    //BinarySearchST.test();
-    //SequentialSearchST.test();
-    //FrequencyCounter.test();
+    AVLTreeST.test();
 
     const _$={
       AVLTreeST,
-      DepthFirstPaths,
-      NonrecursiveDFS,
-      DepthFirstSearch,
-      Graph,
       BinarySearch,
       RedBlackBST,
       BST,
