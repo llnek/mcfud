@@ -21,7 +21,7 @@
   function _module(Core,Basic){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
-    const {Bag,Stack,Iterator,StdCompare:CMP}= Basic;
+    const {prnIter,Bag,Stack,Iterator,StdCompare:CMP}= Basic;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -480,10 +480,11 @@
           this.pq = new Array(keys.length+1);
           this.n = keys.length;
           for(let i=0; i< this.n; ++i) this.pq[i+1] = keys[i];
-          for(let k = int(this.n/2); k>=1; --k) this.sink(k,this);
+          for(let k = int(this.n/2); k>=1; --k) this._sink(k,this);
         }else{
           this.pq= new Array(is.num(keys)? keys: 2);
         }
+        _.assert(this._isMinHeap(),"not min heap");
       }
       /**Returns true if this priority queue is empty.
        * @return {boolean}
@@ -504,13 +505,6 @@
         if(this.isEmpty()) throw Error("Priority queue underflow");
         return this.pq[1];
       }
-      // resize the underlying array to have the given capacity
-      XX_resize(c){
-        _.assert(c> this.n,"bad resize capacity");
-        let temp = new Array(c);
-        for(let i=1; i<=this.n; ++i) temp[i] = this.pq[i];
-        this.pq = temp;
-      }
       /**Adds a new key to this priority queue.
        * @param  x the key to add to this priority queue
        */
@@ -520,7 +514,8 @@
           this.pq=resize(2*this.pq.length, this.n, 1, this.n+1, this.pq);
         // add x, and percolate it up to maintain heap invariant
         this.pq[++this.n] = x;
-        this.swim(this.n);
+        this._swim(this.n);
+        _.assert(this._isMinHeap(),"not min heap-insert");
       }
       /**Removes and returns a smallest key on this priority queue.
        * @return {any}
@@ -529,45 +524,45 @@
         if(this.isEmpty()) throw Error("Priority queue underflow");
         let min=this.pq[1];
         exch(this.pq, 1, this.n--);
-        this.sink(1);
+        this._sink(1);
         this.pq[this.n+1] = null;// to avoid loitering and help with garbage collection
         if((this.n>0) &&
            (this.n==int((this.pq.length-1)/4)))
           this.pq= resize(int(this.pq.length/2),this.n,1,this.n+1,this.pq);
         return min;
       }
-      swim(k){
-        while(k>1 && this.greater(int(k/2), k)){
+      _swim(k){
+        while(k>1 && this._greater(int(k/2), k)){
           exch(this.pq, k, int(k/2));
           k=int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j<this.n && this.greater(j, j+1)) j++;
-          if(!this.greater(k, j)) break;
+          if(j<this.n && this._greater(j, j+1)) j++;
+          if(!this._greater(k, j)) break;
           exch(this.pq, k, j);
           k=j;
         }
       }
-      greater(i, j){
+      _greater(i, j){
         return this.comparator(this.pq[i], this.pq[j]) > 0;
       }
       // is pq[1..n] a min heap?
-      isMinHeap(){
+      _isMinHeap(){
         for(let i=1; i<=this.n; ++i) if(_.nichts(this.pq[i])) return false;
         for(let i=this.n+1; i<this.pq.length; ++i) if(!_.nichts(this.pq[i])) return false;
-        return _.echt(this.pq[0])? false: this.isMinHeapOrdered(1);
+        return _.echt(this.pq[0])? false: this._isMinHeapOrdered(1);
       }
       // is subtree of pq[1..n] rooted at k a min heap?
-      isMinHeapOrdered(k){
+      _isMinHeapOrdered(k){
         if(k>this.n) return true;
         let left = 2*k,
             right = 2*k + 1;
-        if(left  <= this.n && this.greater(k, left))  return false;
-        if(right <= this.n && this.greater(k, right)) return false;
-        return this.isMinHeapOrdered(left) && this.isMinHeapOrdered(right);
+        if(left  <= this.n && this._greater(k, left))  return false;
+        if(right <= this.n && this._greater(k, right)) return false;
+        return this._isMinHeapOrdered(left) && this._isMinHeapOrdered(right);
       }
       /**Returns an iterator that iterates over the keys.
        * @return {Iterator}
@@ -621,10 +616,11 @@
           this.pq = new Array(keys.length+1);
           this.n = keys.length;
           for(let i=0; i<this.n; ++i) this.pq[i+1] = keys[i];
-          for(let k=int(this.n/2); k>=1; --k) this.sink(k);
+          for(let k=int(this.n/2); k>=1; --k) this._sink(k);
         }else{
           this.pq= new Array(is.num(keys)? keys: 2);
         }
+        _.assert(this._isMaxHeap(),"not max heap");
       }
       /**Returns true if this priority queue is empty.
        * @return {boolean}
@@ -656,7 +652,8 @@
         // add x, and percolate it up to maintain heap invariant
         this.n+=1;
         this.pq[this.n] = x;
-        this.swim(this.n);
+        this._swim(this.n);
+        _.assert(this._isMaxHeap(),"not max heap-insert");
       }
       /**Removes and returns a largest key on this priority queue.
        * @return a largest key on this priority queue
@@ -668,20 +665,34 @@
         let max = this.pq[1];
         exch(this.pq, 1, this.n);
         this.n-=1;
-        this.sink(1);
+        this._sink(1);
         this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
         if(this.n > 0 &&
            this.n == int((this.pq.length-1)/4))
           this.pq=resize(int(this.pq.length/2), this.n, 1, this.n+1, this.pq);
         return max;
       }
-      swim(k){
+      _isMaxHeap(){
+        for(let i=1; i <= this.n; ++i) if(_.nichts(this.pq[i])) return false;
+        for(let i = this.n+1; i < this.pq.length; ++i) if(_.echt(this.pq[i])) return false;
+        if(_.echt(this.pq[0])) return false;
+        return this._isMaxHeapOrdered(1);
+      }
+      _isMaxHeapOrdered(k){
+        if(k > this.n) return true;
+        let left = 2*k,
+            right = 2*k + 1;
+        if(left  <= this.n && less4(this.pq,k, left,this.comparator))  return false;
+        if(right <= this.n && less4(this.pq,k, right,this.comparator)) return false;
+        return this._isMaxHeapOrdered(left) && this._isMaxHeapOrdered(right);
+      }
+      _swim(k){
         while(k>1 && less4(this.pq, int(k/2), k, this.comparator)){
           exch(this.pq, k, int(k/2));
           k= int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         let j;
         while(2*k <= this.n){
           j = 2*k;
@@ -814,7 +825,7 @@
        * @return {boolean}
        */
       contains(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         return this.qp[i] != -1;
       }
       /**Returns the number of keys on this priority queue.
@@ -828,14 +839,14 @@
        * @param  {any} key the key to associate with index {@code i}
        */
       insert(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(this.contains(i))
           throw Error("index is already in the priority queue");
         ++this.n;
         this.qp[i] = this.n;
         this.pq[this.n] = i;
         this.mKeys[i] = key;
-        this.swim(this.n);
+        this._swim(this.n);
       }
       /**Returns an index associated with a minimum key.
        * @return {any}
@@ -857,8 +868,8 @@
       delMin(){
         if(this.n == 0) throw Error("Priority queue underflow");
         let min = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
+        this._exch(1, this.n--);
+        this._sink(1);
         _.assert(min == this.pq[this.n+1], "No good");
         this.qp[min] = -1; // delete
         this.mKeys[min] = null;  // to help with garbage collection
@@ -870,7 +881,7 @@
        * @return {any}
        */
       keyOf(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         return this.mKeys[i];
@@ -880,19 +891,19 @@
        * @param  {any} key change the key associated with index {@code i} to this key
        */
       changeKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
+        this._swim(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Decrease the key associated with index {@code i} to the specified value.
        * @param  {number} i the index of the key to decrease
        * @param  {any} key decrease the key associated with index {@code i} to this key
        */
       decreaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let c=this.compare(this.mKeys[i],key);
@@ -901,14 +912,14 @@
         if(c< 0)
           throw Error("Calling decreaseKey() with a key strictly greater than the key in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
+        this._swim(this.qp[i]);
       }
       /**Increase the key associated with index {@code i} to the specified value.
        * @param  {number} i the index of the key to increase
        * @param  {any} key increase the key associated with index {@code i} to this key
        */
       increaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let c= this.compare(this.mKeys[i],key);
@@ -917,48 +928,48 @@
         if(c>0)
           throw Error("Calling increaseKey() with a key strictly less than the key in the priority queue");
         this.mKeys[i] = key;
-        this.sink(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Remove the key associated with index {@code i}.
        * @param  {number} i the index of the key to remove
        */
       delete(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
+        this._exch(index, this.n--);
+        this._swim(index);
+        this._sink(index);
         this.mKeys[i] = null;
         this.qp[i] = -1;
       }
-      validateIndex(i){
+      _validateIndex(i){
         if(i<0) throw Error("index is negative: " + i);
         if(i >= this.maxN) throw Error("index >= capacity: " + i);
       }
-      greater(i, j){
+      _greater(i, j){
         return this.compare(this.mKeys[this.pq[i]],this.mKeys[this.pq[j]]) > 0;
       }
-      exch(i, j){
+      _exch(i, j){
         let swap = this.pq[i];
         this.pq[i] = this.pq[j];
         this.pq[j] = swap;
         this.qp[this.pq[i]] = i;
         this.qp[this.pq[j]] = j;
       }
-      swim(k){
-        while(k>1 && this.greater(int(k/2), k)){
-          this.exch(k, int(k/2));
+      _swim(k){
+        while(k>1 && this._greater(int(k/2), k)){
+          this._exch(k, int(k/2));
           k = int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j<this.n && this.greater(j, j+1)) ++j;
-          if(!this.greater(k, j)) break;
-          this.exch(k, j);
+          if(j<this.n && this._greater(j, j+1)) ++j;
+          if(!this._greater(k, j)) break;
+          this._exch(k, j);
           k = j;
         }
       }
@@ -994,9 +1005,7 @@
         }
         console.log("");
         // reinsert the same strings
-        for(let i=0; i<strings.length; ++i){
-          pq.insert(i, strings[i]);
-        }
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
         // print each key using the iterator
         for(let i,it=pq.iter();it.hasNext();){
           i=it.next();
@@ -1043,7 +1052,7 @@
        * @return {boolean}
        */
       contains(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         return this.qp[i] != -1;
       }
       /**Returns the number of keys on this priority queue.
@@ -1057,14 +1066,14 @@
        * @param {any} key the key to associate with index {@code i}
        */
       insert(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(this.contains(i))
           throw Error("index is already in the priority queue");
         ++this.n;
         this.qp[i] = this.n;
         this.pq[this.n] = i;
         this.mKeys[i] = key;
-        this.swim(this.n);
+        this._swim(this.n);
       }
       /**Returns an index associated with a maximum key.
        * @return {any}
@@ -1086,8 +1095,8 @@
       delMax(){
         if(this.n == 0) throw Error("Priority queue underflow");
         let max = this.pq[1];
-        this.exch(1, this.n--);
-        this.sink(1);
+        this._exch(1, this.n--);
+        this._sink(1);
         _.assert(this.pq[this.n+1] == max,"bad delMax");
         this.qp[max] = -1;        // delete
         this.mKeys[max] = null;    // to help with garbage collection
@@ -1099,7 +1108,7 @@
        * @return {any}
        */
       keyOf(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         return this.mKeys[i];
@@ -1109,19 +1118,19 @@
        * @param  {any} key change the key associated with index {@code i} to this key
        */
       changeKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
-        this.sink(this.qp[i]);
+        this._swim(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Increase the key associated with index {@code i} to the specified value.
        * @param {number} i the index of the key to increase
        * @param {any} key increase the key associated with index {@code i} to this key
        */
       increaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         if(this.compare(this.mKeys[i],key) == 0)
@@ -1129,14 +1138,14 @@
         if(this.compare(this.mKeys[i],key) > 0)
           throw Error("Calling increaseKey() with a key that is strictly less than the key in the priority queue");
         this.mKeys[i] = key;
-        this.swim(this.qp[i]);
+        this._swim(this.qp[i]);
       }
       /**Decrease the key associated with index {@code i} to the specified value.
        * @param {number} i the index of the key to decrease
        * @param {any} key decrease the key associated with index {@code i} to this key
        */
       decreaseKey(i, key){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         if(this.compare(this.mKeys[i],key) == 0)
@@ -1144,48 +1153,48 @@
         if(this.compare(this.mKeys[i],key) < 0)
           throw Error("Calling decreaseKey() with a key that is strictly greater than the key in the priority queue");
         this.mKeys[i] = key;
-        this.sink(this.qp[i]);
+        this._sink(this.qp[i]);
       }
       /**Remove the key on the priority queue associated with index {@code i}.
        * @param {number} i the index of the key to remove
        */
       delete(i){
-        this.validateIndex(i);
+        this._validateIndex(i);
         if(!this.contains(i))
           throw Error("index is not in the priority queue");
         let index = this.qp[i];
-        this.exch(index, this.n--);
-        this.swim(index);
-        this.sink(index);
+        this._exch(index, this.n--);
+        this._swim(index);
+        this._sink(index);
         this.mKeys[i] = null;
         this.qp[i] = -1;
       }
-      validateIndex(i){
+      _validateIndex(i){
         if(i<0) throw Error("index is negative: " + i);
         if(i>=this.maxN) throw Error("index >= capacity: " + i);
       }
-      less(i,j){
+      _less(i,j){
         return less(this.mKeys[this.pq[i]], this.mKeys[this.pq[j]], this.compare)
       }
-      exch(i, j){
+      _exch(i, j){
         let swap = this.pq[i];
         this.pq[i] = this.pq[j];
         this.pq[j] = swap;
         this.qp[this.pq[i]] = i;
         this.qp[this.pq[j]] = j;
       }
-      swim(k){
-        while(k > 1 && this.less(int(k/2), k)) {
-          this.exch(k, int(k/2));
+      _swim(k){
+        while(k > 1 && this._less(int(k/2), k)) {
+          this._exch(k, int(k/2));
           k = int(k/2);
         }
       }
-      sink(k){
+      _sink(k){
         while(2*k <= this.n){
           let j = 2*k;
-          if(j < this.n && this.less(j, j+1)) ++j;
-          if(!this.less(k, j)) break;
-          this.exch(k, j);
+          if(j < this.n && this._less(j, j+1)) ++j;
+          if(!this._less(k, j)) break;
+          this._exch(k, j);
           k = j;
         }
       }

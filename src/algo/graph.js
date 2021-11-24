@@ -22,8 +22,8 @@
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const {prnIter, Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
-    const {IndexMinPQ}= Sort;
+    const {prnIter, TreeMap,Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
+    const {IndexMinPQ,MinPQ}= Sort;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -610,7 +610,7 @@
        */
       edges(){
         const list = new Bag();
-        for(let it,s,e,v=0; v<V; ++v){
+        for(let it,s,e,v=0; v<this._V; ++v){
           s=0;
           for(it=this.adjls[v].iter(); it.hasNext();){
             e=it.next();
@@ -623,7 +623,7 @@
             }
           }
         }
-        return list;
+        return list.iter();
       }
       /**Returns a string representation of the edge-weighted graph.
        * This method takes time proportional to <em>E</em> + <em>V</em>.
@@ -2070,10 +2070,353 @@
     }
     //DijkstraSP.test();
 
+    function AStarGraphNode(){
+      return{
+        parent: null, V:0, f:0, g:0, h:0,
+        equals(o){ return o.V==this.V }
+      }
+    }
+    function AStarGridNode(loc,par){
+      return{
+        parent: par, pos: loc, f:0, g:0, h:0,
+        pid: `${loc[0]},${loc[1]}`,
+        equals(o){
+          return this.pos[0]==o.pos[0] &&
+                 this.pos[1]==o.pos[1]
+        }
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class AStarGrid{
+      static manhattan(test, dest,cost){
+        return cost*Math.abs(test[1] - dest[1]) +
+               cost*Math.abs(test[0] - dest[0]);
+      }
+      static euclidean(test, dest,cost){
+        let vx = dest[0] - test[0],
+            vy = dest[1] - test[1];
+        return (vx * vx + vy * vy) * cost;
+      }
+      static diagonal(test, dest,cost){
+        let vx = Math.abs(dest[0] - test[0]),
+            vy = Math.abs(dest[1] - test[1]);
+        return (vx>vy) ? int(cost * vy + cost * (vx - vy))
+                        :int(cost * vx + cost * (vy - vx))
+      }
+      constructor(grid){
+        this.grid=grid;
+      }
+      pathTo(start, end, ctx){
+        return this._search(this.grid,start,end,ctx)
+      }
+      _search(grid,start,end,ctx){
+        const CMP=ctx.compare,
+              ROWS= grid.length,
+              COLS=grid[0].length,
+              openSet = new MinPQ(CMP,16),
+              openTM=new Map(),
+              closedSet = new Map(),
+              goalNode = AStarGridNode(end),
+              startNode = AStarGridNode(start),
+              rpath=(cn,out)=>{
+                for(;cn;cn=cn.parent)
+                  out.unshift(cn.pos);
+                return out;
+              },
+              dirs= [[-1,0],[0,-1],[1,0],[0,1]];
+        //include diagonal neighbors?
+        if(ctx.wantDiagonal)
+          dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+        openSet.insert(startNode);
+        openTM.set(startNode.pid,startNode.g);
+        //begin...
+        let cur,neighbors=[];
+        while(!openSet.isEmpty()){
+          cur= openSet.delMin();
+          openTM.delete(cur.pid);
+          closedSet.set(cur.pid,0);
+          //done?
+          if(cur.equals(goalNode)){return rpath(cur,[])}
+          neighbors.length=0;
+          for(let p,i=0;i<dirs.length;++i){
+            p = [cur.pos[0] + dirs[i][0], cur.pos[1] + dirs[i][1]];
+            if(p[0] > (COLS - 1) || p[0] < 0 ||
+               p[1] > (ROWS -1) || p[1] < 0 || ctx.obstacle(p)){
+            }else{
+              neighbors.push(AStarGridNode(p,cur));
+            }
+          }
+          neighbors.forEach(co=>{
+            if(!closedSet.has(co.pid)){
+              co.g = cur.g + ctx.cost();
+              co.h= ctx.calcHeuristic(co,goalNode);
+              co.f = co.g + co.h;
+              if(!openTM.has(co.pid) ||
+                 co.g<openTM.get(co.pid)){
+                //update with lower cost
+                openSet.insert(co);
+                openTM.set(co.pid,co.g);
+              }
+            }
+          });
+        }
+      }
+      static test(){
+        let grid = [[0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 1, 0, 0],
+                    [0, 1, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 1, 0]];
+        let ctx={
+          wantDiagonal:false,
+          compare(a,b){ return a.f-b.f },
+          cost(){ return 1 },
+          obstacle(n){ return grid[n[1]][n[0]] != 0 },
+          calcHeuristic(a,g){
+            return AStarGrid.euclidean(a,g,1)
+          }
+        }
+        let m,r= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
+        if(r){
+          m="";
+          r.forEach(p=>{
+            m+= `[${p[0]},${p[1]}] `;
+          })
+          console.log(m);
+        }else{
+          console.log("no path");
+        }
+      }
+    }
+    //AStarGrid.test();
+
+    /**
+     * @memberof module:mcfud/algo_graph
+     * @class
+     */
+    class AStar{
+      constructor(G,src,goal,ctx){
+        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
+        this._path= this._astar(G,src,goal,ctx);
+      }
+      _astar(G,src,goal,ctx){
+        // The set of currently discovered nodes that are not evaluated yet.
+        // Initially, only the start node is known.
+        let cmp=ctx.compare,
+            co=ctx.getNode(src),
+            gg=ctx.getNode(goal),
+            openSet = new MinPQ(cmp);
+        co.fScore = ctx.getHeuristic(src);
+        openSet.insert(co);
+        let cur= openSet.delMin(),
+            closedSet = new TreeMap();//ints
+        while(cur && cur.V != gg.V){
+          closedSet.set(cur.V,1);
+          for(let wo,w,it= G.adj(cur.V).iter(); it.hasNext();){
+            w= it.next().other(cur.V);
+            wo=ctx.getNode(w);
+            if(!closedSet.contains(w)){
+              wo.parent = cur;
+              // The distance (number of moves) from start to the neighbor
+              wo.gScore = cur.gScore + 1;
+              // cost = number of moves + heuristic
+              wo.fScore = wo.gScore + ctx.getHeuristic(w);
+              openSet.insert(wo);
+            }
+          }
+          cur = openSet.delMin();
+        }
+        let res= new Bag();
+        while(cur){
+          res.add(cur.V);
+          cur=cur.parent;
+        }
+        return res;
+      }
+      path(){
+        if(this._path)
+          return this._path.iter();
+      }
+      static test(){
+        let data=`4 5 0.35 4 7 0.37 5 7 0.28 0 7 0.16 1 5 0.32 0 4 0.38
+                  2 3 0.17 1 7 0.19 0 2 0.26 1 2 0.36 1 3 0.29 2 7 0.34
+                  6 2 0.40 3 6 0.52 6 0 0.58 6 4 0.93`.split(/\s+/).map(n=>{return +n});
+        let s=6, G = EdgeWeightedGraph.load(8,data);
+        let out=[];
+        for(let i=0;i<8;++i){
+          out.push({
+            fScore: 0,
+            gScore: 0,
+            V:i,
+            parent:null
+          });
+        }
+        let ctx={
+          compare(a,b){
+            return a.fScore-b.fScore;
+          },
+          getNode(v){
+            _.assert(v>=0&&v<8,"boom!");
+            return out[v];
+          },
+          getHeuristic(v){
+            _.assert(v>=0&&v<8,"boom!");
+            return v * _.randInt(100);
+          }
+        };
+        let a= new AStar(G,6,5,ctx);
+        console.log(prnIter(a.path()));
+      }
+    }
+    //AStar.test();
+
+    /**Represents a data type for solving
+     *  the single-source shortest paths problem in edge-weighted graphs
+     *  where the edge weights are non-negative.
+     * @memberof module:mcfud/algo_graph
+     * @class
+     */
+    class DijkstraUndirectedSP{
+      /**Computes a shortest-paths tree from the source vertex {@code s} to every
+       * other vertex in the edge-weighted graph {@code G}.
+       * @param {Graph} G the edge-weighted digraph
+       * @param {number} s the source vertex
+       * @param {function} compareFn
+       */
+      constructor(G, s,compareFn) {
+        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
+        //distTo  distTo[v] = distance  of shortest s->v path
+        //edgeTo  edgeTo[v] = last edge on shortest s->v path
+        //pq     priority queue of vertices
+        for(let e,it=G.edges();it.hasNext();){
+          e=it.next();
+          if(e.weight()<0)
+            throw new Error(`edge ${e} has negative weight`);
+        }
+        this._distTo = _.fill(G.V(),()=> Infinity);
+        this._distTo[s] = 0;
+        this.compare=compareFn;
+        this.edgeTo = _.fill(G.V(), ()=> null);
+        _chkVertex(s,G.V());
+        // relax vertices in order of distance from s
+        this.pq = new IndexMinPQ(G.V(),this.compare);
+        this.pq.insert(s, this._distTo[s]);
+        while(!this.pq.isEmpty()){
+          let v = this.pq.delMin();
+          for(let it=G.adj(v).iter(); it.hasNext();) this._relax(it.next(), v);
+        }
+        // check optimality conditions
+        this._check(G, s);
+      }
+      // relax edge e and update pq if changed
+      _relax(e, v){
+        let w = e.other(v);
+        if(this._distTo[w] > this._distTo[v] + e.weight()) {
+          this._distTo[w] = this._distTo[v] + e.weight();
+          this.edgeTo[w] = e;
+          if(this.pq.contains(w)) this.pq.decreaseKey(w, this._distTo[w]);
+          else this.pq.insert(w, this._distTo[w]);
+        }
+      }
+      /**Returns the length of a shortest path between the source vertex {@code s} and
+       * vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {number}
+       */
+      distTo(v){
+        return _chkVertex(v,this._distTo.length) && this._distTo[v]
+      }
+      /**Returns true if there is a path between the source vertex {@code s} and
+       * vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {boolean}
+       */
+      hasPathTo(v){
+        return _chkVertex(v,this._distTo.length) && this._distTo[v] < Infinity
+      }
+      /**Returns a shortest path between the source vertex {@code s} and vertex {@code v}.
+       * @param  {number} v the destination vertex
+       * @return {Iterator}
+       */
+      pathTo(v){
+        if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
+          let x=v,path = new Stack();
+          for(let e = this.edgeTo[v]; e !== null; e = this.edgeTo[x]){
+            path.push(e);
+            x = e.other(x);
+          }
+          return path.iter();
+        }
+      }
+      // check optimality conditions:
+      // (i) for all edges e = v-w:            distTo[w] <= distTo[v] + e.weight()
+      // (ii) for all edge e = v-w on the SPT: distTo[w] == distTo[v] + e.weight()
+      _check(G, s){
+        // check that edge weights are non-negative
+        for(let it=G.edges();it.hasNext();){
+          if(it.next().weight() < 0)
+            throw Error("negative edge weight detected");
+        }
+        // check that distTo[v] and edgeTo[v] are consistent
+        if(this._distTo[s] != 0 || this.edgeTo[s] !== null){
+          throw Error("distTo[s] and edgeTo[s] inconsistent");
+        }
+        for(let v=0; v<G.V(); ++v){
+          if(v == s) continue;
+          if(this.edgeTo[v] === null &&
+             this._distTo[v] != Infinity){
+            throw Error("distTo[] and edgeTo[] inconsistent");
+          }
+        }
+        // check that all edges e = v-w satisfy distTo[w] <= distTo[v] + e.weight()
+        for(let v=0; v<G.V(); ++v){
+          for(let w,e,it=G.adj(v).iter();it.hasNext();){
+            e=it.next();
+            w = e.other(v);
+            if(this._distTo[v] + e.weight() < this._distTo[w]){
+              throw Error(`edge ${e} not relaxed`);
+            }
+          }
+        }
+        // check that all edges e = v-w on SPT satisfy distTo[w] == distTo[v] + e.weight()
+        for(let v,e,w=0; w<G.V(); ++w){
+          if(this.edgeTo[w] === null) continue;
+          e = this.edgeTo[w];
+          if(w != e.either() && w != e.other(e.either())) return false;
+          v = e.other(w);
+          if(this._distTo[v] + e.weight() != this._distTo[w]) {
+            throw Error(`edge ${e} on shortest path not tight`);
+          }
+        }
+        return true;
+      }
+      static test(){
+        let data=`4 5 0.35 4 7 0.37 5 7 0.28 0 7 0.16 1 5 0.32 0 4 0.38
+                  2 3 0.17 1 7 0.19 0 2 0.26 1 2 0.36 1 3 0.29 2 7 0.34
+                  6 2 0.40 3 6 0.52 6 0 0.58 6 4 0.93`.split(/\s+/).map(n=>{return +n});
+        let s=6,G = EdgeWeightedGraph.load(8,data);
+        let sp = new DijkstraUndirectedSP(G, s,CMP);
+        for(let m,t=0; t<G.V(); ++t){
+          if(sp.hasPathTo(t)){
+            m= `${s} to ${t} (${Number(sp.distTo(t)).toFixed(2)})  `;
+            for(let it= sp.pathTo(t);it.hasNext();){
+              m += `${it.next()}   `;
+            }
+            console.log(m);
+          }else{
+            console.log(`${s} to ${t}         no path`);
+          }
+        }
+      }
+    }
+    //DijkstraUndirectedSP.test();
+
     const _$={
       DepthFirstDirectedPaths,
       BreadthFirstDirectedPaths,
       SymbolGraph,
+      DijkstraUndirectedSP,
       DijkstraSP,
       Topological,
       SymbolDigraph,
