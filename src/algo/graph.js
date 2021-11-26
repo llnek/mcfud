@@ -2070,209 +2070,105 @@
     }
     //DijkstraSP.test();
 
-    function AStarGraphNode(){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function AStarGraphNode(V=0,par=null,g=0,h=0,f=0){
       return{
-        parent: null, V:0, f:0, g:0, h:0,
+        parent: par, V, f, g, h,
         equals(o){ return o.V==this.V }
       }
     }
-    function AStarGridNode(loc,par){
-      return{
-        parent: par, pos: loc, f:0, g:0, h:0,
-        pid: `${loc[0]},${loc[1]}`,
-        equals(o){
-          return this.pos[0]==o.pos[0] &&
-                 this.pos[1]==o.pos[1]
-        }
-      }
-    }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    class AStarGrid{
-      static manhattan(test, dest,cost){
-        return cost*Math.abs(test[1] - dest[1]) +
-               cost*Math.abs(test[0] - dest[0]);
-      }
-      static euclidean(test, dest,cost){
-        let vx = dest[0] - test[0],
-            vy = dest[1] - test[1];
-        return (vx * vx + vy * vy) * cost;
-      }
-      static diagonal(test, dest,cost,xcost){
-        let vx = Math.abs(dest[0] - test[0]),
-            vy = Math.abs(dest[1] - test[1]);
-        if(xcost===undefined){xcost=cost}
-        return (vx>vy) ? int(xcost * vy + cost * (vx - vy))
-                       : int(xcost * vx + cost * (vy - vx))
-      }
-      constructor(grid){
-        this.grid=grid;
+    /**
+     * @memberof module:mcfud/algo_graph
+     * @class
+     */
+    class AStarSP{
+      constructor(G){
+        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
+        this.G=G;
       }
       pathTo(start, end, ctx){
-        return this._search(this.grid,start,end,ctx)
+        return this._search(this.G,start,end,ctx)
       }
-      _search(grid,start,end,ctx){
+      _search(G,start,end,ctx){
         const CMP=ctx.compare,
-              ROWS= grid.length,
-              COLS= grid[0].length,
               closedSet = new Map(),
+              openTM= new Map(),
               openSet = new MinPQ(CMP,10),
-              goalNode = AStarGridNode(end),
-              startNode = AStarGridNode(start),
-              dirs=[[1,0],[-1,0],[0,1],[0,-1]],
-              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.pos); return out; };
-        //include diagonal neighbors?
-        if(ctx.wantDiagonal)
-          dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+              goalNode = AStarGraphNode(end),
+              startNode = AStarGraphNode(start),
+              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.V); return out; };
+        openTM.set(startNode.V,startNode.g);
         openSet.insert(startNode);
         //begin...
-        let skip,cur,neighbors=[];
+        let cur,neighbors=[];
         while(!openSet.isEmpty()){
           cur= openSet.delMin();
-          closedSet.set(cur.pid,0);
+          openTM.delete(cur.V);
+          closedSet.set(cur.V,0);
           //done?
           if(cur.equals(goalNode)){return rpath(cur,[])}
-          neighbors.length=0;
-          for(let p,i=0;i<dirs.length;++i){
-            p = [cur.pos[0] + dirs[i][0], cur.pos[1] + dirs[i][1]];
-            if(p[0] > (COLS-1) || p[0] < 0 ||
-               p[1] > (ROWS-1) || p[1] < 0 || ctx.blocked(p)){
-            }else{
-              neighbors.push(AStarGridNode(p,cur));
+          //check neigbors
+          for(let co,f,g,h,w,it=G.adj(cur.V).iter(); it.hasNext();){
+            w=it.next().other(cur.V);
+            if(!closedSet.has(w)){
+              g = cur.g + ctx.calcCost(w,cur.V);
+              h = ctx.calcHeuristic(w,goalNode.V);
+              f = g + h;
+              //update if lower cost
+              if(openTM.has(w) && g > openTM.get(w)){}else{
+                openSet.insert(AStarGraphNode(w,cur,g,h,f));
+                openTM.set(w, g);
+              }
             }
           }
-          neighbors.forEach(co=>{
-            if(!closedSet.has(co.pid)){
-              co.g = cur.g + ctx.cost();
-              co.h = ctx.calcHeuristic(co.pos,goalNode.pos);
-              co.f = co.g + co.h;
-              skip=false;
-              for(let s,it=openSet.iter(); !skip && it.hasNext();){
-                s=it.next();
-                skip= s.equals(co) && co.g > s.g;
-              }
-              if(!skip)
-                openSet.insert(co); //update with lower cost
-            }
-          });
         }
       }
       static test(){
-        let grid = [[0, 1, 0, 0, 0, 0],
-                    [0, 0, 0, 0, 0, 0],
-                    [0, 1, 0, 1, 0, 0],
-                    [0, 1, 0, 0, 1, 0],
-                    [0, 0, 0, 0, 1, 0]];
-        let ROWS=grid.length,COLS=grid[0].length;
+        let D=[0, 1, 111, 0, 2, 85, 1, 3, 104, 1, 4, 140, 1, 5, 183, 2, 3, 230, 2, 6, 67,
+               6, 7, 191, 6, 4, 64, 3, 5, 171, 3, 8, 170, 3, 9, 220, 4, 5, 107, 7, 10, 91,
+               7, 11, 85, 10, 11, 120, 11, 12, 184, 12, 5, 55, 12, 8, 115, 8, 5, 123,
+               8, 9, 189, 8, 13, 59, 13, 14, 81, 9, 15, 102, 14, 15, 126];
+        let G= EdgeWeightedGraph.load(16,D);
+        let H = {};
+        H['7'] = 204;
+        H['10'] = 247;
+        H['0'] = 215;
+        H['6'] = 137;
+        H['15'] = 318;
+        H['2'] = 164;
+        H['8'] = 120;
+        H['12'] = 47;
+        H['3'] = 132;
+        H['9'] = 257;
+        H['13'] = 168;
+        H['4'] = 75;
+        H['14'] = 236;
+        H['1'] = 153;
+        H['11'] = 157;
+        H['5'] = 0;
         let ctx={
-          wantDiagonal:false,
           compare(a,b){ return a.f-b.f },
-          cost(){ return 1 },
-          blocked(n){ return grid[n[1]][n[0]] != 0 },
-          calcHeuristic(a,g){
-            //return AStarGrid.diagonal(a,g,10,14);
-            return AStarGrid.euclidean(a,g,1)
-            //return AStarGrid.manhattan(a,g,10)
+          calcCost(test,cur){
+            for(let e,it=G.adj(test).iter();it.hasNext();){
+              e=it.next();
+              if(e.other(test)==cur) return e.weight();
+            }
+            throw Error("Boom");
+          },
+          calcHeuristic(w,g){
+            return H[w]
           }
         }
-        let c,r,m,p= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
+        let c,r,m,p= new AStarSP(G).pathTo(0,5,ctx);
         if(p){
-          m=""; p.forEach(n=>{ m+= `[${n[0]},${n[1]}] `; }); console.log(m);
-          r=_.fill(ROWS, ()=> _.fill(COLS, "#"));
-          c=0;
-          p.forEach(n=>{
-            r[n[1]][n[0]]= ""+c;
-            ++c;
-          });
-          r.forEach(row=>{
-            console.log(row.toString())
-          });
+          m=""; p.forEach(n=>{ m+= `[${n}] `; }); console.log(m);
         }else{
           console.log("no path");
         }
       }
     }
-    AStarGrid.test();
-
-    /**
-     * @memberof module:mcfud/algo_graph
-     * @class
-     */
-    class AStar{
-      constructor(G,src,goal,ctx){
-        _.assert(G instanceof EdgeWeightedGraph,"Expected EdgeWeightedGraph");
-        this._path= this._astar(G,src,goal,ctx);
-      }
-      _astar(G,src,goal,ctx){
-        // The set of currently discovered nodes that are not evaluated yet.
-        // Initially, only the start node is known.
-        let cmp=ctx.compare,
-            co=ctx.getNode(src),
-            gg=ctx.getNode(goal),
-            openSet = new MinPQ(cmp);
-        co.fScore = ctx.getHeuristic(src);
-        openSet.insert(co);
-        let cur= openSet.delMin(),
-            closedSet = new TreeMap();//ints
-        while(cur && cur.V != gg.V){
-          closedSet.set(cur.V,1);
-          for(let wo,w,it= G.adj(cur.V).iter(); it.hasNext();){
-            w= it.next().other(cur.V);
-            wo=ctx.getNode(w);
-            if(!closedSet.contains(w)){
-              wo.parent = cur;
-              // The distance (number of moves) from start to the neighbor
-              wo.gScore = cur.gScore + 1;
-              // cost = number of moves + heuristic
-              wo.fScore = wo.gScore + ctx.getHeuristic(w);
-              openSet.insert(wo);
-            }
-          }
-          cur = openSet.delMin();
-        }
-        let res= new Bag();
-        while(cur){
-          res.add(cur.V);
-          cur=cur.parent;
-        }
-        return res;
-      }
-      path(){
-        if(this._path)
-          return this._path.iter();
-      }
-      static test(){
-        let data=`4 5 0.35 4 7 0.37 5 7 0.28 0 7 0.16 1 5 0.32 0 4 0.38
-                  2 3 0.17 1 7 0.19 0 2 0.26 1 2 0.36 1 3 0.29 2 7 0.34
-                  6 2 0.40 3 6 0.52 6 0 0.58 6 4 0.93`.split(/\s+/).map(n=>{return +n});
-        let s=6, G = EdgeWeightedGraph.load(8,data);
-        let out=[];
-        for(let i=0;i<8;++i){
-          out.push({
-            fScore: 0,
-            gScore: 0,
-            V:i,
-            parent:null
-          });
-        }
-        let ctx={
-          compare(a,b){
-            return a.fScore-b.fScore;
-          },
-          getNode(v){
-            _.assert(v>=0&&v<8,"boom!");
-            return out[v];
-          },
-          getHeuristic(v){
-            _.assert(v>=0&&v<8,"boom!");
-            return v * _.randInt(100);
-          }
-        };
-        let a= new AStar(G,6,5,ctx);
-        console.log(prnIter(a.path()));
-      }
-    }
-    //AStar.test();
+    //AStarSP.test();
 
     /**Represents a data type for solving
      *  the single-source shortest paths problem in edge-weighted graphs

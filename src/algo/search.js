@@ -18,10 +18,12 @@
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,Basic,Sort){
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
+    if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
+    const {MinPQ}= Sort;
     const int=Math.floor;
     const {is,u:_}= Core;
 
@@ -1830,9 +1832,143 @@
         }
       }
     }
-    AVLTreeST.test();
+    //AVLTreeST.test();
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const SQRT2=Math.sqrt(2);
+    function AStarGridNode(loc,par){
+      return{
+        parent: par, pos: loc, f:0, g:0, h:0,
+        pid: `${loc[0]},${loc[1]}`,
+        equals(o){
+          return this.pos[0]==o.pos[0] &&
+                 this.pos[1]==o.pos[1]
+        }
+      }
+    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class AStarGrid{
+      /**Use when movement is limited to 4 directions only.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static manhattan(test, goal,cost=1){
+        return cost*Math.abs(test[1] - goal[1]) +
+               cost*Math.abs(test[0] - goal[0]);
+      }
+      /**Use when movements are allowed in all directions.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static euclidean(test, goal,cost=1){
+        let vx = goal[0] - test[0],
+            vy = goal[1] - test[1];
+        return cost * (vx * vx + vy * vy);
+      }
+      /**Use when movements are allowed in all directions.
+       * @param {array} test node pos
+       * @param {array} goal node pos
+       * @param {number} cost
+       */
+      static diagonal(test, goal,cost=1,xcost=SQRT2){
+        let dx = Math.abs(goal[0] - test[0]),
+            dy = Math.abs(goal[1] - test[1]);
+        return cost * (dx + dy) + (xcost - 2 * cost) * Math.min(dx, dy);
+      }
+      constructor(grid){
+        this.grid=grid;
+      }
+      pathTo(start, end, ctx){
+        return this._search(this.grid,start,end,ctx)
+      }
+      _search(grid,start,end,ctx){
+        const CMP=ctx.compare,
+              ROWS= grid.length,
+              COLS= grid[0].length,
+              closedSet = new Map(),
+              openTM= new Map(),
+              openSet = new MinPQ(CMP,10),
+              goalNode = AStarGridNode(end),
+              startNode = AStarGridNode(start),
+              dirs=[[1,0],[-1,0],[0,1],[0,-1]],
+              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.pos); return out; };
+        //include diagonal neighbors?
+        if(ctx.wantDiagonal)
+          dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
+        openTM.set(startNode.pid,startNode.g);
+        openSet.insert(startNode);
+        //begin...
+        let cur,neighbors=[];
+        while(!openSet.isEmpty()){
+          cur= openSet.delMin();
+          openTM.delete(cur.pid);
+          closedSet.set(cur.pid,0);
+          //done?
+          if(cur.equals(goalNode)){return rpath(cur,[])}
+          neighbors.length=0;
+          for(let p,i=0;i<dirs.length;++i){
+            p = [cur.pos[0] + dirs[i][0], cur.pos[1] + dirs[i][1]];
+            if(p[0] > (COLS-1) || p[0] < 0 ||
+               p[1] > (ROWS-1) || p[1] < 0 || ctx.blocked(p)){
+            }else{
+              neighbors.push(AStarGridNode(p,cur));
+            }
+          }
+          neighbors.forEach(co=>{
+            if(!closedSet.has(co.pid)){
+              co.g = cur.g + ctx.cost();
+              co.h = ctx.calcHeuristic(co.pos,goalNode.pos);
+              co.f = co.g + co.h;
+              //update if lower cost
+              if(openTM.has(co.pid) && co.g > openTM.get(co.pid)){}else{
+                openSet.insert(co);
+                openTM.set(co.pid, co.g);
+              }
+            }
+          });
+        }
+      }
+      static test(){
+        let grid = [[0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 1, 0, 0],
+                    [0, 1, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 1, 0]];
+        let ROWS=grid.length,COLS=grid[0].length;
+        let ctx={
+          wantDiagonal:false,
+          compare(a,b){ return a.f-b.f },
+          cost(){ return 1 },
+          blocked(n){ return grid[n[1]][n[0]] != 0 },
+          calcHeuristic(a,g){
+            //return AStarGrid.diagonal(a,g,10,14);
+            return AStarGrid.euclidean(a,g);
+            //return AStarGrid.manhattan(a,g,10)
+          }
+        }
+        let c,r,m,p= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
+        if(p){
+          m=""; p.forEach(n=>{ m+= `[${n[0]},${n[1]}] `; }); console.log(m);
+          r=_.fill(ROWS, ()=> _.fill(COLS, "#"));
+          c=0;
+          p.forEach(n=>{
+            r[n[1]][n[0]]= ""+c;
+            ++c;
+          });
+          r.forEach(row=>{
+            console.log(row.toString())
+          });
+        }else{
+          console.log("no path");
+        }
+      }
+    }
+    AStarGrid.test();
 
     const _$={
+      AStarGrid,
       AVLTreeST,
       BinarySearch,
       RedBlackBST,
@@ -1847,7 +1983,7 @@
 
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+    module.exports=_module(require("../main/core"),require("./basic"),require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/search"]=_module
   }
