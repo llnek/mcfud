@@ -462,6 +462,544 @@
     }
 
     /**Represents a priority queue of generic keys.
+     *  It supports the usual insert and delete-the-minimum operations,
+     *  along with the merging of two heaps together.
+     * @memberof module:mcfud/algo_sort
+     * @class
+     */
+    class FibonacciMinPQ{
+      Node(key){
+        //int order;            //Order of the tree rooted by this Node
+        return {key, order:0, prev:null, next:null, child:null}
+      }
+      constructor(compareFn, keys){
+        //private Node head;          //Head of the circular root list
+        //private Node min;         //Minimum Node of the root list
+        //private int size;         //Number of keys in the heap
+        //private final Comparator<Key> comp; //Comparator over the keys
+        //private HashMap<Integer, Node> table = new HashMap<Integer, Node>(); //Used for the consolidate operation
+        this.compare=compareFn;
+        this.table=new Map();
+        this.head=null;
+        this._min=null;
+        this.n=0;
+        if(is.vec(keys))
+          keys.forEach(k=> this.insert(k));
+      }
+      /**Whether the priority queue is empty
+      * @return {boolean}
+      */
+      isEmpty(){
+        return this.n == 0;
+      }
+      /**Number of elements currently on the priority queue
+      * @return {number}
+      */
+      size(){
+        return this.n;
+      }
+      /**Insert a key in the queue
+      * @param {any} key a Key
+      */
+      insert(key){
+        let x = this.Node(key);
+        this.n+= 1;
+        this.head = this._insertNode(x, this.head);
+        this._min= !this._min? this.head
+                           : (this._greater(this._min.key, key) ? this.head : this._min);
+      }
+      /**Gets the minimum key currently in the queue
+      * @return {any}
+      */
+      min(){
+        if(this.isEmpty())
+          throw Error("Priority queue is empty");
+        return this._min.key;
+      }
+      /**Deletes the minimum key
+      * @return {any} the minimum key
+      */
+      delMin(){
+        if(this.isEmpty())
+          throw Error("Priority queue is empty");
+        this.head = this._cut(this._min, this.head);
+        let x= this._min.child,
+            key = this._min.key;
+        this._min.key = null;
+        if(x){
+          this.head = this._meld(this.head, x);
+          this._min.child = null;
+        }
+        this.n -= 1;
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        return key;
+      }
+      /**Merges two heaps together
+      * This operation is destructive
+      * @param {FibonacciMinPQ} that a Fibonacci heap
+      * @return {FibonacciMinPQ}
+      */
+      union(that){
+        this.head = this._meld(this.head, that.head);
+        this._min = this._greater(this._min.key, that._min.key) ? that._min : this._min;
+        this.n = this.n + that.n;
+        return this;
+      }
+      _greater(n, m){
+        if(_.nichts(n)) return false;
+        if(_.nichts(m)) return true;
+        return this.compare(n,m) > 0;
+      }
+      //Assuming root1 holds a greater key than root2, root2 becomes the new root
+      _link(root1, root2){
+        root2.child = this._insertNode(root1, root2.child);
+        root2.order+=1;
+      }
+      //Coalesce the roots, thus reshapes the tree
+      _consolidate(){
+        this.table.clear();
+        let x = this.head,
+            y = null,
+            z = null,
+            maxOrder = 0;
+        this._min = this.head;
+        do{
+          y = x;
+          x = x.next;
+          z = this.table.get(y.order);
+          while(z){
+            this.table.delete(y.order);
+            if(this._greater(y.key, z.key)){
+              this._link(y, z);
+              y = z;
+            }else{
+              this._link(z, y);
+            }
+            z = this.table.get(y.order);
+          }
+          this.table.set(y.order, y);
+          if(y.order > maxOrder) maxOrder = y.order;
+        }while(x !== this.head);
+        this.head = null;
+        this.table.forEach((v)=>{
+          if(v){
+            this._min = this._greater(this._min.key, v.key) ? v : this._min;
+            this.head = this._insertNode(v, this.head);
+          }
+        })
+      }
+      //Inserts a Node in a circular list containing head, returns a new head
+      _insertNode(x, head){
+        if(!head){
+          x.prev = x;
+          x.next = x;
+        }else{
+          head.prev.next = x;
+          x.next = head;
+          x.prev = head.prev;
+          head.prev = x;
+        }
+        return x;
+      }
+      //Removes a tree from the list defined by the head pointer
+      _cut(x, head){
+        if(x.next === x) {
+          x.next = null;
+          x.prev = null;
+          return null;
+        }else{
+          x.next.prev = x.prev;
+          x.prev.next = x.next;
+          let res = x.next;
+          x.next = null;
+          x.prev = null;
+          return head === x?  res: head;
+        }
+      }
+      //Merges two root lists together
+      _meld(x, y){
+        if(!x) return y;
+        if(!y) return x;
+        x.prev.next = y.next;
+        y.next.prev = x.prev;
+        x.prev = y;
+        y.next = x;
+        return x;
+      }
+      /**Gets an Iterator over the Keys in the priority queue in ascending order
+      * The Iterator does not implement the remove() method
+      * iterator() : Worst case is O(n)
+      * next() :  Worst case is O(log(n)) (amortized)
+      * hasNext() :   Worst case is O(1)
+      * @return {Iterator}
+      */
+      iter(){
+        let copy = new FibonacciMinPQ(this.compare);
+        let insertAll=(head)=>{
+          if(!head) return;
+          let x = head;
+          do{
+            copy.insert(x.key);
+            insertAll(x.child);
+            x = x.next;
+          }while (x !== head);
+        };
+        insertAll(this.head);
+        return{
+          remove(){ throw Error("UnsupportedOperationException") },
+          hasNext(){ return !copy.isEmpty() },
+          next(){
+            if(!this.hasNext()) throw Error("NoSuchElementException");
+            return copy.delMin();
+          }
+        }
+      }
+      static test(){
+        let msg="",
+            obj= new FibonacciMinPQ(CMP);
+        "PQE".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        "XAM".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        "PLE".split("").forEach(s=>obj.insert(s));
+        msg += obj.delMin() + " ";
+        obj.isEmpty();
+        console.log(msg)
+        console.log("min= " + obj.min());
+        console.log(prnIter(obj.iter()));
+        console.log("(" + obj.size() + " left on pq)");
+        let obj2 = new FibonacciMinPQ(CMP);
+        "ZTAK".split("").forEach(s=> obj2.insert(s));
+        obj2= obj2.union(obj);
+        console.log(prnIter(obj2.iter()));
+      }
+    }
+    //FibonacciMinPQ.test();
+
+    /**Represents an indexed priority queue of generic keys.
+     *  It supports the usual insert and delete-the-minimum operations,
+     *  along with delete and change-the-key methods.
+     * @memberof module:mcfud/algo_sort
+     * @class
+     */
+    class IndexFibonacciMinPQ{
+      Node(key){
+        //Node<Key> prev, next;     //siblings of the Node
+        ////Node<Key> parent, child;    //parent and child of this Node
+        //boolean mark;         //Indicates if this Node already lost a child
+        return{key, order:0, index:0,
+               prev:null, next:null, parent:null, child:null, mark:false}
+      }
+      constructor(maxN,compareFn){
+        //private Node<Key>[] nodes;      //Array of Nodes in the heap
+        //private Node<Key> head;       //Head of the circular root list
+        //private Node<Key> min;        //Minimum Node in the heap
+        //private int size;         //Number of keys in the heap
+        //private int n;            //Maximum number of elements in the heap
+        //private HashMap<Integer, Node<Key>> table = new HashMap<Integer, Node<Key>>(); //Used for the consolidate operation
+        if(maxN < 0)
+          throw Error("Cannot create a priority queue of negative size");
+        this.maxN = maxN;
+        this.n=0;
+        this.head=null;
+        this._min=null;
+        this.compare = compareFn;
+        this.table=new Map();
+        this.nodes = new Array(maxN);
+      }
+      /**Whether the priority queue is empty
+      * @return {boolean}
+      */
+      isEmpty(){
+        return this.n== 0;
+      }
+      /**Does the priority queue contains the index i ?
+      * @param {number} i an index
+      * @return {boolean}
+      */
+      contains(i){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        return _.echt(this.nodes[i]);
+      }
+      /**Number of elements currently on the priority queue
+      * @return {number}
+      */
+      size(){
+        return this.n;
+      }
+      /**Associates a key with an index
+      * @param {number} i an index
+      * @param {any} key a Key associated with i
+      */
+      insert(i, key){
+        if(i<0 || i>= this.maxN) throw Error("IllegalArgumentException");
+        if(this.contains(i)) throw Error("Specified index is already in the queue");
+        let x = this.Node(key);
+        x.index = i;
+        this.nodes[i] = x;
+        this.n+=1;
+        this.head = this._insertNode(x, this.head);
+        this._min= !this._min? this.head
+                             : this._greater(this._min.key, key) ? this.head : this._min;
+      }
+      /**Get the index associated with the minimum key
+      * @return {number} the index associated with the minimum key
+      */
+      minIndex(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        return this._min.index;
+      }
+      /**Get the minimum key currently in the queue
+      * @return {any} the minimum key currently in the priority queue
+      */
+      min(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        return this._min.key;
+      }
+      /**Delete the minimum key
+      * @return {number} the index associated with the minimum key
+      */
+      delMin(){
+        if(this.isEmpty()) throw Error("Priority queue is empty");
+        this.head = this._cutNode(this._min, this.head);
+        let x = this._min.child,
+            index = this._min.index;
+        this._min.key = null;
+        if(x){
+          do{
+            x.parent = null;
+            x = x.next;
+          }while(x !== this._min.child);
+          this.head = this._meld(this.head, x);
+          this._min.child = null;     //For garbage collection
+        }
+        this.n-=1;
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        this.nodes[index] = null;
+        return index;
+      }
+      /**Get the key associated with index i
+      * @param {number} i an index
+      * @return {any} the key associated with index i
+      */
+      keyOf(i){
+        if(i< 0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        return this.nodes[i].key;
+      }
+      /**Changes the key associated with index i to the given key
+      * If the given key is greater, Worst case is O(log(n))
+      * If the given key is lower, Worst case is O(1) (amortized)
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      changeKey(i, key){
+        if(i < 0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        this._greater(key, this.nodes[i].key)? this.increaseKey(i, key) : this.decreaseKey(i, key);
+      }
+      /**Decreases the key associated with index i to the given key
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      decreaseKey(i, key){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        if(this._greater(key, this.nodes[i].key))
+          throw Error("Calling with this argument would not decrease the key");
+        let x = this.nodes[i];
+        x.key = key;
+        if(this._greater(this._min.key, key)){
+          this._min = x;
+        }
+        if(x.parent && this._greater(x.parent.key, key)){
+          this._cut(i)
+        }
+      }
+      /**Increases the key associated with index i to the given key
+      * @param {number} i an index
+      * @param {any} key the key to associate with i
+      */
+      increaseKey(i, key){
+        if(i<0 || i>= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        if(this._greater(this.nodes[i].key, key))
+          throw Error("Calling with this argument would not increase the key");
+        this.delete(i);
+        this.insert(i, key);
+      }
+      /**Deletes the key associated the given index
+      * @param {number} i an index
+      */
+      delete(i){
+        if(i<0 || i >= this.maxN) throw Error("IllegalArgumentException");
+        if(!this.contains(i)) throw Error("Specified index is not in the queue");
+        let x = this.nodes[i];
+        x.key = null;       //For garbage collection
+        if(x.parent){ this._cut(i) }
+        this.head = this._cutNode(x, this.head);
+        if(x.child){
+          let child = x.child;
+          x.child = null;     //For garbage collection
+          x = child;
+          do{
+            child.parent = null;
+            child = child.next;
+          }while(child !== x);
+          this.head = this._meld(this.head, child);
+        }
+        if(!this.isEmpty()) this._consolidate();
+        else this._min = null;
+        this.nodes[i] = null;
+        this.n-=1;
+      }
+      _greater(n, m){
+        if(_.nichts(n)) return false;
+        if(_.nichts(m)) return true;
+        return this.compare(n, m) > 0;
+      }
+      _link(root1, root2){
+        root1.parent = root2;
+        root2.child = this._insertNode(root1, root2.child);
+        root2.order+=1;
+      }
+      //Removes a Node from its parent's child list and insert it in the root list
+      //If the parent Node already lost a child, reshapes the heap accordingly
+      _cut(i){
+        let x = this.nodes[i];
+        let parent = x.parent;
+        parent.child = this._cutNode(x, parent.child);
+        x.parent = null;
+        parent.order-=1;
+        this.head = this._insertNode(x, this.head);
+        parent.mark = !parent.mark;
+        if(!parent.mark && parent.parent){
+          this._cut(parent.index);
+        }
+      }
+      //Coalesces the roots, thus reshapes the heap
+      //Caching a HashMap improves greatly performances
+      _consolidate(){
+        let y = null,
+            z = null,
+            maxOrder = 0,
+            x = this.head;
+        this.table.clear();
+        this._min = this.head;
+        do{
+          y = x;
+          x = x.next;
+          z = this.table.get(y.order);
+          while(z){
+            this.table.delete(y.order);
+            if(this._greater(y.key, z.key)){
+              this._link(y, z);
+              y = z;
+            }else{
+              this._link(z, y);
+            }
+            z = this.table.get(y.order);
+          }
+          this.table.set(y.order, y);
+          if(y.order > maxOrder) maxOrder = y.order;
+        }while(x !== this.head);
+        this.head = null;
+        this.table.forEach(n=>{
+          this._min = this._greater(this._min.key, n.key) ? n : this._min;
+          this.head = this._insertNode(n, this.head);
+        })
+      }
+      //Inserts a Node in a circular list containing head, returns a new head
+      _insertNode(x, head){
+        if(!head){
+          x.prev = x;
+          x.next = x;
+        }else{
+          head.prev.next = x;
+          x.next = head;
+          x.prev = head.prev;
+          head.prev = x;
+        }
+        return x;
+      }
+      //Removes a tree from the list defined by the head pointer
+      _cutNode(x, head){
+        if(x.next === x){
+          x.next = null;
+          x.prev = null;
+          return null;
+        }else{
+          x.next.prev = x.prev;
+          x.prev.next = x.next;
+          let res = x.next;
+          x.next = null;
+          x.prev = null;
+          return head === x?  res: head;
+        }
+      }
+      _meld(x, y){
+        if(!x) return y;
+        if(!y) return x;
+        x.prev.next = y.next;
+        y.next.prev = x.prev;
+        x.prev = y;
+        y.next = x;
+        return x;
+      }
+      /**Get an Iterator over the indexes in the priority queue in ascending order
+      * The Iterator does not implement the remove() method
+      * iterator() : Worst case is O(n)
+      * next() :  Worst case is O(log(n)) (amortized)
+      * hasNext() :   Worst case is O(1)
+      * @return {Iterator}
+      */
+      iter(){
+        let copy= new IndexFibonacciMinPQ(this.maxN,this.compare);
+        this.nodes.forEach(x=> {
+          if(x) copy.insert(x.index, x.key);
+        });
+        return{
+          remove(){ throw Error("UnsupportedOperationException") },
+          hasNext(){ return !copy.isEmpty() },
+          next(){
+            if(!this.hasNext()) throw Error("NoSuchElementException");
+            return copy.delMin();
+          }
+        }
+      }
+      static test(){
+        let strings = [ "it", "was", "the", "best", "of", "times", "it", "was", "the", "worst" ];
+        let pq = new IndexFibonacciMinPQ(strings.length,CMP);
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
+        // delete and print each key
+        console.log("min= " +pq.min());
+        console.log("minindex= "+pq.minIndex());
+        console.log("size= "+pq.size());
+        console.log("contains(3)="+pq.contains(3));
+        console.log("keyOf(3)="+pq.keyOf(3));
+        pq.changeKey(3,"bbbb");
+        //pq.delete(3);
+        while(!pq.isEmpty()){
+          let i = pq.minIndex();
+          console.log(i + " " + pq.keyOf(i));
+          pq.delMin();
+        }
+        console.log("");
+        // reinsert the same strings
+        for(let i=0; i<strings.length; ++i) pq.insert(i, strings[i]);
+        // print each key using the iterator
+        for(let i,it=pq.iter();it.hasNext();){
+          i=it.next();
+          console.log(i + " " + strings[i]);
+        }
+        while(!pq.isEmpty()){ pq.delMin() }
+      }
+    }
+    //IndexFibonacciMinPQ.test();
+
+    /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
      */
@@ -1258,6 +1796,7 @@
     //IndexMaxPQ.test();
 
     const _$={
+      FibonacciMinPQ, IndexFibonacciMinPQ,
       Insertion,BinaryInsertion,Selection,Shell,
       Merge,Bubble,Quick,MinPQ, MaxPQ,Heap,IndexMinPQ,IndexMaxPQ
     };

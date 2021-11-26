@@ -2098,11 +2098,12 @@
             vy = dest[1] - test[1];
         return (vx * vx + vy * vy) * cost;
       }
-      static diagonal(test, dest,cost){
+      static diagonal(test, dest,cost,xcost){
         let vx = Math.abs(dest[0] - test[0]),
             vy = Math.abs(dest[1] - test[1]);
-        return (vx>vy) ? int(cost * vy + cost * (vx - vy))
-                        :int(cost * vx + cost * (vy - vx))
+        if(xcost===undefined){xcost=cost}
+        return (vx>vy) ? int(xcost * vy + cost * (vx - vy))
+                       : int(xcost * vx + cost * (vy - vx))
       }
       constructor(grid){
         this.grid=grid;
@@ -2113,36 +2114,29 @@
       _search(grid,start,end,ctx){
         const CMP=ctx.compare,
               ROWS= grid.length,
-              COLS=grid[0].length,
-              openSet = new MinPQ(CMP,16),
-              openTM=new Map(),
+              COLS= grid[0].length,
               closedSet = new Map(),
+              openSet = new MinPQ(CMP,10),
               goalNode = AStarGridNode(end),
               startNode = AStarGridNode(start),
-              rpath=(cn,out)=>{
-                for(;cn;cn=cn.parent)
-                  out.unshift(cn.pos);
-                return out;
-              },
-              dirs= [[-1,0],[0,-1],[1,0],[0,1]];
+              dirs=[[1,0],[-1,0],[0,1],[0,-1]],
+              rpath=(cn,out)=>{ for(;cn;cn=cn.parent) out.unshift(cn.pos); return out; };
         //include diagonal neighbors?
         if(ctx.wantDiagonal)
           dirs.push([1,1],[1,-1],[-1,1],[-1,-1]);
         openSet.insert(startNode);
-        openTM.set(startNode.pid,startNode.g);
         //begin...
-        let cur,neighbors=[];
+        let skip,cur,neighbors=[];
         while(!openSet.isEmpty()){
           cur= openSet.delMin();
-          openTM.delete(cur.pid);
           closedSet.set(cur.pid,0);
           //done?
           if(cur.equals(goalNode)){return rpath(cur,[])}
           neighbors.length=0;
           for(let p,i=0;i<dirs.length;++i){
             p = [cur.pos[0] + dirs[i][0], cur.pos[1] + dirs[i][1]];
-            if(p[0] > (COLS - 1) || p[0] < 0 ||
-               p[1] > (ROWS -1) || p[1] < 0 || ctx.obstacle(p)){
+            if(p[0] > (COLS-1) || p[0] < 0 ||
+               p[1] > (ROWS-1) || p[1] < 0 || ctx.blocked(p)){
             }else{
               neighbors.push(AStarGridNode(p,cur));
             }
@@ -2150,14 +2144,15 @@
           neighbors.forEach(co=>{
             if(!closedSet.has(co.pid)){
               co.g = cur.g + ctx.cost();
-              co.h= ctx.calcHeuristic(co,goalNode);
+              co.h = ctx.calcHeuristic(co.pos,goalNode.pos);
               co.f = co.g + co.h;
-              if(!openTM.has(co.pid) ||
-                 co.g<openTM.get(co.pid)){
-                //update with lower cost
-                openSet.insert(co);
-                openTM.set(co.pid,co.g);
+              skip=false;
+              for(let s,it=openSet.iter(); !skip && it.hasNext();){
+                s=it.next();
+                skip= s.equals(co) && co.g > s.g;
               }
+              if(!skip)
+                openSet.insert(co); //update with lower cost
             }
           });
         }
@@ -2168,28 +2163,36 @@
                     [0, 1, 0, 1, 0, 0],
                     [0, 1, 0, 0, 1, 0],
                     [0, 0, 0, 0, 1, 0]];
+        let ROWS=grid.length,COLS=grid[0].length;
         let ctx={
           wantDiagonal:false,
           compare(a,b){ return a.f-b.f },
           cost(){ return 1 },
-          obstacle(n){ return grid[n[1]][n[0]] != 0 },
+          blocked(n){ return grid[n[1]][n[0]] != 0 },
           calcHeuristic(a,g){
+            //return AStarGrid.diagonal(a,g,10,14);
             return AStarGrid.euclidean(a,g,1)
+            //return AStarGrid.manhattan(a,g,10)
           }
         }
-        let m,r= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
-        if(r){
-          m="";
-          r.forEach(p=>{
-            m+= `[${p[0]},${p[1]}] `;
-          })
-          console.log(m);
+        let c,r,m,p= new AStarGrid(grid).pathTo([0,0],[5,4],ctx);
+        if(p){
+          m=""; p.forEach(n=>{ m+= `[${n[0]},${n[1]}] `; }); console.log(m);
+          r=_.fill(ROWS, ()=> _.fill(COLS, "#"));
+          c=0;
+          p.forEach(n=>{
+            r[n[1]][n[0]]= ""+c;
+            ++c;
+          });
+          r.forEach(row=>{
+            console.log(row.toString())
+          });
         }else{
           console.log("no path");
         }
       }
     }
-    //AStarGrid.test();
+    AStarGrid.test();
 
     /**
      * @memberof module:mcfud/algo_graph
