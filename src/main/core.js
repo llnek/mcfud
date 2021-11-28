@@ -1465,10 +1465,11 @@
        * @memberof module:mcfud/core._
        * @param {number} num
        * @param {number} digits
+       * @param {string} pad padding character
        * @return {string}
       */
-      prettyNumber(num, digits=2){
-        return this.strPadLeft(Number(num).toString(), digits, "0")
+      prettyNumber(num, digits=2, pad="0"){
+        return this.strPadLeft(Number(num).toString(), digits, pad)
       },
       /**Pretty print millis in nice
        * hour,minutes,seconds format.

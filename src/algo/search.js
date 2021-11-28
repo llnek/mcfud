@@ -1847,6 +1847,10 @@
       }
     }
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**A* search algo for grid.
+     * @memberof module:mcfud/algo_search
+     * @class
+     */
     class AStarGrid{
       /**Use when movement is limited to 4 directions only.
        * @param {array} test node pos
@@ -1965,7 +1969,7 @@
         }
       }
     }
-    AStarGrid.test();
+    //AStarGrid.test();
 
     const _$={
       AStarGrid,
