@@ -552,10 +552,28 @@
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
+      /**Randomly choose n items from this array.
+       * @memberof module:mcfud/core._
+       * @param {any[]} arr
+       * @param {number} howMany
+       * @return {array} the samples
+       */
+      randSample(arr,n=1){
+        let ret;
+        if(n==1){
+          ret= [this.randItem(arr)]
+        }else if(n==0){
+          ret=[]
+        }else if(n>0){
+          let a= this.shuffle(arr,false);
+          ret = n>=a.length ? a : a.slice(0,n);
+        }
+        return ret;
+      },
       /**Randomly choose an item from this array.
        * @memberof module:mcfud/core._
        * @param {any[]} arr
-       * @param {wantIndex} boolean
+       * @param {boolean} wantIndex
        * @return {any}
        */
       randItem(arr,wantIndex){
