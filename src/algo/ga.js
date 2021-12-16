@@ -196,7 +196,8 @@
       return Chromosome(c, calcFit(c), Source.Mutate);
     }
 
-    function swapGene2(genes, a, b){
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function swapGeneAt(genes, a, b){
       let tmp=genes[a];
       genes[a]=genes[b];
       genes[b]=tmp;
@@ -206,8 +207,15 @@
     const _$={
       wrapNumObjGtr,
       wrapNumObjLsr,
-      swapGene2,
+      swapGeneAt,
       Chromosome,
+      showBest(best,extra){
+        console.log(_.fill(80,"-").join(""));
+        console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
+        console.log("total cycles= " + extra.cycles);
+        console.log("fitness= "+ best.fitness);
+        console.log(_.fill(80,"-").join(""));
+      },
       /**
        * @memberof module:mcfud/algo_ga
        * @param
@@ -245,7 +253,7 @@
           extra.cycles +=1;
           let [timeOut, imp]= gen.next().value;
           if(timeOut) return finz(imp);
-          console.log(imp.genes.join(","));
+          //console.log(imp.genes.join(","));
           if(!optimal.gt(imp.fitness)) return finz(imp);
         }
       },
@@ -253,8 +261,10 @@
        * @memberof module:mcfud/algo_ga
        * @param
        */
-      hillClimbing(optimizationFunction, isImprovement, isOptimal, getNextFeatureValue, initialFeatureValue){
+      hillClimb(optimizationFunction, isImprovement, isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+        let start= extra.startTime=_.now();
         let best = optimizationFunction(initialFeatureValue);
+        //console.log("bb===="+best.genes.join(","));
         //stdout = sys.stdout sys.stdout = None
         while(!isOptimal(best)){
           let child = optimizationFunction( getNextFeatureValue(best));
@@ -265,7 +275,7 @@
             //sys.stdout = None
           }
         }
-        //sys.stdout = stdout
+        extra.endTime=_.now();
         return best;
       },
       /**

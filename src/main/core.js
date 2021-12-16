@@ -405,6 +405,43 @@
       findFiles(files, exts){
         return files.filter(s=> exts.indexOf(_fext(s,1)) > -1)
       },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Map}
+       */
+      zipMap(a,b,out){
+        let n=Math.min(a.length,b.length);
+        let m= out || new Map();
+        for(let i=0;i<n;++i){
+          m.set(a[i],b[i])
+        }
+        return m;
+      },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Map}
+       */
+      zip(a,b,out){
+        return this.zipMap(a,b,out)
+      },
+      /**Items in a as keys, mapped to items in b as values.
+       * @memberof module:mcfud/core._
+       * @param {array} array
+       * @param {array} array
+       * @return {Object}
+       */
+      zipObj(a,b,out){
+        let n=Math.min(a.length,b.length);
+        let m= out || {};
+        for(let i=0;i<n;++i){
+          m[a[i]]= b[i];
+        }
+        return m;
+      },
       /**Chop input into chunks of `count` items.
        * @memberof module:mcfud/core._
        * @param {number} count number of items in each chunk

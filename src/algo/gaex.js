@@ -23,20 +23,14 @@
     if(!GA) GA= gscope["io/czlab/mcfud/algo/ga"]();
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {wrapNumObjGtr,wrapNumObjLsr,cycle,Chromosome,swapGene2}= GA;
+    const {wrapNumObjGtr,wrapNumObjLsr,cycle,Chromosome,swapGeneAt}= GA;
 
     /**
      * @module mcfud/algo_gaex
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function showBest(best,extra){
-      console.log(_.fill(80,"-").join(""));
-      console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
-      console.log("total cycles= " + extra.cycles);
-      console.log("fitness= "+ best.fitness);
-      console.log(_.fill(80,"-").join(""));
-    }
+    function showBest(best,extra){ return GA.showBest(best,extra) }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Guess a password.
@@ -305,7 +299,7 @@
             let ix=_.fill(genes.length,(i)=> i);
             for(let i=0,count = _.randInt2(1, 4); i<count;++i){
               _.shuffle(ix);
-              swapGene2(genes,ix[0],ix[1]);
+              swapGeneAt(genes,ix[0],ix[1]);
             }
           }else{
             genes[_.randInt(genes.length)] = geneSet[_.randInt(geneset.length)];
@@ -479,7 +473,7 @@
           maxAge,
           mutate(genes){
             _.shuffle(geneIndexes);
-            swapGene2(genes, geneIndexes[0], geneIndexes[1]);
+            swapGeneAt(genes, geneIndexes[0], geneIndexes[1]);
           },
           create(){
             return _.shuffle(geneSet.slice())
@@ -803,7 +797,7 @@
         function shuffleInPlace(genes, first, last){
           while(first < last){
             let index = _.randInt2(first, last);
-            swapGene2(genes, first,index);
+            swapGeneAt(genes, first,index);
             first += 1;
           }
         }
@@ -822,7 +816,7 @@
           }
           let row = indexRow(selectedRule.otherIndex);
           let start = row * 9;
-          swapGene2(genes, selectedRule.otherIndex, _.randInt2(start, genes.length-1));
+          swapGeneAt(genes, selectedRule.otherIndex, _.randInt2(start, genes.length-1));
         }
         let extra={
           maxAge:50,
@@ -841,7 +835,7 @@
     //CH11.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    /**Solving Suduko.
+    /**Solving Travel Salesman's Problem.
      * @memberof module:mcfud/algo_go
      * @class
      */
@@ -877,7 +871,7 @@
           while(count > 0){
             count -= 1;
             _.shuffle(ix);
-            swapGene2(genes, ix[0],ix[1]);
+            swapGeneAt(genes, ix[0],ix[1]);
             if(calcFit(genes).gt(f0))
               return;
           }
@@ -930,7 +924,7 @@
             }
             if(runs.length>1){
               _.shuffle(rix);
-              swapGene2(runs, rix[0], rix[1]);
+              swapGeneAt(runs, rix[0], rix[1]);
             }
             cg=[];
             runs.forEach(r=> cg.push(...r));
@@ -957,7 +951,217 @@
     }
     //CH12.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Solving Approximation of PI.
+     * @memberof module:mcfud/algo_go
+     * @class
+     */
+    class CH13{
+      static test(){
+        let bitValues=[512, 256, 128, 64, 32, 16, 8, 4, 2, 1];
+        let numBits= bitValues.length;
+        let geneSet = [0,1];
+        let optimal= wrapNumObjGtr(3.14159);
+        function calcFit(genes){
+          let denominator = getDenominator(genes, bitValues);
+          if(denominator == 0) return wrapNumObjGtr(0);
+          let ratio = getNumerator(genes, bitValues) / denominator;
+          return wrapNumObjGtr(Math.PI - Math.abs(Math.PI - ratio));
+        }
+        function bitsToInt(bits){
+          let result = 0;
+          for(let bit,i=0;i<bits.length;++i){
+            bit=bits[i];
+            if(bit == 0) continue;
+            result += bitValues[i];
+          }
+          return result;
+        }
+        function getNumerator(genes){
+          return 1 + bitsToInt(genes.slice(0,bitValues.length));
+        }
+        function getDenominator(genes){
+          return bitsToInt(genes.slice(bitValues.length));
+        }
+        function mutate(genes){
+          let numeratorIndex = _.randInt2(0, numBits-1);
+          let denominatorIndex= _.randInt2(numBits, genes.length-1);
+          genes[numeratorIndex] = 1 - genes[numeratorIndex];
+          genes[denominatorIndex] = 1 - genes[denominatorIndex];
+        }
+        let extra={
+          maxAge:250, optimal,calcFit,mutate,create(){
+            return _.fill(bitValues.length*2,0).map(x=> _.randItem(geneSet))
+          }};
+        let best = cycle(geneSet, extra);
+        showBest(best,extra);
+      }
+    }
+    //CH13.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**Solving Lawnmower problem.
+     * @memberof module:mcfud/algo_go
+     * @class
+     */
+    class CH15{
+      //field contents
+      static Grass = " #";
+      static Mowed = " .";
+      static Mower = "M";
+      static Location(x, y){
+        return {x,y,move(xOffset, yOffset){
+          return CH15.Location(this.x + xOffset, this.y + yOffset)
+        }}
+      }
+      static Direction(index, xOffset, yOffset, symbol){
+        return{index,xOffset,yOffset,symbol,moveFrom(location, distance=1){
+          return Location(location.x + distance * this.xOffset, location.y + distance * this.yOffset)
+        }}
+      }
+      static North = CH15.Direction(0, 0, -1, "^");
+      static East = CH15.Direction(1, 1, 0, ">");
+      static South = CH15.Direction(2, 0, 1, "v");
+      static West = CH15.Direction(3, -1, 0, "<");
+      static Directions=[North,East,South,West];
+      static getDirectionAfterTurnLeft90Degrees(dir){
+        let newDir,newIndex = dir.index>0? dir.index-1 : CH15.Directions.length - 1;
+        for(let i=0;i<CH15.Directions.length;++i){
+          if(CH15.Directions[i].index==newIndex){
+            newDir=CH15.Directions.[i];
+            break;
+          }
+        }
+        _.assert(newDir, "Boom");
+        return newDir;
+      }
+      static getDirectionAfterTurnRight90Degrees(dir){
+        let newIndex = dir.index< CH15.Directions.length-1? dir.index + 1 : 0;
+        for(let i=0;i<CH15.Directions.length;++i){
+          if(CH15.Directions[i].index==newIndex){
+            newDir=CH15.Directions.[i];
+            break;
+          }
+        }
+        _.assert(newDir, "Boom");
+        return newDir;
+      }
+      static Field(width, height, initialContent){
+        return{width,height,field:_.fill(height,()=> _.fill(width,initialContent)),
+          set(location, symbol){ this.field[location.y][location.x] = symbol }
+          countMowed(sum=0){
+            this.field.forEach(r=> r.forEach(c=>{ if(c != CH15.Grass) ++sum; }));
+            return sum;
+          }
+        }
+      }
+      static ValidatingField(width, height, initialContent){
+        let f= CH15.Field(width,height,initialContent);
+        f.fixLocation=(location)=>{
+          return (location.x >= this.width ||
+            location.x < 0 || location.y >= this.height || location.y < 0)?[null,false]:[location,true]
+        };
+        return f;
+      }
+      static ToroidField(width, height, initialContent){
+        let f= CH15.Field(width, height, initialContent);
+        f.fixLocation=(location)=>{
+          let newLocation = CH15.Location(location.x, location.y);
+          if(newLocation.x < 0){
+            newLocation.x += this.width;
+          }else if(newLocation.x >= this.width){
+            newLocation.x %= this.width;
+          }
+          if(newLocation.y < 0){
+            newLocation.y += this.height;
+          }else if(newLocation.y >= this.height){
+            newLocation.y %= this.height;
+          }
+          return [newLocation, true]
+        };
+        return f;
+      }
+      static Mower(location, dir){
+        return{location,dir,stepCount:0,
+          turn_left(){
+            this.stepCount += 1;
+            this.dir= CH15.getDirectionAfterTurnLeft90Degrees(this.dir)
+          }
+          mow(field){
+            let isValid,newLocation = this.dir.moveFrom(this.location);
+            [newLocation, isValid] = field.fixLocation(newLocation);
+            if(isValid){
+              this.location = newLocation;
+              this.stepCount += 1;
+              field.set(this.location, this.stepCount > 9? this.stepCount: `${this.stepCount}`);
+            }
+          }
+          jump(field, forward, right){
+            let newLocation = this.dir.moveFrom(this.location, forward);
+            let rightDirection = CH15.getDirectionAfterTurnRight90Degrees(this.dir);
+            let isValid, newLocation = rightDirection.moveFrom(newLocation, right);
+            [newLocation, isValid] = field.fixLocation(newLocation);
+            if(isValid){
+              this.location = newLocation;
+              this.stepCount += 1;
+              field.set(this.location, this.stepCount>9?this.stepCount:`${this.stepCount}`);
+            }
+          }
+        }
+      }
+      static test(){
+        static Fitness(totalMowed, totalInstructions, stepCount){
+          return{ totalMowed, totalInstructions, stepCount,
+            eq(b){
+              return this.totalMowed==b.totalMowed&& this.totalInstructions==b.totalInstructions&& this.stepCount==b.stepCount;
+            }
+            gt(b){
+              if(this.totalMowed != b.totalMowed) return this.totalMowed > b.totalMowed;
+              if(this.stepCount != b.stepCount) return this.stepCount < b.stepCount;
+              return this.totalInstructions < b.totalInstructions;
+            }
+            toString(){
+              return `${this.totalMowed} mowed with ${this.totalInstructions} instructions and ${this.stepCount} steps`
+            }
+          }
+        }
+        function calcFit(genes, fnEvaluate){
+          let [field, mower, _] = fnEvaluate(genes);
+          return CH15.Fitness(field.countMowed(), genes.length, mower.stepCount);
+        }
+        function mutate(genes, geneSet, minGenes, maxGenes, maxRounds){
+          let count = _.randInt2(1, maxRounds);
+          let f0 = calcFit(genes);
+          while(count > 0){
+            count -= 1;
+            if(calcFit(genes) > f0) return;
+            if(genes.length == 0 || (genes.length < maxGenes && _.randInt2(0, 5) == 0)){
+              genes.push(_.randItem(geneSet)());
+              continue;
+            }
+            if(genes.length > minGenes and _.randInt2(0, 50) == 0){
+              genes.splice( _.randInt2(0, genes.length-1),1);
+              continue;
+            }
+            genes[ _.randInt2(0, genes.length-1)]= _.randItem(geneSet)();
+          }
+        }
+        function create(geneSet, minGenes, maxGenes){
+          let numGenes = _.randInt2(minGenes, maxGenes);
+          return _.fill(numGenes-1,0).map(x=>  _.randItem(geneSet)());
+        }
+        function crossOver(parent, otherParent){
+          let c= parent.slice();
+          if(parent.length <= 2 or otherParent.length < 2) return c;
+          let length = _.randInt2(1, parent.length - 2);
+          let start = _.randInt2(0, parent.length - length-1);
+          for(let i=start;i<start+length;++i) c[i] = otherParent[i];
+          return c;
+        }
+
+
+      }
+    }
 
 
     const _$={ };
