@@ -1547,6 +1547,26 @@
           out.push(`${h} hrs, `);
         return out.reverse().join("");
       },
+      /**Swap 2 elements in the array.
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @param {number} a
+       * @param {number} b
+       * @return {array} arr
+      */
+      swap(arr,a,b){
+        let t= arr[a]; arr[a]=arr[b]; arr[b]=t; return arr;
+      },
+      /**List indexes of this array
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @param {boolean} scramble
+       * @return {array} list of indexes
+      */
+      listIndexesOf(arr, scramble){
+        let xs= _.fill(arr.length,(i)=>i);
+        return scramble? this.shuffle(xs) : xs;
+      },
       /**Remove some arguments from the front.
        * @memberof module:mcfud/core._
        * @param {arguments} args
