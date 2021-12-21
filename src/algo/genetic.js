@@ -205,17 +205,17 @@
 		 * @param {number} v
 		 * @return {FitnessObject}
 		 */
-		function NumericFitness(v){
+		function NumericFitness(v,flipped){
 			return{
 				value:v,
 				gt(b){
-					return this.value > b.value
+					return flipped? this.value < b.value: this.value > b.value
 				},
 				eq(b){
 					return this.value==b.value
 				},
 				lt(b){
-					return this.value < b.value
+					return flipped? this.value > b.value: this.value < b.value
 				},
 				score(){
 					return this.value
@@ -571,7 +571,8 @@
       let parents = [bestParent],
           history = [bestParent],
           ratio,child, index,pindex, lastParentIndex;
-			poolSize=poolSize||1;
+			poolSize=poolSize || 1;
+			maxAge= maxAge || 50;
       for(let i=0;i<poolSize-1;++i){
         parent = create();
         if(parent.fitness.gt(bestParent.fitness)){
@@ -641,9 +642,9 @@
 				if(!optimal.gt(imp.fitness)){
 					break;
 				}
-				//console.log(imp.genes.join(""));
+				console.log(imp.genes.join(","));
 			}
-			return [now!=null, imp]
+			return [now==null, imp]
 		}
 
 		function runGACycle(pop,extra){
@@ -664,7 +665,7 @@
 					break;
 				}
 			}
-			return [now != null, pop];
+			return [now == null, pop];
 		}
 
 		function genPop(pop,extra){
@@ -715,6 +716,76 @@
 			return vecNewPop;
 		}
 
+		function hillClimb(optimizationFunction, isImprovement, isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+			let start= extra.startTime=_.now();
+			let best = optimizationFunction(initialFeatureValue);
+			//console.log("bb===="+best.genes.join(","));
+			//stdout = sys.stdout sys.stdout = None
+			while(!isOptimal(best)){
+				let child = optimizationFunction( getNextFeatureValue(best));
+				if(isImprovement(best, child)){
+					best = child
+					//sys.stdout = stdout
+					//display(best, featureValue)
+					//sys.stdout = None
+				}
+			}
+			extra.endTime=_.now();
+			return best;
+		}
+
+		function tournament(create, crossOver, compete, sortKey, numParents=10, maxGenerations=100){
+			let best,bestScore,parents,pool=[];
+			for(let i=0,z=1+numParents*numParents;i<z;++i){
+				pool.push([create(),[0,0,0]])
+			}
+			bestScore = pool[0];
+			function getSortKey(x){
+				return sortKey(x[0],
+											 x[1][CompetitionResult.Win],
+											 x[1][CompetitionResult.Tie],
+											 x[1][CompetitionResult.Loss]);
+			}
+			function getSortKeys(a,b){
+				let x= getSortKey(a),
+						y= getSortKey(b);
+				return x<y?-1:(x>y?1:0);
+			}
+			let generation = 0;
+			while(generation < maxGenerations){
+				generation += 1;
+				for(let i=0;i<pool.length;++i){
+					for(let j=0;j<pool.length;++j){
+						if(i == j) continue;
+						let [playera, scorea] = pool[i];
+						let [playerb, scoreb] = pool[j];
+						let result = compete(playera, playerb);
+						scorea[result] += 1;
+						scoreb[2 - result] += 1;
+					}
+				}
+				pool.sort(getSortKeys).reverse();
+				if(getSortKey(pool[0]) > getSortKey([best, bestScore])){
+					[best, bestScore] = pool[0];
+					//display(best, bestScore[CompetitionResult.Win], bestScore[CompetitionResult.Tie], bestScore[CompetitionResult.Loss], generation)
+				}
+				parents=[];
+				for(let i=0;i<numParents.length;++i){
+					parents.push(pool[i][0]);
+				}
+				pool=[];
+				for(let i=0;i<parents.length;++i)
+					for(let j=0;j<parents.length;++j){
+						if(i !== j)
+							pool.push([crossOver(parents[i], parents[j]), [0, 0, 0]]);
+					}
+				parents.forEach(p=> pool.push([p,[0,0,0]]));
+				pool.push([create(), [0, 0, 0]]);
+			}
+			return best;
+		}
+
+
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const _$={
 			MAX_PERTURBATION : 0.3,
@@ -739,13 +810,17 @@
 			runGACycle,
 			runGASearch,
 
+			hillClimb,
+
 			SNeuron,
 			SNeuronLayer,
 			NeuralNet,
 
-			showBest(best,extra){
+			showBest(best,extra,tout){
         console.log(_.fill(80,"-").join(""));
         console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
+				if(tout)
+					console.log("time expired");
         console.log("total cycles= " + extra.cycles);
         console.log("fitness= "+ best.fitness.score());
         console.log(_.fill(80,"-").join(""));
