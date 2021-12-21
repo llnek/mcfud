@@ -27,6 +27,33 @@
      * @module mcfud/NNetGA
      */
 
+
+		/**
+     * @typedef {object} Statistics
+     * @property {number} averageScore
+		 * @property {number} totalScore
+		 * @property {number} bestScore
+		 * @property {number} worstScore
+		 * @property {object} best
+     */
+
+		/**
+     * @typedef {object} FitnessObject
+     * @property {function} gt greater than
+     * @property {function} lt less than
+		 * @property {function} eq equals
+		 * @property {function} clone
+		 * @property {function} score
+     */
+
+		/**
+     * @typedef {object} ChromosomeObject
+     * @property {number} age
+     * @property {array} genes
+		 * @property {FitnessObject} fitness
+		 * @property {function} clone
+     */
+
 		/**
      * @typedef {object} NeuronObject
      * @property {number} numInputs number of inputs into neuron
@@ -161,13 +188,13 @@
 
 		/**
 		 * @memberof module:mcfud/NNetGA
-		 * @param
-		 * @param
-		 * @return {object}
+		 * @param {array} genes
+		 * @param {FitnessObject} fitness
+		 * @return {ChromosomeObject}
 		 */
 		function Chromosome(genes, fitness){
 			return {
-				genes,fitness, clone(){
+				age:0,genes,fitness, clone(){
 					return Chromosome(this.genes.slice(),this.fitness.clone())
 				}
 			}
@@ -175,8 +202,8 @@
 
 		/**
 		 * @memberof module:mcfud/NNetGA
-		 * @param
-		 * @return {object}
+		 * @param {number} v
+		 * @return {FitnessObject}
 		 */
 		function NumericFitness(v){
 			return{
@@ -209,95 +236,95 @@
 		/**Choose two random points and “scramble” the genes located between them.
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} genes
-		 * @return {array}
 		 */
-		function mutateSM(genes){
-			let [beg, end] = randSpan(genes);
-			let tmp,count= end-beg-1;
-			switch(count){
-				case -1:
-				case 0:
-				case 1:
-					break;
-				case 2:
-					tmp=genes[beg+1];
-					genes[beg+1]=genes[beg+2];
-					genes[beg+2]=tmp;
-					break;
-				default:
-					tmp=_.shuffle(genes.slice(beg+1,end));
-					for(let k=0,i=beg+1;i<end;++i){
-						genes[i]=tmp[k++];
-					}
-					break;
+		function mutateSM(genes, mRate){
+			if(_.rand()<=mRate){
+				let [beg, end] = randSpan(genes);
+				let tmp,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+					case 1:
+						break;
+					case 2:
+						tmp=genes[beg+1];
+						genes[beg+1]=genes[beg+2];
+						genes[beg+2]=tmp;
+						break;
+					default:
+						tmp=_.shuffle(genes.slice(beg+1,end));
+						for(let k=0,i=beg+1;i<end;++i){
+							genes[i]=tmp[k++];
+						}
+						break;
+				}
 			}
-			return genes;
 		}
 
 		/**Select two random points, grab the chunk of chromosome between them,
 		 * and then reinsert at a random position displaced from the original.
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} genes
-		 * @return {array}
 		 */
-		function mutateDM(genes){
-			let [beg, end]= randSpan(genes);
-			let p,tmp,rem,count= end-beg-1;
-			switch(count){
-				case -1:
-				case 0:
-					break;
-				default:
-					tmp=genes.slice(beg+1,end);
-					rem=genes.slice(0,beg+1).concat(genes.slice(end));
-					p=_.randInt2(rem.length-1);
-					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-					_.assert(tmp.length==genes.length,"Boom");
-					tmp.forEach((v,i)=> genes[i]=v);
-					break;
+		function mutateDM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let p,tmp,rem,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end);
+						rem=genes.slice(0,beg+1).concat(genes.slice(end));
+						p=_.randInt2(rem.length-1);
+						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+						_.assert(tmp.length==genes.length,"Boom");
+						tmp.forEach((v,i)=> genes[i]=v);
+						break;
+				}
 			}
-			return genes;
 		}
 
 		/**Almost the same as the DM operator, except here only one gene is selected
 		 * to be displaced and inserted back into the chromosome.
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} genes
-		 * @return {array}
 		 */
-		function mutateIM(genes){
-			let b,a=_.randInt(genes.length);
-			let vb,va= genes[a];
-			b=_.randInt(genes.length);
-			while(b==a)
+		function mutateIM(genes,mRate){
+			if(_.rand()<=mRate){
+				let b,a=_.randInt(genes.length);
+				let vb,va= genes[a];
 				b=_.randInt(genes.length);
-			vb= genes[b];
-			genes[b]=va;
-			genes[a]=vb;
-			return genes;
+				while(b==a)
+					b=_.randInt(genes.length);
+				vb= genes[b];
+				genes[b]=va;
+				genes[a]=vb;
+			}
 		}
 
 		/**Select two random points and reverse the genes between them.
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} genes
-		 * @return {array}
 		 */
-		function mutateIVM(genes){
-			let [beg, end]= randSpan(genes);
-			let count= end-beg-1;
-			switch(count){
-				case -1:
-				case 0:
-				case 1:
-					break;
-				default:
-					tmp=genes.slice(beg+1,end).reverse();
-					for(let k=0, i=beg+1;i<end;++i){
-						genes[i]=tmp[k++];
-					}
-					break;
+		function mutateIVM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+					case 1:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end).reverse();
+						for(let k=0, i=beg+1;i<end;++i){
+							genes[i]=tmp[k++];
+						}
+						break;
+				}
 			}
-			return genes;
 		}
 
 		/**Select two random points, reverse the city order between the two points,
@@ -305,37 +332,25 @@
 		 * This is similar to performing IVM and then DM using the same start and end points.
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} genes
-		 * @return {array}
 		 */
-		function mutateDIVM(genes){
-			let [beg, end]= randSpan(genes);
-			let p,tmp,rem,count= end-beg-1;
-			switch(count){
-				case -1:
-				case 0:
-					break;
-				default:
-					tmp=genes.slice(beg+1,end).reverse();
-					rem=genes.slice(0,beg+1).concat(genes.slice(end));
-					p=_.randInt2(rem.length-1);
-					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-					_.assert(tmp.length==genes.length,"Boom");
-					tmp.forEach((v,i)=> genes[i]=v);
-					break;
+		function mutateDIVM(genes,mRate){
+			if(_.rand()<=mRate){
+				let [beg, end]= randSpan(genes);
+				let p,tmp,rem,count= end-beg-1;
+				switch(count){
+					case -1:
+					case 0:
+						break;
+					default:
+						tmp=genes.slice(beg+1,end).reverse();
+						rem=genes.slice(0,beg+1).concat(genes.slice(end));
+						p=_.randInt2(rem.length-1);
+						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+						_.assert(tmp.length==genes.length,"Boom");
+						tmp.forEach((v,i)=> genes[i]=v);
+						break;
+				}
 			}
-			return genes;
-		}
-
-		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
-		 * @return {array}
-		 */
-		function mutate(genes, mRate){
-			genes.forEach((g,i)=>{
-				if(_.rand() < mRate)
-					genes[i] =  g + _.randMinus1To1() * MAX_PERTURBATION
-			});
 		}
 
 		/**Several genes are chosen at random from one parent and
@@ -345,10 +360,9 @@
 		 * @param {array} mum
 		 * @param {array} dad
 		 * @param {number} cRate
-		 * @return {array}
 		 */
 		function crossOverOBX(mum, dad,cRate){
-			if(_.rand()>cRate){ return [mum,dad] }
+			if(_.rand()>cRate){ return }
 			let a= int(mum.length * 0.2),
 					b= int(mum.length * 0.8),
 					n=_.randInt2(a,b),
@@ -375,7 +389,9 @@
 				}
 			}
 			_.assert(b1.length==mum.length,"Boom");
-			return [b1,b2];
+
+			b1.forEach((v,i)=> mum[i]=v);
+			b2.forEach((v,i)=> dad[i]=v);
 		}
 
 		/**Similar to Order-Based CrossOver, but instead of imposing the order of the genes,
@@ -384,10 +400,9 @@
 		 * @param {array} mum
 		 * @param {array} dad
 		 * @param {number} cRate
-		 * @return {array}
 		 */
 		function crossOverPBX(mum, dad,cRate){
-			if(_.rand()>cRate){ return [mum,dad] }
+			if(_.rand()>cRate){ return }
 			let a= int(mum.length * 0.2),
 					b= int(mum.length * 0.8),
 					n=_.randInt2(a,b),
@@ -411,7 +426,9 @@
 				}
 			}
 			_.assert(b1.length==mum.length,"Boom");
-			return [b1,b2];
+
+			b1.forEach((v,i)=> mum[i]=v);
+			b2.forEach((v,i)=> dad[i]=v);
 		}
 
 		/**
@@ -419,19 +436,16 @@
 		 * @param {array} mum
 		 * @param {array} dad
 		 * @param {number} cRate
-		 * @return {array}
 		 */
-		function crossOver(mum, dad, cRate){
-			let cp,b1,b2;
-			if(_.rand() > cRate){
-				b1 = mum;
-				b2 = dad;
-			}else{
+		function crossOverRND(mum, dad, cRate){
+			if(_.rand() <= cRate){
+				let cp,b1,b2;
 				cp = _.randInt(mum.length);
 				b1=mum.slice(0,cp).concat(dad.slice(cp));
 				b2=dad.slice(0,cp).concat(mum.slice(cp));
+				b1.forEach((v,i)=> mum[i]=v);
+				b2.forEach((v,i)=> dad[i]=v);
 			}
-			return [b1,b2];
 		}
 
 		/**
@@ -440,23 +454,21 @@
 		 * @param {array} dad
 		 * @param {number} cRate
 		 * @param {array} splits
-		 * @return {array}
 		 */
 		function crossOverAtSplits(mum, dad,cRate,splits){
-			let cp,cp1,cp2,b1,b2;
-			if(_.rand() > cRate){
-				b1 = mum;
-				b2 = dad;
-			}else{
+			if(_.rand() <= cRate){
+				let cp,cp1,cp2,b1,b2;
 				cp = _.randInt(splits.length-2);
 				cp1 = splits[cp];
 				cp2 = splits[_.randInt2(cp1, splits.length-1)];
 				b1= mum.slice(0,cp1).concat(dad.slice(cp1,cp2)).concat(mum.slice(cp2));
 				b2= dad.slice(0,cp1).concat(mum.slice(cp1,cp2)).concat(dad.slice(cp2));
+				b1.forEach((v,i)=> mum[i]=v);
+				b2.forEach((v,i)=> dad[i]=v);
 			}
-			return [b1,b2];
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function chromoRoulette(pop,stats){
 			let sel=0, best= 0,
 					slice = _.rand() * stats.totalScore;
@@ -484,15 +496,20 @@
 			return pop[sel];
 		}
 
+		/**Calculate statistics on population.
+		 * @memberof module:mcfud/NNetGA
+		 * @param {array} pop current generation
+		 * @return {object} statistics
+		 */
 		function calcStats(pop){
 			let best= 0,
 					worst= Infinity,
-					stats={averageScore:0,totalScore:0,bestScore:0,worstScore:0,fittest:0};
+					stats={averageScore:0,totalScore:0,bestScore:0,worstScore:0,best:null};
 			pop.forEach((c,i)=>{
 				if(c.fitness.score() > best){
 					best = c.fitness.score();
 					stats.bestScore = best;
-					stats.fittest= i;
+					stats.best= c;
 				}else if(c.fitness.score() < worst){
 					worst = c.fitness.score();
 					stats.worstScore = worst;
@@ -503,50 +520,210 @@
 			return stats;
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function markStart(extra,fld="cycles"){
+			let s= extra.startTime=_.now();
+			extra[fld]=0;
+			return s;
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function markEnd(extra){
+			return extra.endTime=_.now();
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function newChild(p1, parents, crossOver, mutate, calcFit){
+      let p2= _.randInt(parents.length);
+			while(parents.length>1 && p2==p1){
+				p2= _.randInt(parents.length)
+			}
+			let c1=parents[p1].genes.slice();
+			let c2=parents[p2].genes.slice();
+			if(crossOver)
+				crossOver(c1,c2);
+      if(mutate){
+        mutate(c1);
+			  mutate(c2);
+      }
+			//return _.randSign()>0 ? Chromosome(c1, calcFit(c1)) : Chromosome(c2, calcFit(c2));
+			let f1= calcFit(c1);
+			let f2= calcFit(c2);
+			return [Chromosome(c1, f1), Chromosome(c2, f2)];
+    }
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function bisectLeft(arr,e){
+      let a,i=0;
+      for(;i<arr.length;++i){
+        a=arr[i];
+        if(a.fitness.eq(e.fitness) ||
+           !e.fitness.gt(a.fitness)) break;
+      }
+      return i;
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function* getNextStar(create,crossOver,mutate,calcFit,maxAge, poolSize){
+      let parent, bestParent = create();
+      yield bestParent;
+      let parents = [bestParent],
+          history = [bestParent],
+          cs,ratio,child, index,pindex, lastParentIndex;
+      for(let i=0;i<poolSize-1;++i){
+        parent = create();
+        if(parent.fitness.gt(bestParent.fitness)){
+          yield (bestParent = parent);
+          history.push(parent);
+        }
+        parents.push(parent);
+      }
+      lastParentIndex = poolSize - 1;
+      pindex = 1;
+      while(true){
+        pindex = pindex>0? pindex-1 : lastParentIndex;
+        parent = parents[pindex];
+        cs = newChild(pindex, parents, crossOver, mutate, calcFit);
+				child= cs[_.randSign()>0?1:0];
+        if(parent.fitness.gt(child.fitness)){
+          if(maxAge===undefined){
+						continue
+					}
+          parent.age += 1;
+					if(maxAge > parent.age){
+						continue
+					}
+          index = bisectLeft(history, child, 0, history.length);
+          ratio= index / history.length;
+          if(_.rand() < Math.exp(-ratio)){
+            parents[pindex] = child;
+            continue;
+          }
+          bestParent.age = 0;
+          parents[pindex] = bestParent;
+          continue;
+        }
+        if(!child.fitness.gt(parent.fitness)){
+          //same fitness
+          child.age = parent.age + 1;
+          parents[pindex] = child;
+          continue;
+        }
+				child.age = 0;
+				parents[pindex] = child;
+        if(child.fitness.gt(bestParent.fitness)){
+          yield (bestParent = child);
+          history.push(bestParent);
+				}
+      }
+    }
+
 		/**
 		 * @memberof module:mcfud/NNetGA
-		 * @param {array} old current generation
+		 * @param {FitnessObject} optimal
 		 * @param {object} extra
-		 * @return {array} new generation
+		 * @return {array}
 		 */
-		function runGACycle(pop,extra){
-			pop.sort((a,b)=> a.fitness.lt(b.fitness)?-1:(a.fitness.gt(b.fitness)?1:0));
-			let stats=calcStats(pop),
-					b1,b2,res,mum,dad,vecNewPop = [];
-			if(extra.NUM_ELITES !== undefined){
-				for(let i=pop.length-1;i>=0;--i) vecNewPop.push(pop[i]);
+		function runGASearch(optimal,extra){
+			let {mutate,create,maxAge,
+				   calcFit,poolSize,crossOver,maxSeconds}=extra;
+			let maxMillis= (maxSeconds || 30) * 1000,
+			    imp,now, start= markStart(extra),
+			    gen= getNextStar(create,crossOver,mutate,calcFit,maxAge, poolSize||1);
+			while(true){
+				extra.cycles += 1;
+				imp= gen.next().value;
+				now= markEnd(extra);
+				if(now-start > maxMillis){
+					now=null;
+					break;
+				}
+				if(!optimal.gt(imp.fitness)){
+					break;
+				}
+				console.log(imp.genes.join(""));
 			}
+			return [now!=null, imp]
+		}
+
+		function runGACycle(pop,extra){
+			let { targetScore, maxSeconds }=extra,
+			    maxMillis= (maxSeconds || 30) * 1000,
+			    s,now, start= markStart(extra);
+			while(true){
+				extra.cycles += 1;
+				pop= genPop(pop, extra);
+				now= markEnd(extra);
+				if(now-start > maxMillis){
+					now=null;
+					break;
+				}
+				s=calcStats(pop);
+				if(_.echt(targetScore) && s.bestScore > targetScore){
+					break;
+				}
+			}
+			return [now != null, pop];
+		}
+
+		function genPop(pop,extra){
+
+			if(is.num(pop))
+				return _.fill(pop, ()=> extra.create());
+
+			let b1,b2,res,mum,dad,vecNewPop = [];
+			let stats=calcStats(pop);
+			let {calcFit, crossOver, mutate,
+				   NUM_ELITES, TOURNAMENT_COMPETITORS}= extra;
+
+			pop.sort((a,b)=> a.fitness.lt(b.fitness)?-1:(a.fitness.gt(b.fitness)?1:0));
+			if(is.num(NUM_ELITES)){
+				for(let k=NUM_ELITES, i=pop.length-1;i>=0;--i){
+					if(k>0){
+						vecNewPop.push(pop[i]);
+						--k;
+					}else{
+						break;
+					}
+				}
+			}
+
 			while(vecNewPop.length < pop.length){
-				if(extra.TOURNAMENT_COMPETITORS !== undefined){
-					mum = tournamentSelection(pop,extra.TOURNAMENT_COMPETITORS);
-					dad = tournamentSelection(pop,extra.TOURNAMENT_COMPETITORS);
+				if(TOURNAMENT_COMPETITORS !== undefined){
+					mum = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
+					dad = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
 				}else{
 					mum = chromoRoulette(pop,stats);
 					dad = chromoRoulette(pop,stats);
 				}
 				b1=mum.genes.slice();
 				b2=dad.genes.slice();
-				if(extra.crossOver)
-					extra.crossOver(b1,b2);
-				if(extra.mutate){
-					extra.mutate(b1);
-					extra.mutate(b2);
+				if(crossOver)
+					crossOver(b1,b2);
+				if(mutate){
+					mutate(b1);
+					mutate(b2);
 				}
-				vecNewPop.push(Chromosome(b1, extra.calcFit(b1)), Chromosome(b2, extra.calcFit(b2)));
+				vecNewPop.push(Chromosome(b1, calcFit(b1)), Chromosome(b2, calcFit(b2)));
 			}
-			//trim?
-			if(vecNewPop.length != _pop.length) vecNewPop.length = _pop.length;
+
+			while(vecNewPop.length > pop.length){
+				vecNewPop.pop();
+			}
+
 			return vecNewPop;
 		}
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const _$={
 			MAX_PERTURBATION : 0.3,
-		  //NUM_ELITE = 4,
+			NUM_ELITE : 6,
 			BIAS: -1,
 			ACTIVATION_RESPONSE : 1,
 			//NUM_COPIES_ELITE  = 1,
 			//TOURNAMENT_COMPETITORS = 4;
+			CrossOverRate : 0.7,
+			MutationRate  : 0.1,
 			NumericFitness,
 			Chromosome,
 			mutateSM,
@@ -554,13 +731,24 @@
 			mutateIM,
 			mutateIVM,
 			mutateDIVM,
+			crossOverRND,
       crossOverOBX,
       crossOverPBX,
+			calcStats,
 			runGACycle,
+			runGASearch,
 
 			SNeuron,
-			SNeuralLayer,
-			NeurelNet
+			SNeuronLayer,
+			NeuralNet,
+
+			showBest(best,extra){
+        console.log(_.fill(80,"-").join(""));
+        console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
+        console.log("total cycles= " + extra.cycles);
+        console.log("fitness= "+ best.fitness.score());
+        console.log(_.fill(80,"-").join(""));
+      }
 		};
 
 		return _$;
@@ -568,7 +756,7 @@
 
 	//export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"))
+    module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/NNetGA"]=_module
   }
