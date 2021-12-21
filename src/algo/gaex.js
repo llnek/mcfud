@@ -64,14 +64,16 @@
         function crossOver(b1,b2){
           return GA.crossOverRND(b1,b2,GA.CrossOverRate);
         }
-        let pop,best,s,extra= {maxSeconds:5,maxAge:50,create, calcFit, mutate, crossOver, poolSize:6, NUM_ELITES:6};
+        let pop,best,s,extra;
         //console.log("ready...");
-        if(0){
+        if(1){
+          extra= {maxSeconds:5,create, calcFit, mutate, crossOver, targetScore:12, NUM_ELITES:6};
           pop= runGACycle(100,extra)[1];
           s=calcStats(pop);
           best=s.best;
         }
-        if(1){
+        if(0){
+          extra= {maxSeconds:5,maxAge:50,create, calcFit, mutate, crossOver, poolSize:6};
           best= runGASearch(optimal,extra)[1];
         }
         showBest(best,extra);

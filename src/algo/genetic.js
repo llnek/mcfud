@@ -546,10 +546,9 @@
         mutate(c1);
 			  mutate(c2);
       }
-			//return _.randSign()>0 ? Chromosome(c1, calcFit(c1)) : Chromosome(c2, calcFit(c2));
 			let f1= calcFit(c1);
 			let f2= calcFit(c2);
-			return [Chromosome(c1, f1), Chromosome(c2, f2)];
+			return f1.gt(f2)? Chromosome(c1, f1): Chromosome(c2, f2);
     }
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -564,12 +563,15 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function* getNextStar(create,crossOver,mutate,calcFit,maxAge, poolSize){
-      let parent, bestParent = create();
+		function* getNextStar([start,maxMillis],extra){
+			let {mutate,create,maxAge,
+				   calcFit,poolSize,crossOver}=extra;
+			let parent, bestParent = create();
       yield bestParent;
       let parents = [bestParent],
           history = [bestParent],
-          cs,ratio,child, index,pindex, lastParentIndex;
+          ratio,child, index,pindex, lastParentIndex;
+			poolSize=poolSize||1;
       for(let i=0;i<poolSize-1;++i){
         parent = create();
         if(parent.fitness.gt(bestParent.fitness)){
@@ -581,10 +583,10 @@
       lastParentIndex = poolSize - 1;
       pindex = 1;
       while(true){
+				if(_.now()-start > maxMillis) yield bestParent;
         pindex = pindex>0? pindex-1 : lastParentIndex;
         parent = parents[pindex];
-        cs = newChild(pindex, parents, crossOver, mutate, calcFit);
-				child= cs[_.randSign()>0?1:0];
+        child = newChild(pindex, parents, crossOver, mutate, calcFit);
         if(parent.fitness.gt(child.fitness)){
           if(maxAge===undefined){
 						continue
@@ -625,11 +627,9 @@
 		 * @return {array}
 		 */
 		function runGASearch(optimal,extra){
-			let {mutate,create,maxAge,
-				   calcFit,poolSize,crossOver,maxSeconds}=extra;
-			let maxMillis= (maxSeconds || 30) * 1000,
-			    imp,now, start= markStart(extra),
-			    gen= getNextStar(create,crossOver,mutate,calcFit,maxAge, poolSize||1);
+			let start= markStart(extra),
+				  maxMillis= (extra.maxSeconds || 30) * 1000,
+			    imp, now, gen= getNextStar([start,maxMillis],extra);
 			while(true){
 				extra.cycles += 1;
 				imp= gen.next().value;
@@ -641,7 +641,7 @@
 				if(!optimal.gt(imp.fitness)){
 					break;
 				}
-				console.log(imp.genes.join(""));
+				//console.log(imp.genes.join(""));
 			}
 			return [now!=null, imp]
 		}
@@ -658,8 +658,9 @@
 					now=null;
 					break;
 				}
+				pop.forEach(p=> console.log(p.genes.join("")));
 				s=calcStats(pop);
-				if(_.echt(targetScore) && s.bestScore > targetScore){
+				if(_.echt(targetScore) && s.bestScore >= targetScore){
 					break;
 				}
 			}
