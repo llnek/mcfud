@@ -1293,7 +1293,7 @@
         //console.log(`f=${best.fitness.score()}`);
       }
     }
-    Circuits.test();
+    //Circuits.test();
 
 
 

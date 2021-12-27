@@ -27,6 +27,10 @@
      * @module mcfud/NNetGA
      */
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		const MAX_PERTURBATION = 0.3,
+			    BIAS= -1,
+			    ACTIVATION_RESPONSE = 1;
 
 		/**
      * @typedef {object} Statistics
@@ -89,7 +93,7 @@
 		function SNeuron(numInputs){
 			//add one for bias
 			let weights= _.fill(numInputs+1, ()=> _.randMinus1To1());
-			return{ weights, numInputs: weights.length };
+			return{ activation:0, error:0, weights, numInputs: weights.length };
 		}
 
 		/**
@@ -165,7 +169,8 @@
 									++idx;
 								}
 								sumInput += (u.weights[numInputs-1] * BIAS);
-								out.push(this.sigmoid(sumInput, ACTIVATION_RESPONSE));
+								u.activation= this.sigmoid(sumInput, ACTIVATION_RESPONSE);
+								out.push(u.activation);
 							});
 						});
 					_.assert(out.length== this.numOutputs, "out length incorrect");
@@ -294,13 +299,10 @@
 		function mutateIM(genes,mRate){
 			if(_.rand()<=mRate){
 				let b,a=_.randInt(genes.length);
-				let vb,va= genes[a];
 				b=_.randInt(genes.length);
 				while(b==a)
 					b=_.randInt(genes.length);
-				vb= genes[b];
-				genes[b]=va;
-				genes[a]=vb;
+				_.swap(genes, a,b);
 			}
 		}
 
@@ -311,7 +313,7 @@
 		function mutateIVM(genes,mRate){
 			if(_.rand()<=mRate){
 				let [beg, end]= randSpan(genes);
-				let count= end-beg-1;
+				let tmp,count= end-beg-1;
 				switch(count){
 					case -1:
 					case 0:
@@ -327,7 +329,7 @@
 			}
 		}
 
-		/**Select two random points, reverse the city order between the two points,
+		/**Select two random points, reverse the order between the two points,
 		 * and then displace them somewhere along the length of the original chromosome.
 		 * This is similar to performing IVM and then DM using the same start and end points.
 		 * @memberof module:mcfud/NNetGA
@@ -448,6 +450,46 @@
 			}
 		}
 
+		function crossOverPMX(b1,b2,cRate){
+			if(_.rand() <= cRate){
+				let beg = _.randInt2(0, b1.length-2);
+				let end = _.randInt2(beg+1, b1.length-1);
+				for(let t,pos=beg; pos<=end;++pos){
+					let gene1 = b1[pos];
+					let gene2 = b2[pos];
+					if(gene1 != gene2){
+						let posGene1 = b1.indexOf(gene1);
+						let posGene2 = b1.indexOf(gene2);
+						_.swap(b1,posGene1,posGene2);
+						posGene1 = b2.indexOf(gene1);
+						posGene2 = b2.indexOf(gene2);
+						_.swap(b2,posGene1,posGene2);
+					}
+				}
+			}
+		}
+
+		function XXcrossOver(b1,b2,cRate){
+			if(_.rand() <= cRate){
+				let beg = _.randInt2(0, b1.length-2),
+				    end = _.randInt2(beg+1, b1.length-1);
+				let gene1,gene2,
+					  posGene1,posGene2;
+				for(let t,pos=beg; pos<=end; ++pos){
+					gene1 = b1[pos];
+					gene2 = b2[pos];
+					if(gene1 != gene2){
+						posGene1 = b1.indexOf(gene1);
+						posGene2 = b1.indexOf(gene2);
+						_.swap(b1,posGene1,posGene2);
+						posGene1 = b2.indexOf(gene1);
+						posGene2 = b2.indexOf(gene2);
+						_.swap(b2,posGene1,posGene2);
+					}
+				}
+			}
+		}
+
 		/**
 		 * @memberof module:mcfud/NNetGA
 		 * @param {array} mum
@@ -468,8 +510,17 @@
 			}
 		}
 
-		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function chromoRoulette(pop,stats){
+			let sum= stats? stats.totalScore : pop.reduce((acc,p)=>{ return acc+ p.fitness.score() },0);
+			let i,prev=0,R=_.rand();
+			let ps=pop.map((p)=>{ return prev= (prev+ p.fitness.score()/sum) });
+			for(i=0;i<ps.length-1;++i)
+				if(R >= ps[i] && R <= ps[i+1]) return pop[i]
+			return pop[0];
+		}
+
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function chromoRoulette0(pop,stats){
 			let sel=0, best= 0,
 					slice = _.rand() * stats.totalScore;
 			for(let p,i=0;i<pop.length;++i){
@@ -501,18 +552,33 @@
 		 * @param {array} pop current generation
 		 * @return {object} statistics
 		 */
-		function calcStats(pop){
+		function calcStats(pop,flipped){
 			let best= 0,
 					worst= Infinity,
 					stats={averageScore:0,totalScore:0,bestScore:0,worstScore:0,best:null};
+			if(flipped){
+				best=Infinity;
+				worst=0;
+			}
 			pop.forEach((c,i)=>{
-				if(c.fitness.score() > best){
-					best = c.fitness.score();
-					stats.bestScore = best;
-					stats.best= c;
-				}else if(c.fitness.score() < worst){
-					worst = c.fitness.score();
-					stats.worstScore = worst;
+				if(flipped){
+					if(c.fitness.score() < best){
+						best = c.fitness.score();
+						stats.bestScore = best;
+						stats.best= c;
+					}else if(c.fitness.score() > worst){
+						worst = c.fitness.score();
+						stats.worstScore = worst;
+					}
+				}else{
+					if(c.fitness.score() > best){
+						best = c.fitness.score();
+						stats.bestScore = best;
+						stats.best= c;
+					}else if(c.fitness.score() < worst){
+						worst = c.fitness.score();
+						stats.worstScore = worst;
+					}
 				}
 				stats.totalScore += c.fitness.score();
 			});
@@ -546,8 +612,8 @@
         mutate(c1);
 			  mutate(c2);
       }
-			let f1= calcFit(c1);
-			let f2= calcFit(c2);
+			let f1= calcFit(c1, parents[p1].fitness);
+			let f2= calcFit(c2, parents[p2].fitness);
 			return f1.gt(f2)? Chromosome(c1, f1): Chromosome(c2, f2);
     }
 
@@ -629,10 +695,10 @@
 		 */
 		function runGASearch(optimal,extra){
 			let start= markStart(extra),
+				  maxCycles=(extra.maxCycles|| 100),
 				  maxMillis= (extra.maxSeconds || 30) * 1000,
 			    imp, now, gen= getNextStar([start,maxMillis],extra);
 			while(true){
-				extra.cycles += 1;
 				imp= gen.next().value;
 				now= markEnd(extra);
 				if(now-start > maxMillis){
@@ -642,28 +708,39 @@
 				if(!optimal.gt(imp.fitness)){
 					break;
 				}
-				console.log(imp.genes.join(","));
+				if(extra.cycles >= maxCycles){
+					break;
+				}
+				extra.cycles += 1;
+				//console.log(imp.genes.join(","));
 			}
 			return [now==null, imp]
 		}
 
 		function runGACycle(pop,extra){
-			let { targetScore, maxSeconds }=extra,
-			    maxMillis= (maxSeconds || 30) * 1000,
+			let { maxCycles, targetScore, maxSeconds }=extra;
+			let maxMillis= (maxSeconds || 30) * 1000,
 			    s,now, start= markStart(extra);
+			maxCycles= maxCycles || 100;
 			while(true){
-				extra.cycles += 1;
 				pop= genPop(pop, extra);
 				now= markEnd(extra);
+				//time out?
 				if(now-start > maxMillis){
 					now=null;
 					break;
 				}
-				pop.forEach(p=> console.log(p.genes.join("")));
+				//pop.forEach(p=> console.log(p.genes.join("")));
 				s=calcStats(pop);
+				//matched?
 				if(_.echt(targetScore) && s.bestScore >= targetScore){
 					break;
 				}
+				//too many?
+				if(extra.cycles>= maxCycles){
+					break;
+				}
+				extra.cycles += 1;
 			}
 			return [now == null, pop];
 		}
@@ -706,7 +783,7 @@
 					mutate(b1);
 					mutate(b2);
 				}
-				vecNewPop.push(Chromosome(b1, calcFit(b1)), Chromosome(b2, calcFit(b2)));
+				vecNewPop.push(Chromosome(b1, calcFit(b1, mum.fitness)), Chromosome(b2, calcFit(b2,dad.fitness)));
 			}
 
 			while(vecNewPop.length > pop.length){
@@ -788,24 +865,30 @@
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const _$={
-			MAX_PERTURBATION : 0.3,
-			NUM_ELITE : 6,
-			BIAS: -1,
-			ACTIVATION_RESPONSE : 1,
+
+			MAX_PERTURBATION,
+			BIAS,
+			//ACTIVATION_RESPONSE : 1,
+
 			//NUM_COPIES_ELITE  = 1,
 			//TOURNAMENT_COMPETITORS = 4;
 			CrossOverRate : 0.7,
 			MutationRate  : 0.1,
 			NumericFitness,
 			Chromosome,
+
 			mutateSM,
 			mutateDM,
 			mutateIM,
 			mutateIVM,
 			mutateDIVM,
+
 			crossOverRND,
       crossOverOBX,
       crossOverPBX,
+			crossOverPMX,
+			crossOverAtSplits,
+
 			calcStats,
 			runGACycle,
 			runGASearch,
@@ -834,7 +917,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    gscope["io/czlab/mcfud/NNetGA"]=_module
+    global["io/czlab/mcfud/NNetGA"]=_module
   }
 
 })(this)
