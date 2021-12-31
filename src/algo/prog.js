@@ -477,6 +477,175 @@
     }
     //GenerateGuess.solve("Hello World!");
 
+    class Tiles{
+      static Node(data,level,fval){
+        return{
+          data,level,fval,
+          genChild(){
+            //Generate child nodes from the given node by moving the blank space
+            //either in the four directions {up,down,left,right}
+            let [x,y] = this.find(this.data,0);
+            //val_list contains position values for moving the blank space in either of
+            //the 4 directions [up,down,left,right] respectively.
+            let vlist = [[x,y-1],[x,y+1],[x-1,y],[x+1,y]];
+            let c,children = [];
+            vlist.forEach(v=>{
+              c= this.shuffle(this.data,x,y,v[0],v[1]);
+              if(c)
+                children.push(Tiles.Node(c,this.level+1,0))
+            });
+            return children;
+          },
+          shuffle(puz,x1,y1,x2,y2){
+            //Move the blank space in the given direction and if the position value are out
+            //of limits the return None
+            if(x2 >= 0 && x2 < this.data.length && y2 >= 0 && y2 < this.data.length){
+              let t,temp_puz = [];
+              temp_puz = this.copy(puz);
+              t= temp_puz[x2][y2];
+              temp_puz[x2][y2] = temp_puz[x1][y1];
+              temp_puz[x1][y1] = t;
+              return temp_puz;
+            }
+          },
+          copy(root){
+            //Copy function to create a similar matrix of the given node
+            return _.deepCopyArray(root);
+          },
+          find(puz,x){
+            //Specifically used to find the position of the blank space
+            for(let i=0;i<this.data.length;++i)
+              for(let j=0;j<this.data.length;++j)
+                if(puz[i][j] == x) return [i,j];
+          }
+        }
+      }
+      static Puzzle(size){
+        return{
+          n: size, open: [], closed: [],
+          f(start,goal){
+            //Heuristic Function to calculate hueristic value f(x) = h(x) + g(x)
+            return this.h(start.data,goal)+start.level;
+          },
+          h(start,goal){
+            //Calculates the different between the given puzzles
+            let temp = 0;
+            for(let i=0;i<size;++i)
+              for(let j=0;j<size;++j)
+                if(start[i][j] != goal[i][j] && start[i][j] != 0) temp += 1;
+            return temp;
+          },
+          process(init,goal){
+            //Accept Start and Goal Puzzle state
+            let cur,start = Tiles.Node(init,0,0);
+            start.fval = this.f(start,goal);
+            //Put the start node in the open list
+            this.open.push(start);
+            console.log("\n\n");
+            while(1){
+              cur = this.open[0];
+              console.log("");
+              console.log(" \\\'/ \n");
+              cur.data.forEach(i=> console.log(i.join(" ")));
+              //If the difference between current and goal node is 0 we have reached the goal node
+              if(this.h(cur.data,goal) == 0) break;
+              cur.genChild().forEach(i=>{
+                i.fval = this.f(i,goal);
+                this.open.push(i);
+              });
+              this.closed.push(cur);
+              this.open.shift();
+              //sort the opne list based on f value
+              this.open.sort((a,b)=>{
+                return a.fval<b.fval?-1:(a.fval>b.fval?1:0)
+              });
+            }
+          }
+        }
+      }
+      static solve(init,goal){
+        Tiles.Puzzle(3).process(init,goal);
+      }
+    }
+    //Tiles.solve([[1,2,3],[0,4,6],[7,5,8]],[[1,2,3],[4,5,6],[7,8,0]]);
+    //Tiles.solve([[2,5,3],[1,6,0],[7,8,4]],[[0,1,2],[3,4,5],[6,7,8]]);
+
+    class BBTiles{
+      static N=3;
+      static Node(parent, mat, emptyTilePos, cost, level){
+        return{
+          parent, mat, emptyTilePos, cost, level
+        }
+      }
+      static calcCost(mat, final){
+        let n=BBTiles.N,c= 0;
+        for(let i=0;i<n;++i)
+          for(let j=0;j<n;++j)
+            if(mat[i][j] != final[i][j]) c+=1;
+        return c;
+      }
+      static newNode(mat, empty_tile_pos, new_empty_tile_pos, level, parent, final){
+        let new_mat = _.deepCopyArray(mat);
+        //Move tile by 1 position
+        let x1 = empty_tile_pos[0];
+        let y1 = empty_tile_pos[1];
+        let x2 = new_empty_tile_pos[0];
+        let y2 = new_empty_tile_pos[1];
+        let tmp= new_mat[x1][y1];
+
+        new_mat[x1][y1] = new_mat[x2][y2];
+        new_mat[x2][y2] = tmp;
+
+        // Set number of misplaced tiles
+        let cost = BBTiles.calcCost(new_mat, final);
+        return BBTiles.Node(parent, new_mat, new_empty_tile_pos, cost, level);
+      }
+      static isSafe(x, y){
+        return x >= 0 && x < BBTiles.N && y >= 0 && y < BBTiles.N;
+      }
+      static printMatrix(mat){
+        console.log("");
+        console.log(" \\\'/ \n");
+        for(let i=0;i<BBTiles.N;++i)
+          console.log(mat[i].join(" "));
+      }
+      static printPath(root){
+        if(root){
+          BBTiles.printPath(root.parent);
+          BBTiles.printMatrix(root.mat);
+        }
+      }
+      static solve(init, final, zero){
+        //# bottom, left, top, right
+        const row = [ 1, 0, -1, 0 ];
+        const col = [ 0, -1, 0, 1 ];
+        let pq = new MinPQ((a,b)=>{
+          return a.cost<b.cost?-1:(a.cost>b.cost?1:0)
+        });
+        let cost = BBTiles.calcCost(init, final);
+        let root = BBTiles.Node(null, init, zero, cost, 0);
+        pq.insert(root);
+        while(!pq.isEmpty()){
+          let minimum = pq.delMin();
+          if(minimum.cost == 0){
+            BBTiles.printPath(minimum);
+            return;
+          }
+          for(let i=0;i<BBTiles.N;++i){
+            let c,new_tile_pos = [minimum.emptyTilePos[0] + row[i],
+                                  minimum.emptyTilePos[1] + col[i] ];
+            if(BBTiles.isSafe(new_tile_pos[0], new_tile_pos[1])){
+              c= BBTiles.newNode(minimum.mat,
+                                 minimum.emptyTilePos,
+                                 new_tile_pos, minimum.level + 1, minimum, final);
+              pq.insert(c);
+            }
+          }
+        }
+      }
+    }
+    //BBTiles.solve([[1,2,3],[5,6,0],[7,8,4]], [[1,2,3],[5,8,6],[0,7,4]],[1,2]);
+
 
     const _$={
     };
