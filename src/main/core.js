@@ -1000,6 +1000,40 @@
         });
         return res;
       },
+      equals(a,b){
+        if(isObject(a) && isObject(b)){
+          let pa,ka= Object.keys(a);
+          let pb,kb= Object.keys(b);
+          if(ka.length==kb.length){
+            for(let i=0;i<ka.length;++i){
+              pa=ka[i];
+              pb=kb[i];
+              if(this.equals(pa,pb) &&
+                 this.equals(a[pa],b[pb])){
+                continue
+              }
+              return false;
+            }
+            return true;
+          }
+          return false;
+        }
+        if(isVec(a) && isVec(b)){
+          if(a.length==b.length){
+            for(let i=0;i<a.length;++i){
+              if(!this.equals(a[i],b[i])) return false
+            }
+            return true;
+          }
+          return false;
+        }
+        if(isNum(a) && isNum(b)) return a==b;
+        if(isStr(a) && isStr(b)) return a==b;
+        if(isBool(a) && isBool(b)) return a==b;
+        if(a===null && b===null) return true;
+        if(a===undefined && b===undefined) return true;
+        throw Error("cant call equals for these types");
+      },
       /**Each item in the array is an object,
       * invoke obj.method with extra args.
       * @memberof module:mcfud/core._
