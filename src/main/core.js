@@ -1676,6 +1676,24 @@
           event.forEach(e => this.delEvent.apply(this, e));
         else
           target.removeEventListener(event,cb,arg)
+      },
+      /**Rounds a double up or down depending on its value.
+       * @memberof module:mcfud/core._
+       * @param {number} val
+       * @return {number}
+       */
+      rounded(val){
+        return this.roundUnderOffset(val, 0.5)
+      },
+      /**Rounds a double up or down depending on
+       * whether its mantissa is higher or lower than offset.
+       * @memberof module:mcfud/core._
+       * @param {number} val
+       * @return {number}
+       */
+      roundUnderOffset(val, offset){
+        let integral = Math.floor(val);
+        return (val - integral) < offset ? integral : (integral + 1);
       }
     };
 

@@ -229,7 +229,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function CGenAlg(popSize, MutRate, CrossRate, numWeights, splits){
-      let vecPop=[],
+      let vecPop=[];
       //initialise population with chromosomes consisting of random
       //weights and all fitnesses set to zero
       for(let i=0; i<popSize; ++i){

@@ -24,537 +24,533 @@
     const {u:_, is}= Core;
 
     /**
-     * @module mcfud/NNetGA
+     * @module mcfud/algo/NEAT
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const neuron_type={
-      input:0,
-      hidden:1,
-      output:2,
-      bias:3,
-      none:4
+    const NeuronType={
+      INPUT:0,
+      HIDDEN:1,
+      OUTPUT:2,
+      BIAS:3,
+      NONE:4
     };
 
-    const innov_type={
-      new_neuron:0,
-      new_link:1
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const InnovType={
+      NEW_NEURON:0,
+      NEW_LINK:1
     };
 
-    //  this function is used to create a lookup table that is used to
-    //  calculate the depth of the network.
-    //------------------------------------------------------------------------
-    const vecSplits=[];
-    function split(low, high, depth){
-      let span = high-low;
-      vecSplits.push(SplitDepth(low + span/2, depth+1));
-      if(depth > 6){
-        return vecSplits;
-      }else{
-        split(low, low+span/2, depth+1);
-        split(low+span/2, high, depth+1);
-        return vecSplits;
-      }
-    }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function sigmoid(netinput, response) {
-      return 1 / (1 + Math.exp(-netinput / response))
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SNeuronGene(type, id, y, x, r = false){
-      return{
-        id,
-        neuronType: type,
-        recurrent: r,
-        //position in network grid
-        splitY: y,
-        splitX: x,
-        //sets the curvature of the sigmoid function
-        activationResponse: 1
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SLinkGene(in, out, enable, tag, w, rec = false){
-      return{
-        enabled:enable,
-        innovationID: tag,
-        //the IDs of the two neurons this link connects
-        fromNeuron: in,
-        toNeuron: out,
-        weight: w,
-        recurrent: rec
-      }
-    }
-
-    function SLinkGeneSort(lhs, rhs){
-      return lhs.innovationID<rhs.innovationID?-1:(
-        lhs.innovationID>rhs.innovationID?1:0
-      )
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SLink(dW, pIn, pOut, bRec){
-      return{
-        weight:dW, in: pIn, out: pOut, recurrent: bRec }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SNeuron(type, id, y, x, actResponse){
-      return{
-        neuronType: type,
-        neuronID: id,
-        //sum of weights x inputs
-        sumActivation: 0,
-        output: 0,
-
-        //used in visualization of the phenotype
-        posX: 0,
-        posY: 0,
-        splitY: y,
-        splitX: x,
-
-        //all the links coming into/out of this neuron
-        vecLinksIn: [],
-        vecLinksOut: [],
-        //sets the curvature of the sigmoid function
-        activationResponse: actResponse
-      }
-    }
-
     //you have to select one of these types when updating the network
     //If snapshot is chosen the network depth is used to completely
     //flush the inputs through the network. active just updates the
     //network each timestep
-    const run_type={
-      snapshot:0,
-      active:1
+    const RunType={
+      SNAPSHOT:0,
+      ACTIVE:1
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //  This is a fix to prevent neurons overlapping when they are displayed
-    function tidyXSplits(neurons){
-      //stores the index of any neurons with identical splitY values
-      let sameLevelNeurons=[],
-          //stores all the splitY values already checked
-          depthsChecked=[];
-      //for each neuron find all neurons of identical ySplit level
-      for(let n=0; n<neurons.length; ++n){
-        let bAlreadyChecked = false,
-            thisDepth = neurons[n].splitY;
-        for(let i=0; i<depthsChecked.length; ++i){
-          if(depthsChecked[i] == thisDepth){
-            bAlreadyChecked = true;
-            break;
-          }
-        }
-        //add this depth to the depths checked.
-        depthsChecked.push(thisDepth);
-        //if this depth has not already been adjusted
-        if(!bAlreadyChecked){
-          //clear this storage and add the neuron's index we are checking
-          sameLevelNeurons.length=0;
-          sameLevelNeurons.push(n);
-          //find all the neurons with this splitY depth
-          for(let i=n+1; i<neurons.length; ++i){
-            if(neurons[i].splitY == thisDepth){
-              //add the index to this neuron
-              sameLevelNeurons.push(i);
-            }
-          }
-          //calculate the distance between each neuron
-          let slice = 1/(sameLevelNeurons.length+1);
-          //separate all neurons at this level
-          for(let idx,i=0; i<sameLevelNeurons.length; ++i){
-            idx = sameLevelNeurons[i];
-            neurons[idx].splitX = (i+1) * slice;
-          }
-        }
+    const Params={
+      numInputs: 0,
+      numOutputs: 0,
+      bias: -1,
+      //starting value for the sigmoid response
+      sigmoidResponse:1,
+      //number of times we try to find 2 unlinked nodes when adding a link.
+      numAddLinkAttempts:5,
+      //number of attempts made to choose a node that is not an input
+      //node and that does not already have a recurrently looped connection to itself
+      numTrysToFindLoopedLink: 5,
+      //the number of attempts made to find an old link to prevent chaining in addNeuron
+      numTrysToFindOldLink: 5,
+      //the chance, each epoch, that a neuron or link will be added to the genome
+      chanceAddLink:0.07,
+      chanceAddNode:0.03,
+      chanceAddRecurrentLink:0.05,
+      //mutation probabilities for mutating the weights
+      mutationRate:0.8,
+      maxWeightPerturbation:0.5,
+      probabilityWeightReplaced:0.1,
+      //probabilities for mutating the activation response
+      activationMutationRate:0.1,
+      maxActivationPerturbation:0.1,
+      //the smaller the number the more species will be created
+      compatibilityThreshold:0.26,
+      //during fitness adjustment this is how much the fitnesses of
+      //young species are boosted (eg 1.2 is a 20% boost)
+      youngFitnessBonus:1.3,
+      //if the species are below this age their fitnesses are boosted
+      youngBonusAgeThreshhold:10,
+      //number of population to survive each epoch. (0.2 = 20%)
+      survivalRate:0,
+      //if the species is above this age their fitness gets penalized
+      oldAgeThreshold:50,
+      //by this much
+      oldAgePenalty:0.7,
+      crossOverRate:0.7,
+      //how long we allow a species to exist without any improvement
+      numGensAllowedNoImprovement:15,
+      //maximum number of neurons permitted in the network
+      maxPermittedNeurons:100,
+      numBestElites:4
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    let INNOV_COUNTER=0,
+        NEURON_COUNTER=0,
+        GENOME_COUNTER=0;
+    function NextGlobalNID(){ return ++NEURON_COUNTER }
+    function NextGlobalIID(){ return ++INNOV_COUNTER }
+    function NextGlobalGID(){ return ++GENOME_COUNTER }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {NeuronType} type
+     * @param {number} y
+     * @param {number} x
+     * @param {boolean} r
+     */
+    function NeuronGene(type, y, x, r=false){
+      return NeuronGene.From( NextGlobalNID(), type, y, x, r)
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    NeuronGene.From=function(id, type, y, x, r=false){
+      return{
+        neuronType: type,
+        recurrent: r,
+        id,
+        //position in network grid
+        splitY:y,
+        splitX:x,
+        //sets the curvature of the sigmoid function
+        activationResponse:1
+      }
+    };
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {number} from
+     * @param {number} to
+     * @param {number} iid
+     * @param {boolean} enable
+     * @param {number} w
+     * @param {boolean} rec
+     */
+    function LinkGene(from, to, iid, enable=true, w=null, rec = false){
+      return{
+        //the IDs of the two neurons this link connects
+        fromNeuron: from,
+        toNeuron: to,
+        innovationID: iid,
+        recurrent: !!rec,
+        enabled: enable !== false,
+        weight: w==null? _.randMinus1To1() : w
       }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function CNeuralNet(neurons, depth){
+    LinkGene.SortFunc=function(lhs,rhs){
+      //overload '<' used for sorting(we use the innovation ID as the criteria)
+      return lhs.innovationID < rhs.innovationID?-1:(
+        lhs.innovationID > rhs.innovationID?1:0
+      )
+    };
+
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {number} from
+     * @param {number} to
+     * @param {InnovType} t
+     * @param {number} iid
+     * @param {NeuronType} type
+     * @param {number} x
+     * @param {number} y
+     * @return {Innovation}
+     */
+    function Innovation(from, to, t, iid, type=NeuronType.NONE, x=0, y=0){
+      return{
+        innovationID: iid,
+        innovationType: t,
+        neuronType: type,
+        neuronIn: from,
+        neuronOut: to,
+        neuronID: 0,
+        splitX:x,
+        splitY:y
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    Innovation.From=function(neuron, innov_id){
+      const s= Innovation(-1,-1,null, innov_id, neuron.neuronType, neuron.splitX, neuron.splitY);
+      s.neuronID=neuron.id;
+      return s;
+    };
+
+    /**Used to keep track of all innovations created during
+     * the populations evolution, adds all the appropriate innovations.
+     * @memberof module:mcfud/algo/NEAT
+     * @param {LinkGene[]} start_genes
+     * @param {NeuronGene[]} start_neurons
+     * @return {InnovationHistory}
+     */
+    function InnovationHistory(start_genes, start_neurons){
+      let vecInnovs= start_neurons.map(n=> Innovation.From(n, NextGlobalIID()));
+      start_genes.forEach(g=> vecInnovs.push(Innovation(g.fromNeuron, g.toNeuron, InnovType.NEW_LINK, NextGlobalIID())));
+      return{
+        vecInnovs,
+        /**Checks to see if this innovation has already occurred. If it has it
+         * returns the innovation ID. If not it returns a negative value.
+         * @memberof module:mcfud/algo/NEAT
+         * @param {number} from
+         * @param {number} out
+         * @param {InnovType} type
+         * @return {number}
+         */
+        checkInnovation(from, out, type){
+          let rc= -1;
+          for(let cur,i=0; i<this.vecInnovs.length; ++i){
+            cur=this.vecInnovs[i];
+            if(cur.neuronIn == from   &&
+               cur.neuronOut == out &&
+               cur.innovationType == type){ rc=cur.innovationID; break; }
+          }
+          return rc;
+        },
+        /**Creates a new innovation and returns its ID.
+         * @memberof module:mcfud/algo/NEAT
+         * @param {number} from
+         * @param {number} to
+         * @param {InnovType} innovType
+         * @param {NeuronType} neuronType
+         * @param {number} x
+         * @param {number} y
+         * @return {Innovation}
+         */
+        createNewInnovation(from, to, innovType, neuronType=NeuronType.NONE, x=0, y=0){
+          let new_innov= Innovation(from, to, innovType, NextGlobalIID(), neuronType, x, y);
+          //if(innovType == InnovType.NEW_NEURON){
+            //new_innov.neuronID = this.nextNeuronID;
+            //++this.nextNeuronID;
+          //}
+          this.vecInnovs.push(new_innov);
+          //++this.nextInnovationNum;
+          //return this.nextNeuronID-1;
+          return new_innov;
+        },
+        /**Given a neuron ID this function returns a clone of that neuron.
+         * @param {number} neuronID
+         * @return {NeuronGene}
+         */
+        createNeuronFromID(neuronID){
+          let temp=NeuronGene.From(0,NeuronType.HIDDEN,0,0);
+          for(let cur,i=0; i<this.vecInnovs.length; ++i){
+            cur=this.vecInnovs[i];
+            if(cur.neuronID == neuronID){
+              temp.neuronType = cur.neuronType;
+              temp.id = cur.neuronID;
+              temp.splitY = cur.splitY;
+              temp.splitX = cur.splitX;
+              return temp;
+            }
+          }
+          _.assert(false, "boom from createNeuronFromID");
+          //return temp;
+        },
+        flush(){this.vecInnovs.length=0},
+        getNeuronID(inv){return this.vecInnovs[inv].neuronID}
+        //nextNumber(num=0){ return (this.nextInnovationNum += num) }
+      }
+    }
+
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {number} w
+     * @param {NNetNeuron} from
+     * @param {NNetNeuron} out
+     * @param {boolean} rec
+     */
+    function NNetLink(w, from, out, rec){
+      return{
+        weight:w,
+        from,
+        out,
+        recurrent:rec
+      }
+    }
+
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {NeuronType} type
+     * @param {number} id
+     * @param {number} y
+     * @param {number} x
+     * @param {number} actResponse
+     */
+    function NNetNeuron(type, id, y, x, actResponse){
+      return{
+        neuronType:type,
+        neuronID:id,
+        //sum of weights * inputs
+        sumActivation:0,
+        output:0,
+        posX:0,
+        posY:0,
+        splitY:y,
+        splitX:x,
+        //links coming in and out
+        vecLinksIn:[],
+        vecLinksOut:[],
+        //sets the curvature of the sigmoid function
+        activationResponse:actResponse
+      }
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function sigmoid(netinput, response){
+      return 1 / ( 1 + Math.exp(-netinput / response));
+    }
+
+    /**
+     * @memberof module:mcfud/algo/NEAT
+     * @param {NNetNeuron} neurons
+     * @param {number} depth
+     */
+    function NeuralNet(neurons, depth){
       return{
         vecpNeurons: neurons,
         depth,
-        //  takes a list of doubles as inputs into the network then steps through
-        //  the neurons calculating each neurons next output.
-        //  finally returns a std::vector of doubles as the output from the net.
-        //update network for this clock cycle
+        /**Update network for this clock cycle.
+         * @param {number[]} inputs
+         * @param {RunType} type
+         */
         update(inputs, type){
+          //if the mode is snapshot then we require all the neurons to be
+          //iterated through as many times as the network is deep. If the
+          //mode is set to active the method can return an output after just one iteration
           let outputs=[],
-              //if the mode is snapshot then we require all the neurons to be
-              //iterated through as many times as the network is deep. If the
-              //mode is set to active the method can return an output after
-              //just one iteration
-              flushCount = 0;
-          if(type == run_type.snapshot){
-            flushCount = this.depth;
-          }else{
-            flushCount = 1;
-          }
-          //iterate through the network FlushCount times
-          for(let cur,sum,cNeuron, i=0; i<flushCount; ++i){
-            //clear the output vector
+              flushCount = type == RunType.SNAPSHOT ? this.depth:1;
+          for(let sum,n,i=0; i<flushCount; ++i){
             outputs.length=0;
-            //this is an index into the current neuron
-            cNeuron=0;
+            n = 0;
             //first set the outputs of the 'input' neurons to be equal
             //to the values passed into the function in inputs
-            while(this.vecpNeurons[cNeuron].neuronType == input){
-              this.vecpNeurons[cNeuron].output = inputs[cNeuron];
-              ++cNeuron;
+            while(this.vecpNeurons[n].neuronType == NeuronType.INPUT){
+              this.vecpNeurons[n].output = inputs[n];
+              ++n;
             }
             //set the output of the bias to 1
-            this.vecpNeurons[cNeuron++].output = 1;
+            this.vecpNeurons[n++].output = 1;
             //then we step through the network a neuron at a time
-            while(cNeuron < this.vecpNeurons.length){
-              cur= this.vecpNeurons[cNeuron];
-              //this will hold the sum of all the inputs x weights
-              sum = 0;
-              //sum this neuron's inputs by iterating through all the links into
-              //the neuron
-              for(let w,n,lnk=0; lnk<this.vecpNeurons[cNeuron].vecLinksIn.length; ++lnk){
-                //get this link's weight
-                w= cur.vecLinksIn[lnk].weight;
-                //get the output from the neuron this link is coming from
-                n= cur.vecLinksIn[lnk].in.output;
-                sum += w* n;
+            while(n < this.vecpNeurons.length){
+              sum=0;
+              for(let k=0; k<this.vecpNeurons[n].vecLinksIn.length; ++k){
+                sum += this.vecpNeurons[n].vecLinksIn[k].weight *
+                       this.vecpNeurons[n].vecLinksIn[k].in.output
               }
               //now put the sum through the activation function and assign the
               //value to this neuron's output
-              cur.output = sigmoid(sum, cur.activationResponse);
-              if(cur.neuronType == neuron_type.output){
-                //add to our outputs
-                outputs.push(cur.output);
+              this.vecpNeurons[n].output = sigmoid(sum, this.vecpNeurons[n].activationResponse);
+              if(this.vecpNeurons[n].neuronType == NeuronType.OUTPUT){
+                outputs.push(this.vecpNeurons[n].output)
               }
-              ++cNeuron;
+              ++n;
             }
           }
           //the network needs to be flushed if this type of update is performed
           //otherwise it is possible for dependencies to be built on the order
           //the training data is presented
-          if(type == run_type.snapshot){
-            for(let n=0; n<this.vecpNeurons.length; ++n){
-              this.vecpNeurons[n].output = 0
-            }
-          }
+          if(type == RunType.SNAPSHOT)
+            this.vecpNeurons.forEach(n=> n.output=0);
+          /////
           return outputs;
         },
-        //draws a graphical representation of the network to a user speciefied window
-        drawNet(gfx, left, right, top, bottom){
-          const border = 10,
-                //max line thickness
-                maxThickness = 5;
-          tidyXSplits(this.vecpNeurons);
-          //go through the neurons and assign x/y coords
-          let cur,cNeuron,
-              spanX = right - left,
-              spanY = top - bottom - (2*border);
-          for(cNeuron=0; cNeuron<this.vecpNeurons.length; ++cNeuron){
-            cur=this.vecpNeurons[cNeuron];
-            cur.posX = left + spanX*cur.splitX;
-            cur.posY = (top - border) - (spanY * cur.splitY);
-          }
-          //create some pens and brushes to draw with
-          HPEN GreyPen  = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
-          HPEN RedPen   = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
-          HPEN GreenPen = CreatePen(PS_SOLID, 1, RGB(0, 200, 0));
-          HPEN OldPen   = NULL;
-          //create a solid brush
-          HBRUSH RedBrush = CreateSolidBrush(RGB(255, 0, 0));
-          HBRUSH OldBrush = NULL;
-          OldPen =   (HPEN)  SelectObject(surface, RedPen);
-          OldBrush = (HBRUSH)SelectObject(surface, GetStockObject(HOLLOW_BRUSH));
-          //radius of neurons
-          let radNeuron = spanX/60,
-              radLink = radNeuron * 1.5;
-          //now we have an X,Y pos for every neuron we can get on with the
-          //drawing. First step through each neuron in the network and draw the links
-          for(cNeuron=0; cNeuron<this.vecpNeurons.length; ++cNeuron){
-            //grab this neurons position as the start position of each
-            //connection
-            cur=this.vecpNeurons[cNeuron];
-            let bBias=false,
-                startX = cur.posX,
-                startY = cur.posY;
-            if(cur.neuronType == neuron_type.bias){
-              bBias = true
-            }
-            //now iterate through each outgoing link to grab the end points
-            for(let thick,ex,ey,cLnk=0; cLnk<cur.vecLinksOut.length; ++cLnk){
-              ex = cur.vecLinksOut[cLnk].out.posX;
-              ey = cur.vecLinksOut[cLnk].out.posY;
-              //if link is forward draw a straight line
-              if((!cur.vecLinksOut[cLnk].recurrent) && !bBias){
-                thick= int(Math.abs(cur.vecLinksOut[cLnk].weight));
-                Clamp(thick, 0, MaxThickness);
-                //create a yellow pen for inhibitory weights
-                if(cur.vecLinksOut[cLnk].weight <= 0){
-                  Pen  = CreatePen(PS_SOLID, thick, RGB(240, 230, 170));
-                }else{ //grey for excitory
-                  Pen  = CreatePen(PS_SOLID, thick, RGB(200, 200, 200));
-                }
-                HPEN tempPen = (HPEN)SelectObject(surface, Pen);
-                //draw the link
-                MoveToEx(surface, StartX, StartY, NULL);
-                LineTo(surface, EndX, EndY);
-                SelectObject(surface, tempPen);
-                DeleteObject(Pen);
-              }else if((!cur.vecLinksOut[cLnk].recurrent) && bBias){
-                SelectObject(surface, GreenPen);
-                //draw the link
-                MoveToEx(surface, StartX, StartY, NULL);
-                LineTo(surface, EndX, EndY);
-              }else{ //recurrent link draw in red
-                if(startX == ex && startY == ey){
-                  thick= int(Math.abs(cur.vecLinksOut[cLnk].weight));
-                  Clamp(thick, 0, MaxThickness);
-                  //blue for inhibitory
-                  if(cur.vecLinksOut[cLnk].weight <= 0){
-                    Pen  = CreatePen(PS_SOLID, thick, RGB(0,0,255));
-                  }else{ //red for excitory
-                    Pen  = CreatePen(PS_SOLID, thick, RGB(255, 0, 0));
-                  }
-                  HPEN tempPen = (HPEN)SelectObject(surface, Pen);
-                  //we have a recursive link to the same neuron draw an ellipse
-                  let x = cur.posX,
-                      y = cur.posY - (1.5 * radNeuron);
-                  Ellipse(surface, x-radLink, y-radLink, x+radLink, y+radLink);
-                  SelectObject(surface, tempPen);
-                  DeleteObject(Pen);
-                }else{
-                  thick= int(Math.fabs(cur.vecLinksOut[cLnk].weight));
-                  Clamp(thickness, 0, MaxThickness);
-                  HPEN Pen;
-                  //blue for inhibitory
-                  if(cur.vecLinksOut[cLnk].weight <= 0){
-                    Pen  = CreatePen(PS_SOLID, thickness, RGB(0,0,255));
-                  }else{ //red for excitory
-                    Pen  = CreatePen(PS_SOLID, thickness, RGB(255, 0, 0));
-                  }
-                  HPEN tempPen = (HPEN)SelectObject(surface, Pen);
-                  //draw the link
-                  MoveToEx(surface, StartX, StartY, NULL);
-                  LineTo(surface, EndX, EndY);
-                  SelectObject(surface, tempPen);
-                  DeleteObject(Pen);
-                }
-              }
-            }
-          }
-          //now draw the neurons and their IDs
-          SelectObject(surface, RedBrush);
-          SelectObject(surface, GetStockObject(BLACK_PEN));
-          for(cNeuron=0; cNeuron<this.vecpNeurons.length; ++cNeuron){
-            let x = cur.posX,
-                y = cur.posY;
-            //display the neuron
-            Ellipse(surface, x-radNeuron, y-radNeuron, x+radNeuron, y+radNeuron);
-          }
-          //cleanup
-          SelectObject(surface, OldPen);
-          SelectObject(surface, OldBrush);
-          DeleteObject(RedPen);
-          DeleteObject(GreyPen);
-          DeleteObject(GreenPen);
-          DeleteObject(OldPen);
-          DeleteObject(RedBrush);
-          DeleteObject(OldBrush);
-        }
+        drawNet(gfx, cxLeft, cxRight, cyTop, cyBot){ }
       }
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function GenomeSort(lhs, rhs){
-      return lhs.fitness.gt(rhs.fitness)?-1:(
-        lhs.fitness.lt(rhs.fitness)?1:0
-      )
-    }
-
-    //------------------------------------------------------------------------
-    //  this constructor creates a minimal genome where there are output +
-    //  input neurons and each input neuron is connected to each output neuron.
-    function CGenome(id, inputs, outputs, extra){
-      let vecLinks=[],
+    /**A genome basically consists of a vector of
+     * link genes, a vector of neuron genes and a fitness score.
+     * @memberof module:mcfud/algo/NEAT
+     * @param {number} id
+     * @param {number} inputs
+     * @param {number} outputs
+     * @param {NeuronGene[]} neurons (optional)
+     * @param {LinkGene[]} genes (optional)
+     */
+    function Genome(id, inputs, outputs,neurons, genes){
+      let inputRowSlice = 1/(inputs+2),
+          outputRowSlice = 1/(outputs+1);
+      let vecLinks= [],
           vecNeurons= [];
-      if(extra){
-        extra.neurons.forEach(n=> vecNeurons.push(n));
-        extra.genes.forEach(n=> vecLinks.push(n));
+      if(arguments.length>3){
+        vecLinks= genes;
+        vecNeurons= neurons;
       }else{
-        //create the input neurons
-        let i,inputRowSlice = 1/(inputs+2);
-        for(i=0; i<inputs; ++i){
-          vecNeurons.push(SNeuronGene(neuron_type.input, i, 0, (i+2)*inputRowSlice))
-        }
-        //create the bias
-        vecNeurons.push(SNeuronGene(neuron_type.bias, inputs, 0, inputRowSlice));
-        //create the output neurons
-        let outputRowSlice = 1/(outputs+1);
-        for(i=0; i<outputs; ++i){
-          vecNeurons.push(SNeuronGene(output, i+inputs+1, 1, (i+1)*outputRowSlice))
-        }
+        for(let i=0; i<inputs; ++i)
+          vecNeurons.push(NeuronGene(NeuronType.INPUT, 0, (i+2)*inputRowSlice));
+        ////
+        vecNeurons.push(NeuronGene(NeuronType.BIAS, 0, inputRowSlice));
+        for(let i=0; i<outputs; ++i)
+          vecNeurons.push(NeuronGene(NeuronType.OUTPUT, 1, (i+1)*outputRowSlice));
         //create the link genes, connect each input neuron to each output neuron and
-        //assign a random weight -1 < w < 1
-        for(i=0; i<inputs+1; ++i)
+        for(let i=0; i<inputs+1; ++i)
           for(let j=0; j<outputs; ++j)
-            vecLinks.push(SLinkGene(vecNeurons[i].ID,
-                                    vecNeurons[inputs+j+1].ID,
-                                    true,
-                                    inputs+outputs+1+vecLinks.length, _.randMinus1To1()));
+            vecLinks.push(LinkGene(vecNeurons[i].id, vecNeurons[inputs+j+1].id, NextGlobalIID()));
       }
       return{
-        adjustedFitness: NumericFitness(0),
-        fitness: NumericFitness(0),
         phenotype:null,
-        genomeID: id,
-        numInputs: inputs,
-        numOutPuts: outputs,
-        amountToSpawn: 0,
-        species: 0,
+        genomeID:id,
+        //its raw fitness score
+        fitness:NumericFitness(0),
+        //its fitness score after it has been placed into a species and adjusted accordingly
+        adjustedFitness:0,
+        //the number of offspring this individual is required to spawn
+        //for the next generation
+        amountToSpawn:0,
+        //keep a record of the number of inputs and outputs
+        numInputs:inputs,
+        numOutputs:outputs,
+        //keeps a track of which species this genome is in (only used for display purposes)
+        species:0,
         vecLinks,
         vecNeurons,
-        copy(){
-        },
-        //  Creates a neural network based upon the information in the genome.
-        //  Returns a pointer to the newly created ANN
+        /**Create a neural network from the genome.
+         * @param {number} depth
+         * @return {NeuralNet} newly created ANN
+         */
         createPhenotype(depth){
-          let e,f,t,tmp,neurons=[];
-          //first, create all the required neurons
-          this.vecNeurons.forEach(cur=>{
-            neurons.push(SNeuron(cur.neuronType, cur.ID,
-                                 cur.splitY, cur.splitX, cur.activationResponse))
-          });
-          this.vecLinks.forEach(cur=>{
-            if(cur.enabled){
-              e= this.getElementPos(cur.FromNeuron);
-              f= neurons[e];
-              e= this.getElementPos(cur.toNeuron);
-              t= neurons[e];
-              tmp=SLink(cur.weight, f, t, cur.recurrent);
-              f.vecLinksOut.push(tmp);
-              t.vecLinksIn.push(tmp);
+          let vecNeurons=[];
+          this.deletePhenotype();
+          for(let i=0; i<this.vecNeurons.length; ++i)
+            vecNeurons.push(NNetNeuron(this.vecNeurons[i].neuronType,
+                                       this.vecNeurons[i].id,
+                                       this.vecNeurons[i].splitY,
+                                       this.vecNeurons[i].splitX,
+                                       this.vecNeurons[i].activationResponse));
+          for(let f,t,k,i=0; i<this.vecLinks.length; ++i){
+            if(this.vecLinks[i].enabled){
+              f= vecNeurons[ this.getElementPos(this.vecLinks[i].fromNeuron) ];
+              t= vecNeurons[ this.getElementPos(this.vecLinks[i].toNeuron) ];
+              //create a link between those two neurons and assign the weight stored in the gene
+              k= NNetLink(this.vecLinks[i].weight, f, t, this.vecLinks[i].recurrent);
+              //add new links to neuron
+              f.vecLinksOut.push(k);
+              t.vecLinksIn.push(k);
             }
-          });
-          //now the neurons contain all the connectivity information, a neural
-          //network may be created from them.
-          return this.phenotype = CNeuralNet(neurons, depth);
-        },
-        //  given a neuron ID this little function just finds its position in
-        //  m_vecNeurons
-        getElementPos(neuron_id){
-          for(let i=0; i<this.vecNeurons.length; ++i){
-            if(this.vecNeurons[i].ID == neuron_id) return i;
           }
-          _.assert(false, `Error in CGenome::GetElementPos`);
+          return this.phenotype = NeuralNet(vecNeurons, depth);
         },
-        duplicateLink(neuronIn, neuronOut){
-          for(let cGene=0; cGene<this.vecLinks.length; ++cGene){
-            if(this.vecLinks[cGene].fromNeuron == neuronIn &&
-               this.vecLinks[cGene].toNeuron == neuronOut) return true;
-          }
-          return false;
+        /**Remove the internal neural net.
+         */
+        deletePhenotype(){
+          return this.phenotype = null;
         },
-        // create a new link with the probability of CParams::dChanceAddLink
+        /**Create a new link with the probability of Params::dChanceAddLink.
+         * @param {number} MutationRate
+         * @param {boolean} ChanceOfLooped
+         * @param {InnovationHistory} innovation
+         * @param {number} numTrysToFindLoop
+         * @param {number} numTrysToAddLink
+         */
         addLink(MutationRate, ChanceOfLooped, innovation, numTrysToFindLoop, numTrysToAddLink){
-          if(_.rand() > MutationRate) return;
+          if(_.rand() > MutationRate)
+          return;
+          //define holders for the two neurons to be linked. If we have find two
+          //valid neurons to link these values will become >= 0.
           let ID_neuron1 = -1,
               ID_neuron2 = -1,
-              bRecurrent = false;
-          let id,cur,neuronPos;
+              //flag set if a recurrent link is selected (looped or normal)
+              recurrent = false;
+          //first test to see if an attempt shpould be made to create a
+          //link that loops back into the same neuron
           if(_.rand() < ChanceOfLooped){
-            //find a neuron that is not an input or bias neuron and that does not already have a loopback connection
+            //YES: try NumTrysToFindLoop times to find a neuron that is not an
+            //input or bias neuron and that does not already have a loopback connection
             while(numTrysToFindLoop--){
-              neuronPos = _.randInt2(this.numInputs+1, this.vecNeurons.length-1);
-              cur=this.m_vecNeurons[neuronPos];
+              let pos = _.randInt2(this.numInputs+1, this.vecNeurons.length-1),
+                  n=this.vecNeurons[pos];
               //check to make sure the neuron does not already have a loopback
               //link and that it is not an input or bias neuron
-              if(!cur.recurrent &&
-                 cur.neuronType != neuron_type.bias &&
-                 cur.neuronType != neuron_type.input){
-                ID_neuron1 = ID_neuron2 = cur.ID;
-                cur.recurrent = true;
-                bRecurrent = true;
-                numTrysToFindLoop = 0;
+              if(!n.recurrent && n.neuronType != NeuronType.BIAS && n.neuronType != NeuronType.INPUT){
+                ID_neuron1 = ID_neuron2 = n.id;
+                n.recurrent = true;
+                recurrent = true;
+                break;
+                //numTrysToFindLoop = 0;
               }
             }
-          }else{ //No: try to find two unlinked neurons. Make NumTrysToAddLink attempts
-            while(numTrysToAddLink--){
-              ID_neuron1 = this.vecNeurons[_.randInt2(0, this.vecNeurons.length-1)].ID;
-              ID_neuron2 = this.vecNeurons[_.randInt2(this.numInputs+1, this.vecNeurons.length-1)].ID;
-              if(ID_neuron2 == 2){ continue }
-              //make sure these two are not already linked and that they are not the same neuron
-              if(!(this.duplicateLink(ID_neuron1, ID_neuron2) || ID_neuron1 == ID_neuron2)){
-                numTrysToAddLink = 0;
-              }else{
-                ID_neuron1 = -1;
-                ID_neuron2 = -1;
-              }
-            }
-          }
-          if(ID_neuron1 < 0 || ID_neuron2 < 0){ return }
-          //check to see if we have already created this innovation
-          id = innovation.checkInnovation(ID_neuron1, ID_neuron2, innov_type.new_link);
-          if(this.vecNeurons[this.getElementPos(ID_neuron1)].splitY >
-             this.vecNeurons[this.getElementPos(ID_neuron2)].splitY){
-            bRecurrent = true;
-          }
-          if(id < 0){ //we need to create a new innovation
-            innovation.createNewInnovation(ID_neuron1, ID_neuron2, innov_type.new_link);
-            //then create the new gene
-            this.vecLinks.push(SLinkGene(ID_neuron1,
-                                         ID_neuron2,
-                                         true,
-                                         innovation.nextNumber()-1, _.randMinus1To1(), bRecurrent))
           }else{
-            //the innovation has already been created so all we need to
-            //do is create the new gene using the existing innovation ID
-            this.vecLinks.push(SLinkGene(ID_neuron1,
-                                         ID_neuron2,
-                                         true,
-                                         id, _.randMinus1To1(), bRecurrent))
+            //No: try to find two unlinked neurons. Make NumTrysToAddLink attempts
+            while(numTrysToAddLink--){
+              //choose two neurons, the second must not be an input or a bias
+              ID_neuron1 = this.vecNeurons[_.randInt2(0, this.vecNeurons.length-1)].id;
+              ID_neuron2 = this.vecNeurons[_.randInt2(this.numInputs+1, this.vecNeurons.length-1)].id;
+              if(ID_neuron2 == 2){ continue; }//TODO: why2?
+              //make sure these two are not already linked and that they are not the same neuron
+              if(ID_neuron1 == ID_neuron2 || this.duplicateLink(ID_neuron1, ID_neuron2)){
+                ID_neuron1 = ID_neuron2 = -1;
+              }else{
+                break;
+                //numTrysToAddLink = 0;
+              }
+            }
+          }
+          if(ID_neuron1 < 0 || ID_neuron2 < 0){}else{
+            let id = innovation.checkInnovation(ID_neuron1, ID_neuron2, InnovType.NEW_LINK);
+            if(this.vecNeurons[this.getElementPos(ID_neuron1)].splitY >
+               this.vecNeurons[this.getElementPos(ID_neuron2)].splitY){ recurrent = true }
+            if(id<0)
+              id= innovation.createNewInnovation(ID_neuron1, ID_neuron2, InnovType.NEW_LINK).innovationID;
+            this.vecLinks.push(LinkGene(ID_neuron1, ID_neuron2, id, true, _.randMinus1To1(), recurrent));
           }
         },
-        //  this function adds a neuron to the genotype by examining the network,
-        //  splitting one of the links and inserting the new neuron.
-        addNeuron(MutationRate, innovations, numTrysToFindOldLink){
-          if(_.rand() > MutationRate) return;
-          let bDone = false,
-              chosenLink = 0;
-          //first a link is chosen to split. If the genome is small the code makes
-          //sure one of the older links is split to ensure a chaining effect does
-          //not occur. Here, if the genome contains less than 5 hidden neurons it
-          //is considered to be too small to select a link at random
-          const sizeThreshold = this.numInputs + this.numOutPuts + 5;
-          if(this.vecLinks.length < sizeThreshold){
+        /**This function adds a neuron to the genotype by examining the network,
+         * splitting one of the links and inserting the new neuron.
+         * @param {number} MutationRate
+         * @param {CInnovationHostory} innovation
+         * @param {number} numTrysToFindOldLink
+         */
+        addNeuron(MutationRate, innovation, numTrysToFindOldLink){
+          if(_.rand() > MutationRate)
+          return;
+          let done = false,
+              chosenLink = 0,
+              //first a link is chosen to split. If the genome is small the code makes
+              //sure one of the older links is split to ensure a chaining effect does
+              //not occur. Here, if the genome contains less than 5 hidden neurons it
+              //is considered to be too small to select a link at random
+              SizeThreshold = this.numInputs + this.numOutputs + 5;
+          if(this.vecLinks.length < SizeThreshold){
             while(numTrysToFindOldLink--){
               //choose a link with a bias towards the older links in the genome
               chosenLink = _.randInt2(0, this.numGenes()-1-int(Math.sqrt(this.numGenes())));
               //make sure the link is enabled and that it is not a recurrent link or has a bias input
               let fromNeuron = this.vecLinks[chosenLink].fromNeuron;
-              if(this.vecLinks[chosenLink].enabled &&
+              if(this.vecLinks[chosenLink].enabled    &&
                  !this.vecLinks[chosenLink].recurrent &&
-                 this.vecNeurons[this.getElementPos(fromNeuron)].neuronType != neuron_type.bias){
-                bDone = true;
-                numTrysToFindOldLink = 0;
+                 this.vecNeurons[this.getElementPos(fromNeuron)].neuronType != NeuronType.BIAS){
+                done = true;
+                break;
+                //numTrysToFindOldLink = 0;
               }
             }
-            //failed to find a decent link
-            if(!bDone){ return }
-          }else{
-            //the genome is of sufficient size for any link to be acceptable
-            while(!bDone){
+            if(!done){ return } //failed to find a decent link
+          }else{ //the genome is of sufficient size for any link to be acceptable
+            while(!done){
               chosenLink = _.randInt2(0, this.numGenes()-1);
-              //make sure the link is enabled and that it is not a recurrent link
-              //or has a BIAS input
+              //make sure the link is enabled and that it is not a recurrent link or has a BIAS input
               let fromNeuron = this.vecLinks[chosenLink].fromNeuron;
               if(this.vecLinks[chosenLink].enabled &&
                  !this.vecLinks[chosenLink].recurrent &&
-                 this.vecNeurons[this.getElementPos(fromNeuron)].neuronType != neuron_type.bias){
-                bDone = true;
+                 this.vecNeurons[this.getElementPos(fromNeuron)].neuronType != NeuronType.BIAS){
+                done = true;
               }
             }
           }
@@ -562,19 +558,17 @@
           //grab the weight from the gene (we want to use this for the weight of
           //one of the new links so that the split does not disturb anything the
           //NN may have already learned...
-          let originalWeight = this.vecLinks[chosenLink].weight;
-          //identify the neurons this link connects
-          let from =  this.vecLinks[chosenLink].fromNeuron;
-          let to_   =  this.vecLinks[chosenLink].toNeuron;
-          //calculate the depth and width of the new neuron. We can use the depth
-          //to see if the link feeds backwards or forwards
-          let newDepth = (this.vecNeurons[this.getElementPos(from)].splitY +
-                          this.vecNeurons[this.getElementPos(to_)].splitY) /2;
-          let newWidth = (this.vecNeurons[this.getElementPos(from)].splitX +
-                          this.vecNeurons[this.getElementPos(to_)].splitX) /2;
-          //Now to see if this innovation has been created previously by
-          //another member of the population
-          let id = innovations.checkInnovation(from, to_, innov_type.new_neuron);
+          let originalWeight = this.vecLinks[chosenLink].weight,
+              from =  this.vecLinks[chosenLink].fromNeuron,
+              to   =  this.vecLinks[chosenLink].toNeuron,
+              //calculate the depth and width of the new neuron. We can use the depth
+              //to see if the link feeds backwards or forwards
+              newDepth = (this.vecNeurons[this.getElementPos(from)].splitY +
+                          this.vecNeurons[this.getElementPos(to)].splitY) /2,
+              newWidth = (this.vecNeurons[this.getElementPos(from)].splitX +
+                          this.vecNeurons[this.getElementPos(to)].splitX) /2,
+              //Now to see if this innovation has been created previously by another member of the population
+              id = innovations.checkInnovation(from, to, InnovType.NEW_NEURON);
           /*it is possible for NEAT to repeatedly do the following:
               1. Find a link. Lets say we choose link 1 to 5
               2. Disable the link,
@@ -585,458 +579,515 @@
           Therefore, this function must check to see if a neuron ID is already
           being used. If it is then the function creates a new innovation
           for the neuron. */
-          if(id >= 0){
-            let neuronID = innovations.getNeuronID(id);
-            if(this.alreadyHaveThisNeuronID(neuronID)){
-              id = -1;
-            }
-          }
+          if(id >= 0 && this.alreadyHaveThisNeuronID(innovations.getNeuronID(id))) id = -1;
+          let idLink1, idLink2, newNeuronID;
           if(id < 0){
-            //add the innovation for the new neuron
-            let newNeuronID = innovations.createNewInnovation(from,
-                                                              to_,
-                                                              innov_type.new_neuron,
-                                                              hidden, newWidth, newDepth);
+            let new_innov= innovations.createNewInnovation(from, to,
+                                                           InnovType.NEW_NEURON,
+                                                           NeuronType.HIDDEN, newWidth, newDepth),
+                n= NeuronGene(NeuronType.HIDDEN, newDepth, newWidth);
+            new_innov.neuronID= newNeuronID=n.id;
             //create the new neuron gene and add it.
-            this.vecNeurons.push(SNeuronGene(hidden, newNeuronID, newDepth, newWidth));
+            this.vecNeurons.push(n);
             //Two new link innovations are required, one for each of the
             //new links created when this gene is split.
-            //-----------------------------------first link
-            //get the next innovation ID
-            let idLink1 = innovations.nextNumber();
-            //create the new innovation
-            innovations.createNewInnovation(from, newNeuronID, innov_type.new_link);
-            this.vecLinks.push(SLinkGene(from, newNeuronID, true, idLink1, 1));
-            //-----------------------------------second link
-            //get the next innovation ID
-            let idLink2 = innovations.nextNumber();
-            //create the new innovation
-            innovations.createNewInnovation(newNeuronID, to_, innov_type.new_link);
-            this.vecLinks.push(SLinkGene(newNeuronID, to_, true, idLink2, originalWeight));
+            idLink1 = innovations.createNewInnovation(from, newNeuronID, InnovType.NEW_LINK).innovationID;
+            this.vecLinks.push(LinkGene(from, newNeuronID, idLink1, true, 1));
+            idLink2 = innovations.createNewInnovation(newNeuronID, to, InnovType.NEW_LINK).innovationID;
+            this.vecLinks.push(LinkGene(newNeuronID, to, idLink2, true, originalWeight));
           }else{
             //this innovation has already been created so grab the relevant neuron
             //and link info from the innovation database
-            let newNeuronID = innovations.getNeuronID(id);
-            //get the innovation IDs for the two new link genes.
-            let idLink1 = innovations.checkInnovation(from, newNeuronID, innov_type.new_link);
-            let idLink2 = innovations.checkInnovation(newNeuronID, to_, innov_type.new_link);
+            newNeuronID = innovations.getNeuronID(id);
+            idLink1 = innovations.checkInnovation(from, newNeuronID, InnovType.NEW_LINK);
+            idLink2 = innovations.checkInnovation(newNeuronID, to, InnovType.NEW_LINK);
             //this should never happen because the innovations *should* have already occurred
-            if(idLink1 < 0 || idLink2 < 0){
-              _.assert(false, `Error in CGenome::AddNeuron`);
-            }
+            if(idLink1 < 0 || idLink2 < 0)
+              _.assert(false, "Error in Genome::AddNeuron");
             //now we need to create 2 new genes to represent the new links
-            this.vecLinks.push(SLinkGene(from, newNeuronID, true, idLink1, 1));
-            this.vecLinks.push(SLinkGene(newNeuronID, to_, true, idLink2, originalWeight));
-            this.vecNeurons.push(SNeuronGene(hidden, newNeuronID, newDepth, newWidth));
+            this.vecLinks.push(LinkGene(from, newNeuronID, idLink1, true, 1));
+            this.vecLinks.push(LinkGene(newNeuronID, to, idLink2, true, originalWeight));
+            this.vecNeurons.push(NeuronGene.From(newNeuronID, hidden, newDepth, newWidth));
           }
         },
-        // tests to see if the parameter is equal to any existing neuron ID's.
-        // Returns true if this is the case.
-        alreadyHaveThisNeuronID(ID){
-          for(let n=0; n<this.vecNeurons.length; ++n){
-            if(ID == this.vecNeurons[n].ID)
-              return true;
+        /**Given a neuron ID this little function just finds its position in m_vecNeurons.
+         * @param {number} neuron_id
+         * @return {number}
+         */
+        getElementPos(neuron_id){
+          for(let i=0; i<this.vecNeurons.length; ++i){
+            if(this.vecNeurons[i].id == neuron_id)
+            return i
           }
-          return false;
+          _.assert(false, "Error in Genome::GetElementPos");
+          //return -1;
         },
-        //  Iterates through the genes and purturbs the weights given a
-        //  probability mut_rate.
-        //  prob_new_mut is the chance that a weight may get replaced by a
-        //  completely new weight.
-        //  dMaxPertubation is the maximum perturbation to be applied.
-        //  type is the type of random number algorithm we use
-        mutateWeights(mut_rate, prob_new_mut, MaxPertubation){
-          for(let cGen=0; cGen<this.vecLinks.length; ++cGen){
-            if(_.rand() < mut_rate){
-              if(_.rand() < prob_new_mut){
-                //change the weight using the random distribtion defined by 'type'
-                this.vecLinks[cGen].weight = _.randMinus1To1()
+        /**
+         * @param {number} neuronIn
+         * @param {number} neuronOut
+         * @return {boolean} true if the link is already part of the genome
+         */
+        duplicateLink(neuronIn, neuronOut){
+          return this.vecLinks[i].some(k=> k.fromNeuron == neuronIn && k.toNeuron == neuronOut)
+        },
+        /**Tests to see if the parameter is equal to any existing neuron ID's.
+         * @param {number} id
+         * @return {boolean} true if this is the case.
+         */
+        alreadyHaveThisNeuronID(id){
+          return this.vecNeurons.some(n=> id== n.id)
+        },
+        /**
+         * @param {number} MutationRate
+         * @param {number} ProbNewWeight the chance that a weight may get replaced by a completely new weight.
+         * @param {number} maxPertubation the maximum perturbation to be applied
+         */
+        mutateWeights(MutationRate, ProbNewWeight, maxPertubation){
+          for(let i=0; i<this.vecLinks.length; ++i){
+            if(_.rand() < MutationRate){
+              if(_.rand() < ProbNewWeight){
+                //change the weight to a completely new weight
+                this.vecLinks[i].weight = _.randMinus1To1()
               }else{
-                this.vecLinks[cGen].weight += _.randMinus1To1() * MaxPertubation
+                this.vecLinks[i].weight += _.randMinus1To1() * maxPertubation
               }
             }
           }
         },
-        mutateActivationResponse(mut_rate, MaxPertubation){
-          for(let cGen=0; cGen<this.vecNeurons.length; ++cGen){
-            if(_.rand() < mut_rate)
-              this.vecNeurons[cGen].activationResponse += _.randMinus1To1() * MaxPertubation
-          }
+        /**Perturbs the activation responses of the neurons.
+         * @param {number} MutationRate
+         * @param {number} maxPertubation the maximum perturbation to be applied
+         */
+        mutateActivationResponse(MutationRate, maxPertubation){
+          this.vecNeurons[i].forEach(n=>{
+            if(_.rand() < MutationRate)
+              n.activationResponse += _.randMinus1To1() * maxPertubation
+          })
         },
-        //  this function returns a score based on the compatibility of this
-        //  genome with the passed genome
+        /**Find the compatibility of this genome with the passed genome.
+         * @param {Genome} genome
+         * @return {number}
+         */
         getCompatibilityScore(genome){
           //travel down the length of each genome counting the number of
-          //disjoint genes, the number of excess genes and the number of
-          //matched genes
+          //disjoint genes, the number of excess genes and the number of matched genes
           let numDisjoint = 0,
               numExcess   = 0,
               numMatched  = 0,
               //this records the summed difference of weights in matched genes
               weightDifference = 0,
-              //position holders for each genome. They are incremented as we
-              //step down each genomes length.
+              //position holders for each genome. They are incremented as we step down each genomes length.
               g1 = 0,
               g2 = 0;
-          while((g1 < this.vecLinks.length-1) || (g2 < genome.vecLinks.length-1)){
-            //we've reached the end of genome1 but not genome2 so increment the excess score
-            if(g1 == this.vecLinks.length-1){
-              ++g2;
-              ++numExcess;
-              continue;
-            }
-            //and vice versa
-            if(g2 == genome.vecLinks.length-1){
-              ++g1;
-              ++numExcess;
-              continue;
-            }
-            //get innovation numbers for each gene at this point
+          while((g1 < this.vecLinks.length-1) ||
+                (g2 < genome.vecLinks.length-1)){
+            //we've reached the end of genome1 but not genome2 so increment the excess score and vice versa
+            if(g1 == this.vecLinks.length-1){ ++g2; ++numExcess; continue; }
+            if(g2 == genome.vecLinks.length-1){ ++g1; ++numExcess; continue; }
             let id1 = this.vecLinks[g1].innovationID,
                 id2 = genome.vecLinks[g2].innovationID;
-            //innovation numbers are identical so increase the matched score
             if(id1 == id2){
-              ++g1;
-              ++g2;
-              ++numMatched;
-              //get the weight difference between these two genes
+              ++g1; ++g2; ++numMatched;
               weightDifference += Math.abs(this.vecLinks[g1].weight - genome.vecLinks[g2].weight);
-            }
-            //innovation numbers are different so increment the disjoint score
-            if(id1 < id2){
+            }else{
               ++numDisjoint;
-              ++g1;
-            }
-            if(id1 > id2){
-              ++numDisjoint;
-              ++g2;
+              if(id1 < id2){ ++g1 }
+              else if(id1 > id2){ ++g2 }
             }
           }
-          //get the length of the longest genome
-          let longest = genome.numGenes();
-          if(this.numGenes() > longest){
-            longest = this.numGenes();
-          }
-          //these are multipliers used to tweak the final score.
-          const Disjoint = 1;
-          const Excess   = 1;
-          const Matched  = 0.4;
-          //finally calculate the scores
+          const Disjoint = 1,
+                Excess   = 1,
+                Matched  = 0.4,
+                longest= Math.max(this.numGenes(), genome.numGenes());
           return (Excess * numExcess/longest) +
                  (Disjoint * numDisjoint/longest) +
                  (Matched * weightDifference / numMatched);
         },
         sortGenes(){
-          this.vecLinks.sort();
+          this.vecLinks.sort(LinkGene.SortFunc)
         },
-        ID(){return this.genomeID},
+        id(){return this.genomeID},
         setID(val){this.genomeID = val},
         numGenes(){return this.vecLinks.length},
         numNeurons(){return this.vecNeurons.length},
-        numInputs(){return this.numInputs},
-        numOutputs(){return this.numOutPuts},
-        amountToSpawn(){return this.amountToSpawn},
+        //numInputs(){return this.numInputs}
+        //numOutputs(){return this.numOutputs}
+        //amountToSpawn(){return this.amountToSpawn}
         setAmountToSpawn(num){this.amountToSpawn = num},
-        setFitness(num){this.fitness = NumericFitness(num)},
-        setAdjFitness(num){this.adjustedFitness = NumericFitness(num)},
+        setFitness(n){this.fitness = n},
+        setAdjFitness(num){this.adjustedFitness = num},
         fitness(){return this.fitness},
         getAdjFitness(){return this.adjustedFitness},
         getSpecies(){return this.species},
         setSpecies(spc){this.species = spc},
         splitY(val){return this.vecNeurons[val].splitY},
         genes(){return this.vecLinks},
-        neurons(){return this.vecNeurons}
+        neurons(){return this.vecNeurons},
+        startOfGenes(){return 0},
+        endOfGenes(){return this.vecLinks.length-1}
       }
     }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SInnovation(in, out, t, inov_id, type=neuron_type.none, x=0, y=0){
-      return{
-        neuronIn:in,
-        neuronOut:out,
-        innovationType:t,
-        innovationID:inov_id,
-        neuronID:0,
-        neuronType:type,
-        splitX:x,
-        splitY:y
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SInnovationEx(neuron, innov_id, neuron_id){
-      return{
-        neuronType: neuron.neuronType,
-        innovationID: innov_id,
-        neuronID: neuron_id,
-        splitX: neuron.splitX,
-        splitY: neuron.splitY,
-        neuronIn: -1,
-        neuronOut: -1
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function CInnovation(start_genes, start_neurons){
-      let nextNeuronID=	0,
-          vecInnovs=[],
-          nextInnovationNum= 0;
-      //add the neurons
-      for(let nd=0; nd<start_neurons.length; ++nd){
-        vecInnovs.push(SInnovationEx(start_neurons[nd], nextInnovationNum++, nextNeuronID++))
-      }
-      //add the links
-      for(let cGen = 0; cGen<start_genes.length; ++cGen){
-        vecInnovs.push(SInnovation(start_genes[cGen].fromNeuron,
-                                   start_genes[cGen].toNeuron,
-                                   innov_type.new_link, nextInnovationNum));
-
-        ++nextInnovationNum;
-      }
-      return{
-        vecInnovs,
-        nextNeuronID,
-        nextInnovationNum,
-        //	checks to see if this innovation has already occurred. If it has it
-        //	returns the innovation ID. If not it returns a negative value.
-        checkInnovation(in, out, type){
-          //iterate through the innovations looking for a match on all three parameters
-          for(let inv=0; inv<this.vecInnovs.length; ++inv){
-            if(this.vecInnovs[inv].neuronIn == in   &&
-               this.vecInnovs[inv].neuronOut == out &&
-               this.vecInnovs[inv].innovationType == type){
-              return this.vecInnovs[inv].innovationID
-            }
-          }
-          return -1;
-        },
-        //	creates a new innovation and returns its ID
-        createNewInnovation(in, out, type){
-          let new_innov= SInnovation(in, out, type, this.nextInnovationNum);
-          if(type == innov_type.new_neuron){
-            new_innov.neuronID = this.nextNeuronID;
-            ++this.nextNeuronID;
-          }
-          this.vecInnovs.push(new_innov);
-          ++this.nextInnovationNum;
-          return (this.nextNeuronID-1);
-        },
-        //  as above but includes adding x/y position of new neuron
-        createNewInnovation2(from, to, innovType, neuronType, x, y){
-          let new_innov = SInnovation(from, to, innovType, this.nextInnovationNum, neuronType, x, y);
-          if(innovType == innov_type.new_neuron){
-            new_innov.neuronID = this.nextNeuronID;
-            ++this.nextNeuronID;
-          }
-          this.vecInnovs.push(new_innov);
-          ++this.nextInnovationNum;
-          return (this.nextNeuronID-1);
-        },
-        //  given a neuron ID this function returns a clone of that neuron
-        createNeuronFromID(neuronID){
-          let temp=SNeuronGene(hidden,0,0,0);
-          for(let inv=0; inv<this.vecInnovs.length; ++inv){
-            if(this.vecInnovs[inv].neuronID == neuronID){
-              temp.neuronType = this.vecInnovs[inv].neuronType;
-              temp.ID      = this.vecInnovs[inv].neuronID;
-              temp.splitY  = this.vecInnovs[inv].splitY;
-              temp.splitX  = this.vecInnovs[inv].splitX;
-              return temp;
-            }
-          }
-          return temp;
-        },
-        flush(){this.vecInnovs.length=0},
-        nextNumber(num = 0){
-          this.nextInnovationNum += num;
-          return this.nextInnovationNum;
-        },
-        getNeuronID(inv){return this.vecInnovs[inv].neuronID}
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SpeciesSort(lhs,rhs){
-      return lhs.bestFitness.gt(rhs.bestFitness)?-1:(
-        lhs.bestFitness.lt(rhs.bestFitness)?1:0
+    Genome.SortFunc=function(lhs,rhs){
+      //overload '<' used for sorting. From fittest to poorest.
+      return lhs.fitness().score() > rhs.fitness().score()?-1:(
+          lhs.fitness().score() < rhs.fitness().score()?1:0
       )
-    }
+    };
 
-    //------------------------------------------------------------------------
-    //  the initializing genome is kept in m_Leader and the first element
-    //  of m_vecMembers is a pointer to that genome.
+    /**
+     * @param {Genome} firstOrg
+     * @param {number} speciesID
+     */
     function CSpecies(firstOrg, speciesID){
-      let vecMembers=[firstOrg];
       return{
-        bestFitness: firstOrg.fitness.clone(),
-        gensNoImprovement:0,
-        leader:firstOrg,
-        age:0,
-        spawnsRqd:0,
         speciesID,
-        vecMembers,
-        //  this function adds a new member to this species and updates the member
-        //  variables accordingly
-        addMember(newMember){
-          //is the new member's fitness better than the best fitness?
-          if(newMember.fitness.gt(this.bestFitness)){
-            this.bestFitness = newMember.fitness.clone();
-            this.gensNoImprovement = 0;
-            this.leader = newMember;
-          }
-          this.vecMembers.push(newMember);
-        },
-        //  this functions clears out all the members from the last generation,
-        //  updates the age and gens no improvement.
-        purge(){
-          this.vecMembers.length=0;
-          ++this.age;
-          ++this.gensNoImprovement;
-          this.spawnsRqd = 0;
-        },
-        //  This function adjusts the fitness of each individual by first
-        //  examining the species age and penalising if old, boosting if young.
-        //  Then we perform fitness sharing by dividing the fitness by the number
-        //  of individuals in the species. This ensures a species does not grow
-        //  too large
+        //generations since fitness has improved, we can use
+        //this info to kill off a species if required
+        _gensNoImprovement:0,
+        //age of species
+        _age:0,
+        //how many of this species should be spawned for the next population
+        spawnsRqd:0,
+        vecMembers: [firstOrg],
+        _leader: firstOrg,
+        //best fitness found so far by this species
+        _bestFitness: firstOrg.fitness().score(),
+        /**This function adjusts the fitness of each individual by first
+         * examining the species age and penalising if old, boosting if young.
+         * Then we perform fitness sharing by dividing the fitness
+         * by the number of individuals in the species.
+         * This ensures a species does not grow too large.
+         */
         adjustFitnesses(){
-          let total = 0;
-          for(let gen=0; gen<this.vecMembers.length; ++gen){
-            let score = this.vecMembers[gen].fitness.score();
-            //boost the fitness scores if the species is young
-            if(this.age < CParams::iYoungBonusAgeThreshhold){
-              score *= CParams::dYoungFitnessBonus;
+          let score,total = 0;
+          this.vecMembers.forEach(m=>{
+            score = m.fitness().score();
+            if(this._age < Params.youngBonusAgeThreshhold){
+              //boost the fitness scores if the species is young
+              score *= Params.youngFitnessBonus
             }
-            //punish older species
-            if(this.age > CParams::iOldAgeThreshold){
-              score *= CParams::dOldAgePenalty;
+            if(this._age > Params.oldAgeThreshold){
+              //punish older species
+              score *= Params.oldAgePenalty
             }
             total += score;
             //apply fitness sharing to adjusted fitnesses
-            this.vecMembers[gen].setAdjFitness(score/this.vecMembers.length);
-          }
+            m.setAdjFitness(score/this.vecMembers.length);
+          })
         },
-        //  Simply adds up the expected spawn amount for each individual in the
-        //  species to calculate the amount of offspring this species should
-        //  spawn
+        /**Adds a new member to this species and updates the member variables accordingly
+         * @param {Genome} newMember
+         */
+        addMember(newMember){
+          if(newMember.fitness().score() > this._bestFitness){
+            this._bestFitness = newMember.fitness().score();
+            this._gensNoImprovement = 0;
+            this._leader = newMember;
+          }
+          this.vecMembers.push(newMember);
+        },
+        /**Clears out all the members from the last generation, updates the age and gens no improvement.
+         */
+        purge(){
+          this.vecMembers.length=0;
+          ++this._gensNoImprovement;
+          this.spawnsRqd = 0;
+          ++this._age;
+        },
+        /**Simply adds up the expected spawn amount for each individual
+         * in the species to calculate the amount of offspring
+         * this species should spawn.
+         */
         calculateSpawnAmount(){
-          for(let gen=0; gen<this.vecMembers.length; ++gen){
-            this.spawnsRqd += this.vecMembers[gen].amountToSpawn()
-          }
+          this.vecMembers.forEach(m=>{
+            this.spawnsRqd += m.amountToSpawn()
+          })
         },
-        //  Returns a random genome selected from the best individuals
+        /**Spawns an individual from the species selected at random
+         * from the best Params::dSurvivalRate percent.
+         * @return {Genome} a random genome selected from the best individuals
+         */
         spawn(){
           let baby;
           if(this.vecMembers.length == 1){
-            baby = this.vecMembers[0];
+            baby = this.vecMembers[0]
           }else{
-            let n = int(CParams::dSurvivalRate * this.vecMembers.length)-1;
-            if(n<0)n=0;
-            let theOne = _.randInt2(0, n);
-            baby = this.vecMembers[theOne];
+            let n = int(Params.survivalRate * this.vecMembers.length)-1;
+            if(n<0)n=1;
+            baby = this.vecMembers[ _.randInt2(0, n) ];
           }
           return baby;
         },
+        leader(){return this._leader},
         numToSpawn(){return this.spawnsRqd},
         numMembers(){return this.vecMembers.length},
-        ID(){return this.speciesID},
-        speciesLeaderFitness(){return this.leader.fitness}
+        gensNoImprovement(){return this._gensNoImprovement},
+        id(){return this.speciesID},
+        bestFitness(){return this._bestFitness },
+        age(){return this._age},
+        speciesLeaderFitness(){return this._leader.fitness().score() }
       }
     }
-
-    //------------------------------------------------------------------------
-    //  this structure is used in the creation of a network depth lookup
-    //  table.
-    function SplitDepth(v, d){
-      return{ val:v, depth:d }
+    CSpeciies.SortFunc(lhs,rhs){
+      //so we can sort species by best fitness. Largest first
+      return lhs._bestFitness > rhs._bestFitness?-1:(
+        lhs._bestFitness < rhs._bestFitness?1:0
+      )
     }
 
-    //-------------------------------------------------------------------------
-    //	this constructor creates a base genome from supplied values and creates
-    //	a population of 'size' similar (same topology, varying weights) genomes
-    function Cga(size, inputs, outputs, cx, cy){
-      let vecGenomes=[],
-          vecSplits=[],
-          nextGenomeID=0,
-          //create the innovation list. First create a minimal genome
-          genome= CGenome(1, inputs, outputs);
-
-      for(let i=0; i<size; ++i){
-        vecGenomes.push(CGenome(nextGenomeID++, inputs, outputs))
+    /**A recursive function used to calculate a lookup table of split depths.
+     */
+    function split(low, high, depth, out){
+      const span = high-low;
+      out.push({val: low + span/2, depth: depth+1});
+      if(depth > 6){
+      }else{
+        split(low, low+span/2, depth+1, out);
+        split(low+span/2, high, depth+1, out);
       }
-      //create the network depth lookup table
-      vecSplits = Split(0, 1, 0);
+      return out;
+    }
 
+    /**Checks to see if a node ID has already been added to a vector of nodes.
+     * If not then the new ID  gets added. Used in Crossover.
+     * @param {number} nodeID
+     * @param {number[]} vec
+     * @return {number[]} vec
+     */
+    function addNeuronID(nodeID, vec){
+      for(let i=0; i<vec.length; ++i){
+        if(vec[i] == nodeID) { return vec }
+      }
+      vec.push(nodeID);
+      return vec;
+    }
+
+    /**Creates a base genome from supplied values and creates a population
+     * of 'size' similar (same topology, varying weights) genomes.
+     * @param {number} size
+     * @param {number} inputs
+     * @param {number} outputs
+     */
+    function NeatGA(size, inputs, outputs){
       return{
-        //create the innovations
-        innovation: CInnovation(genome.genes(), genome.neurons());
-        popSize: size,
+        nextSpeciesID:0,
         generation:0,
-        nextSpeciesID: 0,
-        fittestGenome: 0,
-        bestEverFitness: NumericFitness(0),
+        popSize:size,
+        //adjusted fitness scores
         totFitAdj:0,
         avFitAdj:0,
-        nextGenomeID,
-        vecGenomes,
-        //	cycles through all the members of the population and creates their
-        //  phenotypes. Returns a vector containing pointers to the new phenotypes
-        createPhenotypes(){
-          let networks=[];
-          for(let i=0; i<this.popSize; ++i){
-            let depth = this.calculateNetDepth(this.vecGenomes[i]);
-            //create new phenotype
-            let net = this.vecGenomes[i].createPhenotype(depth);
-            networks.push(net);
-          }
-          return networks;
+        //index into the genomes for the fittest genome
+        fittestGenome:0,
+        _bestEverFitness:0,
+        vecGenomes: _.fill(size, ()=> Genome(NextGlobalGID(), inputs, outputs)),
+        //create the innovation list. First create a minimal genome
+        innovHistory: (function(g){ return InnovationHistory(g.genes(), g.neurons()) })(Genome(1,inputs,outputs)),
+        //this holds the precalculated split depths. They are used
+        //to calculate a neurons x/y position for rendering and also
+        //for calculating the flush depth of the network when a
+        //phenotype is working in 'snapshot' mode.
+        //create the network depth lookup table
+        vecSplits : split(0, 1, 0, []),
+        vecBestGenomes:[],
+        vecSpecies:[],
+        /**Resets some values ready for the next epoch, kills off
+         * all the phenotypes and any poorly performing species.
+         */
+        resetAndKill(){
+          this.totFitAdj = 0;
+          this.avFitAdj  = 0;
+          let tmp=[];
+          this.vecSpecies.forEach(s=>{
+            s.purge();
+            //kill off species if not improving and if not the species which contains
+            //the best genome found so far
+            if(s.gensNoImprovement() > Params.numGensAllowedNoImprovement &&
+               s.bestFitness() < this._bestEverFitness){
+              //delete it
+            }else{
+              //keep it
+              tmp.push(s);
+            }
+          });
+          this.vecSpecies=tmp;
+          this.vecGenomes.forEach(g=> g.deletePhenotype());
         },
-        //  searches the lookup table for the dSplitY value of each node in the
-        //  genome and returns the depth of the network based on this figure
-        calculateNetDepth(gen){
-          let MaxSoFar = 0;
-          for(let nd=0; nd<gen.numNeurons(); ++nd){
-            for(let i=0; i<vecSplits.length; ++i){
-              if(gen.splitY(nd) == vecSplits[i].val && vecSplits[i].depth > MaxSoFar){
-                MaxSoFar = vecSplits[i].depth;
+        /**Separates each individual into its respective species by calculating
+         * a compatibility score with every other member of the population and
+         * niching accordingly. The function then adjusts the fitness scores of
+         * each individual by species age and by sharing and also determines
+         * how many offspring each individual should spawn.
+         */
+        speciateAndCalculateSpawnLevels(){
+          let added = false;
+          for(let gen=0; gen<this.vecGenomes.length; ++gen){
+            //calculate its compatibility score with each species leader. If
+            //compatible add to species. If not, create a new species
+            for(let cp, spc=0; spc<this.vecSpecies.length; ++spc){
+              cp = this.vecGenomes[gen].getCompatibilityScore(this.vecSpecies[spc].leader());
+              //if this individual is similar to this species add to species
+              if(cp <= Params.compatibilityThreshold){
+                this.vecSpecies[spc].addMember(this.vecGenomes[gen]);
+                //let the genome know which species it's in
+                this.vecGenomes[gen].setSpecies(this.vecSpecies[spc].id());
+                added = true;
+                break;
               }
             }
+            if(!added)
+              this.vecSpecies.push(CSpecies(this.vecGenomes[gen], this.nextSpeciesID++));
+            added = false;
           }
-          return MaxSoFar + 2;
+          //now all the genomes have been assigned a species the fitness scores
+          //need to be adjusted to take into account sharing and species age.
+          this.adjustSpeciesFitnesses();
+          //calculate new adjusted total & average fitness for the population
+          for(let i=0; i<this.vecGenomes.length; ++i)
+            this.totFitAdj += this.vecGenomes[i].getAdjFitness();
+          //////
+          this.avFitAdj = this.totFitAdj/this.vecGenomes.length;
+          //calculate how many offspring each member of the population should spawn
+          for(let i=0; i<this.vecGenomes.length; ++i)
+            this.vecGenomes[i].setAmountToSpawn(this.vecGenomes[i].getAdjFitness() / this.avFitAdj);
+          //iterate through all the species and calculate how many offspring
+          //each species should spawn
+          for(let i=0; i<this.vecSpecies.length; ++i)
+            this.vecSpecies[i].calculateSpawnAmount();
         },
-        //	just checks to see if a node ID has already been added to a vector of
-        //  nodes. If not 	then the new ID  gets added. Used in Crossover.
-        addNeuronID(nodeID, vec){
-          for(let i=0; i<vec.length; ++i){
-            if(vec[i] == nodeID){
-              //already added
-              return;
+        /**Adjusts the fitness scores depending on the number
+         * sharing the species and the age of the species.
+         */
+        adjustSpeciesFitnesses(){
+          this.vecSpecies.forEach(s=> s.adjustFitnesses())
+        },
+        /**
+         * @param {Genome} mum
+         * @param {Genome} dad
+         */
+        crossOver(mum, dad){
+          const MUM=0, DAD=1;
+          //first, calculate the genome we will using the disjoint/excess
+          //genes from. This is the fittest genome.
+          let best;
+          //if they are of equal fitness use the shorter (because we want to keep
+          //the networks as small as possible)
+          if(mum.fitness().score() == dad.fitness().score()){
+            best=mum.numGenes() == dad.numGenes() ? (_.randSign()>0?DAD:MUM)
+                                                  : (mum.numGenes() < dad.numGenes()?MUM :DAD)
+          }else{
+            best = mum.fitness().score() > dad.fitness().score() ? MUM : DAD
+          }
+          //these vectors will hold the offspring's nodes and genes
+          let babyNeurons=[],
+              babyGenes=[],
+              vecNeurons=[],
+              //create iterators so we can step through each parents genes and set
+              //them to the first gene of each parent
+              //this will hold a copy of the gene we wish to add at each step
+              curMum=0,curDad=0,selectedGene;
+          //step through each parents genes until we reach the end of both
+          while(!(curMum == mum.endOfGenes() && curDad == dad.endOfGenes())){
+            if(curMum == mum.endOfGenes()&&curDad != dad.endOfGenes()){
+              //the end of mum's genes have been reached
+              if(best == DAD) selectedGene = dad.vecLinks[curDad];
+              ++curDad;
+            }else if(curDad == dad.endOfGenes() && curMum != mum.endOfGenes()){
+              //the end of dads's genes have been reached
+              if(best == MUM) selectedGene = mum.vecLinks[curMum];
+              ++curMum;
+            }else if(mum.vecLinks[curMum].innovationID < dad.vecLinks[curDad].innovationID){
+              if(best == MUM) selectedGene = mum.vecLinks[curMum];
+              ++curMum;
+            }else if(dad.vecLinks[curDad].innovationID < mum.vecLinks[curMum].innovationID){
+              if(best == DAD) selectedGene = dad.vecLinks[curDad];
+              ++curDad;
+            }else if(dad.vecLinks[curDad].innovationID == mum.vecLinks[curMum].innovationID){
+              selectedGene=_.rand() < 0.5 ? mum.vecLinks[curMum] : dad.vecLinks[curDad];
+              ++curMum;
+              ++curDad;
+            }
+            //add the selected gene if not already added
+            if(babyGenes.length == 0){
+              babyGenes.push(selectedGene)
+            }else if(_.last(babyGenes).innovationID != selectedGene.innovationID){
+              babyGenes.push(selectedGene)
+            }
+            //Check if we already have the nodes referred to in SelectedGene.
+            //If not, they need to be added.
+            this.addNeuronID(selectedGene.fromNeuron, vecNeurons);
+            this.addNeuronID(selectedGene.toNeuron, vecNeurons);
+          }
+          //now create the required nodes
+          vecNeurons.sort();
+          for(let i=0; i<vecNeurons.length; ++i)
+            babyNeurons.push(this.innovHistory.createNeuronFromID(vecNeurons[i]));
+          //finally, create the genome
+          return Genome(NextGlobalGID(), mum.numInputs, mum.numOutputs, babyNeurons, babyGenes);
+        },
+        /**
+         * @param {number} numComparisons
+         * @return {Genome}
+         */
+        tournamentSelection(numComparisons){
+          let chosenOne = 0,
+              thisTry,bestFitnessSoFar = 0;
+          //Select NumComparisons members from the population at random testing
+          //against the best found so far
+          for(let i=0; i<numComparisons; ++i){
+            thisTry = _.randInt2(0, this.vecGenomes.length-1);
+            if(this.vecGenomes[thisTry].fitness().score() > bestFitnessSoFar){
+              chosenOne = thisTry;
+              bestFitnessSoFar = this.vecGenomes[thisTry].fitness().score();
             }
           }
-          vec.push(nodeID);
+          return this.vecGenomes[chosenOne];
         },
-        //  This function performs one epoch of the genetic algorithm and returns
-        //  a vector of pointers to the new phenotypes
-        epoch(fitnessScores){
-          //first check to make sure we have the correct amount of fitness scores
-          if(fitnessScores.length != this.vecGenomes.length){
-            _.assert(false,`epoch(scores/ genomes mismatch)!`)
+        /**Searches the lookup table for the splitY value of each node
+         * in the genome and returns the depth of the network based on this figure.
+         * @param {Genome} gen
+         * @return {number}
+         */
+        calculateNetDepth(gen){
+          let maxSoFar = 0;
+          for(let nd=0; nd<gen.numNeurons(); ++nd){
+            for(let i=0; i<this.vecSplits.length; ++i)
+              if(gen.splitY(nd) == this.vecSplits[i].val &&
+                 this.vecSplits[i].depth > maxSoFar){
+                maxSoFar = this.vecSplits[i].depth;
+              }
           }
-          //reset appropriate values and kill off the existing phenotypes and
-          //any poorly performing species
+          return maxSoFar + 2;
+        },
+        /**Sorts the population into descending fitness, keeps a record of the best
+         * n genomes and updates any fitness statistics accordingly.
+         */
+        sortAndRecord(){
+          //sort the genomes according to their unadjusted (no fitness sharing) fitnesses
+          this.vecGenomes.sort(Genome.SortFunc);
+          //is the best genome this generation the best ever?
+          if(this.vecGenomes[0].fitness().score() > this._bestEverFitness){
+            this._bestEverFitness = this.vecGenomes[0].fitness().score()
+          }
+          this.storeBestGenomes();
+        },
+        /**Performs one epoch of the genetic algorithm and returns a vector of pointers to the new phenotypes.
+         * @param {number[]} fitnessScores
+         * @return {}
+         */
+        epoch(fitnessScores){
+          _.assert(fitnessScores.length == this.vecGenomes.length, "NeatGA::Epoch(scores/ genomes mismatch)!");
+          //reset appropriate values and kill off the existing phenotypes and any poorly performing species
           this.resetAndKill();
           //update the genomes with the fitnesses scored in the last run
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-            this.vecGenomes[gen].setFitness(fitnessScores[gen])
-          }
+          this.vecGenomes.forEach((g,i)=> g.setFitness(NumericFitness(fitnessScores[i])));
           //sort genomes and keep a record of the best performers
           this.sortAndRecord();
           //separate the population into species of similar topology, adjust
           //fitnesses and calculate spawn levels
           this.speciateAndCalculateSpawnLevels();
           //this will hold the new population of genomes
-          let baby,
-              newPop=[],
+          let newPop=[],
+              baby,
               //request the offspring from each species. The number of children to
               //spawn is a double which we need to convert to an int.
               numSpawnedSoFar = 0;
@@ -1044,74 +1095,60 @@
           for(let spc=0; spc<this.vecSpecies.length; ++spc){
             //because of the number to spawn from each species is a double
             //rounded up or down to an integer it is possible to get an overflow
-            //of genomes spawned. This statement just makes sure that doesn't
-            //happen
-            if(numSpawnedSoFar < CParams::iNumSweepers){
+            //of genomes spawned. This statement just makes sure that doesn't happen
+            if(numSpawnedSoFar < this.popSize){
               //this is the amount of offspring this species is required to
               // spawn. Rounded simply rounds the double up or down.
-              let numToSpawn = Math.round(this.vecSpecies[spc].numToSpawn());
-              let bChosenBestYet = false;
+              let chosenBestYet = false,
+                  numToSpawn = _.rounded(this.vecSpecies[spc].numToSpawn());
               while(numToSpawn--){
                 //first grab the best performing genome from this species and transfer
-                //to the new population without mutation. This provides per species
-                //elitism
-                if(!bChosenBestYet){
-                  baby = this.vecSpecies[spc].leader;
-                  bChosenBestYet = true;
+                //to the new population without mutation. This provides per species elitism
+                if(!chosenBestYet){
+                  chosenBestYet = true;
+                  baby = this.vecSpecies[spc].leader();
                 }else{
                   //if the number of individuals in this species is only one
                   //then we can only perform mutation
                   if(this.vecSpecies[spc].numMembers() == 1){
-                    //spawn a child
-                    baby = this.vecSpecies[spc].spawn();
-                  }else{ //if greater than one we can use the crossover operator
-                    //spawn1
-                    let g1 = this.vecSpecies[spc].spawn();
-                    if(_.rand() < CParams::dCrossoverRate){
-                      //spawn2, make sure it's not the same as g1
-                      let g2 = this.vecSpecies[spc].spawn();
-                      //number of attempts at finding a different genome
-                      let numAttempts = 5;
-                      while(g1.ID() == g2.ID() && (numAttempts--)){
-                        g2 = this.vecSpecies[spc].spawn();
+                    baby = this.vecSpecies[spc].spawn()
+                  }else{
+                    let numAttempts = 5,
+                        g2,g1 = this.vecSpecies[spc].spawn();
+                    if(_.rand() < Params.crossOverRate){
+                      g2 = this.vecSpecies[spc].spawn();
+                      while(g1.id() == g2.id() && (numAttempts--)){
+                        g2 = this.vecSpecies[spc].spawn()
                       }
-                      if(g1.ID() != g2.ID()){
+                      if(g1.id() != g2.id())
                         baby = this.crossOver(g1, g2);
-                      }
                     }else{
-                      baby = g1;
+                      baby = g1
                     }
                   }
-                  ++this.nextGenomeID;
-                  baby.setID(this.nextGenomeID);
+                  baby.setID(NextGlobalGID());
                   //now we have a spawned child lets mutate it! First there is the
                   //chance a neuron may be added
-                  if(baby.numNeurons() < CParams::iMaxPermittedNeurons){
-                    baby.addNeuron(CParams::dChanceAddNode,
-                                   this.innovation,
-                                   CParams::iNumTrysToFindOldLink);
-                  }
+                  if(baby.numNeurons() < Params.maxPermittedNeurons)
+                    baby.addNeuron(Params.chanceAddNode,
+                                   this.innovHistory, Params.numTrysToFindOldLink);
                   //now there's the chance a link may be added
-                  baby.addLink(CParams::dChanceAddLink,
-                               CParams::dChanceAddRecurrentLink,
-                               this.innovation,
-                               CParams::iNumTrysToFindLoopedLink,
-                               CParams::iNumAddLinkAttempts);
+                  baby.addLink(Params.chanceAddLink,
+                               Params.chanceAddRecurrentLink,
+                               this.innovHistory,
+                               Params.numTrysToFindLoopedLink, Params.numAddLinkAttempts);
                   //mutate the weights
-                  baby.mutateWeights(CParams::dMutationRate,
-                                     CParams::dProbabilityWeightReplaced,
-                                     CParams::dMaxWeightPerturbation);
-                  baby.mutateActivationResponse(CParams::dActivationMutationRate,
-                                                CParams::dMaxActivationPerturbation);
+                  baby.mutateWeights(Params.mutationRate,
+                                     Params.probabilityWeightReplaced,
+                                     Params.maxWeightPerturbation);
+                  baby.mutateActivationResponse(Params.activationMutationRate,
+                                                Params.maxActivationPerturbation);
                 }
                 //sort the babies genes by their innovation numbers
                 baby.sortGenes();
-                //add to new pop
                 newPop.push(baby);
                 ++numSpawnedSoFar;
-                if(numSpawnedSoFar == CParams::iNumSweepers){
-                  numToSpawn = 0;
-                }
+                if(numSpawnedSoFar == this.popSize){ numToSpawn = 0 }
               }
             }
           }
@@ -1119,283 +1156,54 @@
           //of offspring falls short of the population size additional children
           //need to be created and added to the new population. This is achieved
           //simply, by using tournament selection over the entire population.
-          if(numSpawnedSoFar < CParams::iNumSweepers){
+          if(numSpawnedSoFar < this.popSize){
             //calculate amount of additional children required
-            let rqd = CParams::iNumSweepers - numSpawnedSoFar;
-            //grab them
-            while(rqd--){
-              newPop.push(this.tournamentSelection(this.popSize/5));
-            }
+            let rqd = this.popSize - numSpawnedSoFar;
+            while(rqd--)
+              newPop.push(this.tournamentSelection(int(this.popSize/ 5)));
           }
           //replace the current population with the new one
           this.vecGenomes = newPop;
-          //create the new phenotypes
-          let new_phenotypes=[];
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-            //calculate max network depth
-            let depth = this.calculateNetDepth(this.vecGenomes[gen]);
-            let phenotype = this.vecGenomes[gen].createPhenotype(depth);
-            new_phenotypes.push(phenotype);
-          }
-          //increase generation counter
+          let out=this.vecGenomes.map((g,i)=> g.createPhenotype( this.calculateNetDepth(g)));
           ++this.generation;
-          return new_phenotypes;
+          return out;
         },
-        //  sorts the population into descending fitness, keeps a record of the
-        //  best n genomes and updates any fitness statistics accordingly
-        sortAndRecord(){
-          //sort the genomes according to their unadjusted (no fitness sharing)
-          //fitnesses
-          this.vecGenomes.sort(GenomesSort);
-          //is the best genome this generation the best ever?
-          if(this.vecGenomes[0].fitness.gt(this.bestEverFitness)){
-            this.bestEverFitness = this.vecGenomes[0].fitness.clone();
-          }
-          //keep a record of the n best genomes
-          this.storeBestGenomes();
+        /**Cycles through all the members of the population and creates their phenotypes.
+         * @return {NeuralNet[]} the new phenotypes
+         */
+        createPhenotypes(){
+          return this.vecGenomes.map((g,i)=> g.createPhenotype( this.calculateNetDepth(g)))
         },
-        //  used to keep a record of the previous populations best genomes so that
-        //  they can be displayed if required.
+        /**Used to keep a record of the previous populations best genomes
+         * so that they can be displayed if required.
+         */
         storeBestGenomes(){
           this.vecBestGenomes.length=0;
-          for(let gen=0; gen<CParams::iNumBestSweepers; ++gen){
-            this.vecBestGenomes.push(this.vecGenomes[gen])
-          }
+          for(let i=0; i<Params.numBestElites; ++i)
+            this.vecBestGenomes.push(this.vecGenomes[i]);
         },
-        //  returns a std::vector of the n best phenotypes from the previous
-        //  generation
-        getBestPhenotypesFromLastGeneration(){
-          let brains=[];
-          for(let gen=0; gen<this.vecBestGenomes.length; ++gen){
-            //calculate max network depth
-            let depth = this.calculateNetDepth(this.vecBestGenomes[gen]);
-            brains.push(this.vecBestGenomes[gen].createPhenotype(depth));
-          }
-          return brains;
-        },
-        //  this functions simply iterates through each species and calls
-        //  AdjustFitness for each species
-        adjustSpeciesFitnesses(){
-          for(let sp=0; sp<this.vecSpecies.length; ++sp){
-            this.vecSpecies[sp].adjustFitnesses()
-          }
-        },
-        //  separates each individual into its respective species by calculating
-        //  a compatibility score with every other member of the population and
-        //  niching accordingly. The function then adjusts the fitness scores of
-        //  each individual by species age and by sharing and also determines
-        //  how many offspring each individual should spawn.
-        speciateAndCalculateSpawnLevels(){
-          let bAdded = false;
-          //iterate through each genome and speciate
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-            //calculate its compatibility score with each species leader. If
-            //compatible add to species. If not, create a new species
-            for(let spc=0; spc<this.vecSpecies.length; ++spc){
-              let compatibility = this.vecGenomes[gen].getCompatibilityScore(this.vecSpecies[spc].leader);
-              //if this individual is similar to this species add to species
-              if(compatibility <= CParams::dCompatibilityThreshold){
-                this.vecSpecies[spc].addMember(this.vecGenomes[gen]);
-                //let the genome know which species it's in
-                this.vecGenomes[gen].setSpecies(this.vecSpecies[spc].ID());
-                bAdded = true;
-                break;
-              }
-            }
-            if(!bAdded){
-              //we have not found a compatible species so let's create a new one
-              this.vecSpecies.push(CSpecies(this.vecGenomes[gen], this.nextSpeciesID++));
-            }
-            bAdded = false;
-          }
-          //now all the genomes have been assigned a species the fitness scores
-          //need to be adjusted to take into account sharing and species age.
-          this.adjustSpeciesFitnesses();
-          //calculate new adjusted total & average fitness for the population
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-            this.totFitAdj += this.vecGenomes[gen].getAdjFitness()
-          }
-          this.avFitAdj = this.totFitAdj/this.vecGenomes.length;
-          //calculate how many offspring each member of the population
-          //should spawn
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-             let toSpawn = this.vecGenomes[gen].getAdjFitness() / this.avFitAdj;
-             this.vecGenomes[gen].setAmountToSpawn(toSpawn);
-          }
-          //iterate through all the species and calculate how many offspring
-          //each species should spawn
-          for(let spc=0; spc<this.vecSpecies.length; ++spc){
-            this.vecSpecies[spc].calculateSpawnAmount()
-          }
-        },
-        tournamentSelection(numComparisons){
-           let bestFitnessSoFar = 0;
-           let chosenOne = 0;
-           //Select NumComparisons members from the population at random testing
-           //against the best found so far
-           for(let i=0; i<numComparisons; ++i){
-             let thisTry = _.randInt2(0, this.vecGenomes.length-1);
-             if(this.vecGenomes[thisTry].fitness.gt(bestFitnessSoFar)){
-               chosenOne = thisTry;
-               bestFitnessSoFar = this.vecGenomes[thisTry].fitness;
-             }
-           }
-           return this.vecGenomes[chosenOne];
-        },
-        crossOver(mum, dad){
-          //helps make the code clearer
-          const MUM=0,DAD=1;
-          //first, calculate the genome we will using the disjoint/excess
-          //genes from. This is the fittest genome.
-          let best;
-          //if they are of equal fitness use the shorter (because we want to keep
-          //the networks as small as possible)
-          if(mum.fitness.score() == dad.fitness.score()){
-            //if they are of equal fitness and length just choose one at random
-            if(mum.numGenes() == dad.numGenes()){
-              best = _.randInt2(0, 1);
-            }else{
-              if(mum.numGenes() < dad.numGenes()){
-                best = MUM;
-              }else{
-                best = DAD;
-              }
-            }
-          }else{
-            if(mum.fitness.gt(dad.fitness)){
-              best = MUM;
-            }else{
-              best = DAD;
-            }
-          }
-          //these vectors will hold the offspring's nodes and genes
-          let babyNeurons=[];
-          let babyGenes=[];
-          //temporary vector to store all added node IDs
-          let vecNeurons=[];
-          //create iterators so we can step through each parents genes and set
-          //them to the first gene of each parent
-          vector<SLinkGene>::iterator curMum = mum.StartOfGenes();
-          vector<SLinkGene>::iterator curDad = dad.StartOfGenes();
-          //this will hold a copy of the gene we wish to add at each step
-          let selectedGene;
-          //step through each parents genes until we reach the end of both
-          while(!((curMum == mum.endOfGenes()) && (curDad == dad.endOfGenes()))){
-            //the end of mum's genes have been reached
-            if((curMum == mum.endOfGenes())&&(curDad != dad.endOfGenes())){
-              //if dad is fittest
-              if(best == DAD){
-                //add dads genes
-                selectedGene = curDad;
-              }
-              //move onto dad's next gene
-              ++curDad;
-            }
-            //the end of dads's genes have been reached
-            else if((curDad == dad.endOfGenes()) && (curMum != mum.endOfGenes())){
-              //if mum is fittest
-              if(best == MUM){
-                //add mums genes
-                selectedGene = curMum;
-              }
-              //move onto mum's next gene
-              ++curMum;
-            }
-            //if mums innovation number is less than dads
-            else if(curMum.innovationID < curDad.innovationID){
-              //if mum is fittest add gene
-              if(best == MUM){
-                selectedGene = curMum;
-              }
-              //move onto mum's next gene
-              ++curMum;
-            }
-            //if dads innovation number is less than mums
-            else if(curDad.innovationID < curMum.innovationID){
-              //if dad is fittest add gene
-              if(best == DAD){
-                selectedGene = curDad;
-              }
-              //move onto dad's next gene
-              ++curDad;
-            }
-            //if innovation numbers are the same
-            else if(curDad.innovationID == curMum.innovationID){
-              //grab a gene from either parent
-              if(_.rand() < 0.5){
-                selectedGene = curMum;
-              }else{
-                selectedGene = curDad;
-              }
-              //move onto next gene of each parent
-              ++curMum;
-              ++curDad;
-            }
-            //add the selected gene if not already added
-            if(babyGenes.length == 0){
-              babyGenes.push(selectedGene);
-            }else{
-              if(babyGenes[babyGenes.length-1].innovationID != selectedGene.innovationID){
-                babyGenes.push(selectedGene);
-              }
-            }
-            //Check if we already have the nodes referred to in SelectedGene.
-            //If not, they need to be added.
-            this.addNeuronID(selectedGene.fromNeuron, vecNeurons);
-            this.addNeuronID(selectedGene.toNeuron, vecNeurons);
-          }
-          //now create the required nodes. First sort them into order
-          vecNeurons.sort();
-          for(let i=0; i<vecNeurons.length; ++i){
-            babyNeurons.push(this.innovation.createNeuronFromID(vecNeurons[i]))
-          }
-          //finally, create the genome
-          return CGenome(this.nextGenomeID++,
-                         babyNeurons,
-                         babyGenes,
-                         mum.numInputs(), mum.numOutputs());
-        },
-        //  This function resets some values ready for the next epoch, kills off
-        //  all the phenotypes and any poorly performing species.
-        resetAndKill(){
-          this.totFitAdj = 0;
-          this.avFitAdj  = 0;
-          //purge the species
-          let curSp = this.vecSpecies.begin();
-          while(curSp != this.vecSpecies.end()){
-            curSp.purge();
-            //kill off species if not improving and if not the species which contains
-            //the best genome found so far
-            if((curSp.gensNoImprovement() > CParams::iNumGensAllowedNoImprovement) &&
-                 curSp.bestFitness().score() < this.bestEverFitness.score()){
-             curSp = this.m_vecSpecies.erase(curSp);
-             --curSp;
-            }
-            ++curSp;
-          }
-          //we can also delete the phenotypes
-          for(let gen=0; gen<this.vecGenomes.length; ++gen){
-            this.vecGenomes[gen].deletePhenotype();
-          }
-        },
-        renderSpeciesInfo(surface, db){
-        }
+        //renders the best performing species statistics and a visual aid
+        //showing the distribution.
+        renderSpeciesInfo(){},
         numSpecies(){return this.vecSpecies.length},
-        bestEverFitness(){return this.bestEverFitness}
+        bestEverFitness(){return this._bestEverFitness},
+        /**
+         * @return {NeuralNet[]} the n best phenotypes from the previous generation.
+         */
+        getBestPhenotypesFromLastGeneration(){
+          return this.vecBestGenomes.map((g,i)=> {
+            g.createPhenotype(this.calculateNetDepth(g))
+          })
+        }
       }
     }
 
-
-
-
-
-
-
-
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-
-
+      NeatGA, NeuralNet,
+      configParams(options){
+        return _.inject(Params,options)
+      }
     };
 
     return _$;
@@ -1405,7 +1213,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    global["io/czlab/mcfud/NNetGA"]=_module
+    global["io/czlab/mcfud/algo/NEAT"]=_module
   }
 
 })(this)

@@ -26,6 +26,7 @@ const jsFiles = [
   "src/algo/search.js",
   "src/algo/graph.js",
   "src/algo/genetic.js",
+  "src/algo/NEAT.js",
   "src/main/test.js"
 ];
 
