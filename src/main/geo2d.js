@@ -1009,6 +1009,34 @@
         }else{
           return [false]
         }
+      },
+      //--------------------2LinesIntersection2D-------------------------
+      //  Given 2 lines in 2D space AB, CD this returns true if an
+      //  intersection occurs and sets dist to the distance the intersection
+      //  occurs along AB
+      //-----------------------------------------------------------------
+      lineIntersection2D(A, B, C, D){
+        //first test against the bounding boxes of the lines
+        if( (((A[1] > D[1]) && (B[1] > D[1])) && ((A[1] > C[1]) && (B[1] > C[1]))) ||
+             (((B[1] < C[1]) && (A[1] < C[1])) && ((B[1] < D[1]) && (A[1] < D[1]))) ||
+             (((A[0] > D[0]) && (B[0] > D[0])) && ((A[0] > C[0]) && (B[0] > C[0]))) ||
+             (((B[0] < C[0]) && (A[0] < C[0])) && ((B[0] < D[0]) && (A[0] < D[0])))){
+          return [false,0];
+        }
+        let rTop = (A[1]-C[1])*(D[0]-C[0])-(A[0]-C[0])*(D[1]-C[1]);
+        let rBot = (B[0]-A[0])*(D[1]-C[1])-(B[1]-A[1])*(D[0]-C[0]);
+
+        let sTop = (A[1]-C[1])*(B[0]-A[0])-(A[0]-C[0])*(B[1]-A[1]);
+        let sBot = (B[0]-A[0])*(D[1]-C[1])-(B[1]-A[1])*(D[0]-C[0]);
+
+        let rTopBot = rTop*rBot;
+        let sTopBot = sTop*sBot;
+
+        if((rTopBot>0) && (rTopBot<rBot*rBot) && (sTopBot>0) && (sTopBot<sBot*sBot)){
+          return [true, rTop/rBot];
+        }else{
+          return [false,0];
+        }
       }
     };
 
