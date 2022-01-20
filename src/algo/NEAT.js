@@ -450,6 +450,7 @@
               this.vecLinks.push(new LinkGene(this.vecNeurons[i].id,
                                               this.vecNeurons[inputs+1+j].id, inputs+outputs+1+this.vecLinks.length));
         }
+        this.nextNeuronID=nid;
         this.fitness=NumFitness(0);
         this.genomeID= gid;
         //its fitness score after it has been placed into a species and adjusted accordingly
@@ -609,13 +610,17 @@
         for the neuron. */
         if(iid >= 0 && this.hasNeuron(history.getNeuronID(iid))) iid = -1;
         if(iid < 0){
-          //console.log("add new neuron");
           let new_innov= history.create(from, to,
                                         InnovType.NEURON,
                                         NeuronType.HIDDEN, [newWidth, newDepth]),
-              n= NeuronGene.from(new_innov.neuronID, NeuronType.HIDDEN, [newWidth,newDepth]);
+              //n= NeuronGene.from(new_innov.neuronID, NeuronType.HIDDEN, [newWidth,newDepth]);
+              n= NeuronGene.from(this.nextNeuronID, NeuronType.HIDDEN, [newWidth,newDepth]);
+          new_innov.neuronID=n.id;
           newNeuronID=n.id;
+
+          this.nextNeuronID++;
           this.vecNeurons.push(n);
+
           //Two new link innovations are required, one for each of the
           //new links created when this gene is split.
           link1 = history.create(from, newNeuronID, InnovType.LINK).innovationID;

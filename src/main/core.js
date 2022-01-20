@@ -570,6 +570,17 @@
        * @memberof module:mcfud/core._
        * @return {number}
        */
+      /**Returns a random number fitting a Gaussian, or normal, distribution.
+       * @param {number} v number of times rand is summed, should be >= 1
+       * @return {number}
+       */
+      randGaussian(v=6){
+        //adding a random value to the last increases the variance of the random numbers.
+        //Dividing by the number of times you add normalises the result to a range of 0–1
+        let r=0;
+        for(let i=0; i<v; ++i) r += this.rand();
+        return r/v;
+      },
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
       /**Check if obj is a sub-class of this parent-class.
        * @memberof module:mcfud/core._
@@ -588,6 +599,15 @@
         for(let i=0; i<s.length; ++i)
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
+      },
+      /**Clear array.
+       * @memberof module:mcfud/core._
+       * @param {array} a
+       * @return {array}
+       */
+      cls(a){
+        try{ a.length=0 }catch(e){}
+        return a;
       },
       /**Randomly choose n items from this array.
        * @memberof module:mcfud/core._
@@ -792,10 +812,12 @@
        * @memberof module:mcfud/core._
        * @param {any[]} des
        * @param {any[]} src
+       * @param {boolean} reset false
        * @return {any[]}
        */
-      append(des,src=[]){
+      append(des,src=[],reset=false){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
+        if(reset) des.length=0;
         for(let i=0;i<src.length;++i) des.push(src[i]);
         return des;
       },
