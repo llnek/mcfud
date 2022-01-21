@@ -12,7 +12,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
 
   "use strict";
 
@@ -135,6 +135,9 @@
         },
         score(){
           return this.value
+        },
+        update(n){
+          this.value=n;
         },
         clone(){
           return NumFitness(v, flip)
@@ -373,6 +376,14 @@
       constructor(neurons, depth){
         this.vecNeurons= neurons;//own it
         this.depth=depth;
+      }
+      /**
+       * @return {NeuralNet}
+       */
+      clone(){
+        let c=new NeuralNet(null,this.depth);
+        c.vecNeurons= this.vecNeurons.map(n=> n.clone());
+        return c;
       }
       /**Update network for this clock cycle.
        * @param {number[]} inputs
@@ -1195,7 +1206,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    global["io/czlab/mcfud/algo/NEAT"]=_module
+    gscope["io/czlab/mcfud/algo/NEAT"]=_module
   }
 
 })(this)

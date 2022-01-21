@@ -12,7 +12,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
 
   "use strict";
 
@@ -103,8 +103,7 @@
       /**
        */
       mutateWeight(){
-        let r= _.rand();
-        if(r<Params.probWeightReplaced){
+        if(_.rand() <Params.probWeightReplaced){
           this.weight = _.randMinus1To1();
         }else{
           this.weight += _.randGaussian() * Params.maxWeightPerturbation;
@@ -147,7 +146,7 @@
        */
       matches(genome, from, to){
         //if the number of connections are different then the genoemes aren't the same
-        if(genome.genes.length === this.innovNumbers.length &&
+        if(genome.genes.length == this.innovNumbers.length &&
            from.number == this.fromNode && to.number == this.toNode){
           //check if all the innovation numbers match from the genome
           for(let i=0; i<genome.genes.length; ++i){
@@ -357,13 +356,20 @@
         if(this.genes.length == 0)
           return this.addLink(history);
         //////
-        let rc =0;
+        let tries=10,rc =0;
         if(this.genes.length>1)
-          rc=int(_.randInt(this.genes.length));
+          rc=_.randInt(this.genes.length);
         //don't want BIAS node
-        while(this.genes[rc].fromNode.neuronType==NeuronType.BIAS){
-          rc=int(_.randInt(this.genes.length))
+        while(this.genes[rc].fromNode.neuronType==NeuronType.BIAS && tries>0){
+          rc=_.randInt(this.genes.length);
+          tries--;
         }
+
+        if(tries<=0){
+          console.warn("failed to add neuron");
+          return this;
+        }
+
         this.genes[rc].enabled = false;
         ///
         let cinv, newNode,
@@ -404,16 +410,24 @@
           console.warn("addLink failed, too full");
           return this;
         }
-        let rn1 = int(_.randInt(this.nodes.length)),
-            rn2 = int(_.randInt(this.nodes.length)),
-            cin,temp,badPair=(r1,r2)=>{
+        let rn1 = _.randInt(this.nodes.length),
+            rn2 = _.randInt(this.nodes.length),
+            tries=10, cin,temp,badPair=(r1,r2)=>{
               return this.nodes[r1].layer == this.nodes[r2].layer ||
                      this.nodes[r1].isConnectedTo(this.nodes[r2])
             };
-        while(badPair(rn1, rn2)){
-          rn1 = int(_.randInt(this.nodes.length));
-          rn2 = int(_.randInt(this.nodes.length));
+        while(badPair(rn1, rn2) && tries>0){
+          rn1 = _.randInt(this.nodes.length);
+          rn2 = _.randInt(this.nodes.length);
+          --tries;
         }
+
+        if(tries<=0){
+          console.log("failed to add-link");
+          return this;
+        }
+
+
         if(this.nodes[rn1].layer > this.nodes[rn2].layer){
           temp = rn2;
           rn2 = rn1;
@@ -463,7 +477,7 @@
        */
       fullyConnected(){
         let maxConnections = 0,
-            nodesInLayers = _.fill(this.layers, ()=> 0);
+            nodesInLayers = _.fill(this.layers, 0);
         this.nodes.forEach(n=> nodesInLayers[n.layer] += 1);
         //for each layer the maximum amount of connections is the number in this layer * the number of this.nodes infront of it
         //so lets add the max for each layer together and then we will get the maximum amount of connections in the network
@@ -892,7 +906,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    global["io/czlab/mcfud/algo/NEAT"]=_module
+    gscope["io/czlab/mcfud/algo/NEAT"]=_module
   }
 
 })(this)
