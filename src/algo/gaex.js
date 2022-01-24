@@ -23,16 +23,16 @@
     if(!GA) GA= gscope["io/czlab/mcfud/algo/NNetGA"]();
     const int=Math.floor;
     const {is,u:_}= Core;
-    const {NumericFitness,runGACycle,
+    const {NumFitness,Fitness, runGACycle,
            hillClimb, runGASearch,Chromosome,showBest,calcStats}= GA;
 
     /**
-     * @module mcfud/algo_gaex
+     * @module mcfud/algo/gaex
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Guess a password.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH1{
@@ -41,40 +41,41 @@
         let gs=geneSet.slice();
         let target=input.split(""),
             N=target.length,
-            optimal= NumericFitness(N);
+            optimal= new NumFitness(N);
+        let params=GA.config({});
         function calcFit(guess){
           let sum=0;
           for(let i=0;i<N;++i)
             if(target[i]==guess[i]) ++sum;
-          return NumericFitness(sum);
+          return new NumFitness(sum);
         }
         function create(){
           let genes= _.shuffle(gs).slice(0,N);
-          return Chromosome(genes, calcFit(genes));
+          return new Chromosome(genes, calcFit(genes));
         }
         function XXmutate(b){
-          return GA.mutateIM(b,GA.MutationRate);
+          return GA.mutateIM(b);
         }
         function mutate(c){
-          if(_.rand()<=GA.MutationRate){
+          if(_.rand()< params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(gs);
           }
         }
         function crossOver(b1,b2){
-          return GA.crossOverRND(b1,b2,GA.CrossOverRate);
+          return GA.crossOverRND(b1,b2);
         }
         let tout, pop,best,s,extra;
         //console.log("ready...");
-        if(1){
-          extra= {maxSeconds:5,create, calcFit, mutate, crossOver, targetScore:12, NUM_ELITES:6};
+        if(0){
+          extra= {gen:0,maxSeconds:5,create, calcFit, mutate, crossOver, targetScore:12};
           [tout, pop]= runGACycle(100,extra);
           s=calcStats(pop);
           best=s.best;
         }
-        if(0){
-          extra= {maxSeconds:5,maxAge:50,create, calcFit, mutate, crossOver, poolSize:6};
-          [tout,best]= runGASearch(optimal,extra)[1];
+        if(1){
+          extra= {gen:0,maxSeconds:5,maxAge:50,create, calcFit, mutate, crossOver, poolSize:6};
+          [tout,best]= runGASearch(optimal,extra);
         }
         showBest(best,extra,tout);
         console.log("best=" + best.genes.join(""));
@@ -83,66 +84,72 @@
     //CH1.test("Hello World!");
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    class CH3_Fitness extends Fitness{
+      constructor(numbersInSeqCnt, totalGap){
+        super();
+        this.numbersInSeqCnt=numbersInSeqCnt;
+        this.totalGap=totalGap;
+      }
+      toString(){
+        return `${this.numbersInSeqCnt} Sequential, ${this.totalGap} Total Gap`
+      }
+      eq(b){
+        return this.totalGap==b.totalGap &&
+               this.numbersInSeqCnt==b.numbersInSeqCnt;
+      }
+      gt(b){
+        if(this.numbersInSeqCnt != b.numbersInSeqCnt)
+          return this.numbersInSeqCnt > b.numbersInSeqCnt;
+        return this.totalGap < b.totalGap;
+      }
+      lt(b){
+        if(this.numbersInSeqCnt != b.numbersInSeqCnt)
+          return this.numbersInSeqCnt < b.numbersInSeqCnt;
+        return this.totalGap > b.totalGap;
+      }
+      score(){
+        return this.numbersInSeqCnt
+      }
+      clone(){
+        return new CH3_Fitness(this.numbersInSeqCnt, this.totalGap)
+      }
+    }
     /**Find n numbers in sorted order.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH3{
       static test(totalNumbers){
-        function Fitness(numbersInSeqCnt, totalGap){
-          return{
-            numbersInSeqCnt, totalGap,
-            toString(){
-              return `${this.numbersInSeqCnt} Sequential, ${this.totalGap} Total Gap`
-            },
-            eq(b){
-              return this.totalGap==b.totalGap &&
-                     this.numbersInSeqCnt==b.numbersInSeqCnt;
-            },
-            gt(b){
-              if(this.numbersInSeqCnt != b.numbersInSeqCnt)
-                  return this.numbersInSeqCnt > b.numbersInSeqCnt;
-              return this.totalGap < b.totalGap;
-            },
-            lt(b){
-              if(this.numbersInSeqCnt != b.numbersInSeqCnt)
-                  return this.numbersInSeqCnt < b.numbersInSeqCnt;
-              return this.totalGap > b.totalGap;
-            },
-            score(){
-              return this.numbersInSeqCnt
-            },
-            clone(){
-              return Fitness( this.numbersInSeqCnt, this.totalGap)
-            }
-          }
-        }
+        let params= GA.config({});
         function calcFit(genes){
-          let fitness = 1, gap = 0;
+          let gap=0,fitness = 1;
           for(let i=1;i<genes.length;++i){
             if(genes[i] > genes[i-1])
               fitness += 1;
             else
               gap += genes[i-1] - genes[i];
           }
-          return Fitness(fitness, gap);
+          return new CH3_Fitness(fitness, gap);
         }
         function create(){
           let g= _.shuffle(geneSet,false).slice(0,totalNumbers);
-          return Chromosome(g, calcFit(g));
+          return new Chromosome(g, calcFit(g));
         }
         function mutate(c){
-          if(_.rand()<=GA.MutationRate){
+          if(_.rand()< params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(geneSet);
           }
         }
         function crossOver(a,b){
-          GA.crossOverPBX(a,b,GA.CrossOverRate)
+          //return GA.crossOverPBX(a,b);//wont work!
+          //return GA.crossOverRND(a,b);//ok
+          //return GA.crossOverOBX(a,b);//ok
+          return GA.crossOverPMX(a,b);
         }
-        let optimal= Fitness(totalNumbers, 0);
+        let optimal= new CH3_Fitness(totalNumbers, 0);
         let geneSet = _.fill(100,(i)=> i);
-        let extra={ calcFit,create,mutate,crossOver,poolSize:6 };
+        let extra={ gen:0, calcFit,create,mutate,crossOver,poolSize:6 };
         let [tout,best] = runGASearch(optimal,extra);
         showBest(best,extra,tout);
         console.log(best.genes.join(","));
@@ -152,7 +159,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve 8 queens.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH4{
@@ -173,6 +180,7 @@
         }
       }
       static test(N){
+        let params=GA.config({});
         function Fitness(clashQ){
           return {
             gt(b){ return this.value < b.value },
@@ -205,13 +213,13 @@
         let geneSet = _.fill(N, (i)=> i);
         let optimal=Fitness(0);
         function mutate(c){
-          if(_.rand()<=GA.MutationRate){
+          if(_.rand()<params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(geneSet);
           }
         }
         function crossOver(a,b){
-          GA.crossOverPBX(a,b,GA.CrossOverRate)
+          return GA.crossOverPBX(a,b);
         }
         let extra= {
           calcFit,
@@ -219,7 +227,7 @@
           crossOver,
           create(){
             let g= _.shuffle(geneSet,false).concat(_.shuffle(geneSet,false));
-            return Chromosome(g, calcFit(g))
+            return new Chromosome(g, calcFit(g))
           }
         }
         let [tout,best]=runGASearch(optimal, extra);
@@ -231,7 +239,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve Graph coloring.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH5{
@@ -250,6 +258,7 @@
         }
       }
       static test(){
+        let params=GA.config({});
         let Rules=new Map(), Nodes=new Map();
         `AK AL,FL;GA;MS;TN AR,LA;MO;MS;OK;TN;TX AZ,CA;NM;NV;UT CA,AZ;NV;OR CO,KS;NE;NM;OK;UT;WY CT,MA;NY;RI DC,MD;VA
          DE,MD;NJ;PA FL,AL;GA GA,AL;FL;NC;SC;TN HI IA,IL;MN;MO;NE;SD;WI ID,MT;NV;OR;UT;WA;WY IL,IA;IN;KY;MO;WI
@@ -271,7 +280,7 @@
         //console.log("Nodes===="+Nodes.size);
         let Colors=new Map(),
             NodeIndex=new Map(),
-            optimal= NumericFitness(Rules.size);
+            optimal= new NumFitness(Rules.size);
         let geneSet= ["Orange", "Yellow", "Green", "Blue"].map(c=>{
           Colors.set(c.charAt(0),c);
           return c.charAt(0);
@@ -283,20 +292,20 @@
           Rules.forEach((r,k)=>{
             if(r.isValid(genes, NodeIndex)) ++sum;
           })
-          return NumericFitness(sum);
+          return new NumFitness(sum);
         }
         function mutate(c){
-          if(_.rand()<=GA.MutationRate){
+          if(_.rand()<params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(geneSet);
           }
         }
         function crossOver(a,b){
-          GA.crossOverPBX(a,b,GA.CrossOverRate)
+          return GA.crossOverPBX(a,b);
         }
         let extra={mutate,crossOver,calcFit,create(){
           let g= _.fill(keys.length,0).map(x=> _.randItem(geneSet));
-          return Chromosome(g, calcFit(g));
+          return new Chromosome(g, calcFit(g));
         }};
         let [tout, best] = runGASearch(optimal, extra);
         showBest(best,extra,tout);
@@ -309,7 +318,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve a card problem.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH6{
@@ -353,6 +362,7 @@
         }
       }
       static test(){
+        let params=GA.config();
         let optimal= CH6.Fitness(36, 360, 0);
         //A,2-10
         let geneSet = _.fill(10,(i)=>i+1);
@@ -365,20 +375,21 @@
           return CH6.Fitness(g1Sum, g2Prod, duplicates);
         }
         function mutate(genes){
-          if(genes.length == new Set(genes).size){
-            let ix=_.fill(genes.length,(i)=> i);
-            for(let i=0,count = _.randInt2(1, 4); i<count;++i){
-              _.shuffle(ix);
-              _.swap(genes,ix[0],ix[1]);
+          if(_.rand()<params.mutationRate){
+            if(genes.length == new Set(genes).size){
+              let ix=_.fill(genes.length,(i)=> i);
+              for(let i=0,count = _.randInt2(1, 4); i<count;++i){
+                _.shuffle(ix);
+                _.swap(genes,ix[0],ix[1]);
+              }
+            }else{
+              genes[_.randInt(genes.length)] = geneSet[_.randInt(geneset.length)];
             }
-          }else{
-            genes[_.randInt(genes.length)] = geneSet[_.randInt(geneset.length)];
           }
-          return Chromosome(genes, calcFit(genes));
         }
         let extra={calcFit,mutate,optimal,create(){
           let g= _.shuffle(geneSet,false);
-          return Chromosome(g,calcFit(g));
+          return new Chromosome(g,calcFit(g));
         }};
         let [tout,best]=runGASearch(optimal, extra);
         showBest(best,extra,tout);
@@ -389,7 +400,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve Knight's problem.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH7{
@@ -412,7 +423,8 @@
         }
       }
       static test(N, expectedK){
-        let optimal= NumericFitness(N*N);
+        let params=GA.config();
+        let optimal= new NumFitness(N*N);
         function getAttacks(loc){
           let out=new Map(),
               X= [-2, -1, 1, 2],
@@ -433,7 +445,7 @@
         function calcFit(genes){
           let out=new Map();
           genes.forEach(k=> getAttacks(k).forEach(p=> out.set(p.id(),1)));
-          return NumericFitness(out.size);
+          return new NumFitness(out.size);
         }
         let allPos=[];
         for(let x=0;x<N;++x)
@@ -448,6 +460,7 @@
           m.set(v.id(), 0); return m;
         },new Map());
         function mutate(genes){
+          if(_.rand()>params.mutationRate){return}
           let cnt= _.randInt(10)==0 ? 2 : 1;
           let KI,unattacked,posToKIndexes,potentialKPos;
           while(cnt>0){
@@ -490,7 +503,7 @@
           mutate,
           create(){
             let g= _.fill(expectedK, ()=> _.randItem(nonEdgePos));
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }
         };
         let [tout,best] = runGASearch(optimal,extra);
@@ -502,7 +515,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve Magic Square.
-     * @memberof module:mcfud/algo_gaex
+     * @memberof module:mcfud/algo/gaex
      * @class
      */
     class CH8{
@@ -527,29 +540,33 @@
         return [rows, columns, ne, se];
       }
       static test(N,maxAge){
+        let params=GA.config();
         let SQ= N*N;
-        let optimal= NumericFitness(0,true);
+        let optimal= new NumFitness(0,true);
         let geneSet = _.fill(SQ, (i)=> i+1);
         let expected= N* Math.floor((SQ+1)/2);
         let geneIndexes = _.fill(geneSet.length,(i)=> i);
         function calcFit(genes){
           let [rows, cols, ne, se]= CH8.getSums(genes, N),
               sums=rows.concat(cols).concat([se,ne]).filter(s=> s != expected);
-          return NumericFitness(sums.reduce((acc,v)=>{
+          return new NumFitness(sums.reduce((acc,v)=>{
             acc += Math.abs(v-expected);
             return acc;
           },0),true);
         }
         let extra={
+          gen:0,
           calcFit,
           maxAge,
           mutate(genes){
-            _.shuffle(geneIndexes);
-            _.swap(genes, geneIndexes[0], geneIndexes[1]);
+            if(_.rand()<params.mutationRate){
+              _.shuffle(geneIndexes);
+              _.swap(genes, geneIndexes[0], geneIndexes[1]);
+            }
           },
           create(){
             let g= _.shuffle(geneSet.slice());
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }
         }
         let [tout,best] = runGASearch(optimal, extra);
@@ -560,7 +577,7 @@
         }
       }
     }
-    //CH8.test(5,500);
+    //CH8.test(3,500);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Solve Knapsack problem.
@@ -626,6 +643,7 @@
         }
       }
       static test(){
+        let params=GA.config();
         let geneSet=[CH9.Resource("Flour", 1680, 0.265, 0.41),
                      CH9.Resource("Butter", 1440, 0.5, 0.13),
                      CH9.Resource("Sugar", 1840, 0.441, 0.29) ];
@@ -677,9 +695,10 @@
               remainVolume -= g.quantity * g.item.volume;
             }
           }
-          return Chromosome(genes,calcFit(genes));
+          return new Chromosome(genes,calcFit(genes));
         }
         function mutate(genes){
+          if(_.rand()>params.mutationRate){return}
           let fitness = calcFit(genes),
               remainWeight = MaxWeight - fitness.totalWeight,
               remainVolume = MaxVolume - fitness.totalVolume,
@@ -721,6 +740,7 @@
           }
         }
         let extra={
+          gen:0,
           maxAge:50,
           mutate,
           create,
@@ -763,6 +783,7 @@
         }
       }
       static test(numUnknowns){
+        let params=GA.config();
         let geneSet = [-5,-4,-3,-2,-1,1,2,3,4];
         function fnGenesToInputs(genes){ return [genes[0], genes[1]] }
         function e1(genes){
@@ -788,6 +809,7 @@
           return CH10.Fitness(v);
         }
         function mutate(genes){
+          if(_.rand()>params.mutationRate){return}
           let indexes;
           if(_.randInt2(0,10)==0)
             indexes=_.randSample(geneIndexes, _.randInt2(1,genes.length));
@@ -802,15 +824,15 @@
             genesetIndex = _.randInt2(start, stop);
             genes[index] = geneSet[genesetIndex];
           }
-          //return Chromosome(genes, calcFit(genes));
         }
         let extra={
           maxAge:MaxAge,
+          gen:0,
           mutate,
           calcFit,
           create(){
             let g= _.shuffle(geneSet.slice()).slice(0,numUnknowns);
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }
         };
         let [tout,best] = runGASearch(optimal, extra);
@@ -839,8 +861,9 @@
         return r;
       }
       static test(){
+        let params=GA.config();
         let geneSet = _.fill(9,(i)=>i+1);
-        let optimal= NumericFitness(100);
+        let optimal= new NumFitness(100);
         function indexRow(index){ return int(index / 9)}
         function indexColumn(index){ return index % 9 }
         function rowColumnSection(row, column){ return int(row / 3) * 3 + int(column / 3) }
@@ -882,7 +905,7 @@
           if(R){
             f= (1 + indexRow(R.otherIndex)) * 10  + (1 + indexColumn(R.otherIndex));
           }
-          return NumericFitness(f);
+          return new NumFitness(f);
         }
         function shuffleInPlace(genes, first, last){
           while(first < last){
@@ -892,6 +915,7 @@
           }
         }
         function mutate(genes){
+          if(_.rand()>params.mutationRate){return}
           let selectedRule = fRule(genes);
           if(!selectedRule)
             return;
@@ -910,11 +934,12 @@
         }
         let extra={
           maxAge:50,
+          gen:0,
           mutate,
           calcFit,
           create(){
             let g= _.shuffle(_.fill(9,0).map(x=> _.fill(9,(i)=>i+1)).flat())
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }
         }
         let [tout,best] = runGASearch(optimal,extra);
@@ -931,6 +956,7 @@
      */
     class CH12{
       static test(){
+        let params=GA.config();
         function Fitness(totalDistance){
           return{
             totalDistance,
@@ -958,6 +984,7 @@
           return Fitness(Math.round(d));
         }
         function mutate(genes){
+          if(_.rand()>params.mutationRate){return}
           let count = _.randInt2(2, genes.length);
           let f0 = calcFit(genes);
           let ix= _.fill(genes.length,(i)=>i);
@@ -973,6 +1000,8 @@
           return{a,b,id(){return `${this.a},${this.b}`}}
         }
         function crossOver(parentGenes, donorGenes){
+          parentGenes=parentGenes.slice();
+          donorGenes=donorGenes.slice();
           let p,pairs=new Map();
           p=Pair(donorGenes[0],_.last(donorGenes));
           pairs.set(p.id(),[0,p]);
@@ -992,7 +1021,7 @@
               hit = true;
               break;
             }
-            if(!hit) return null;
+            if(!hit) return [parentGenes, donorGenes];
           }
           let runs = [[tempGenes[0]]];
           for(let i=0;i<tempGenes.length-1;++i){
@@ -1020,12 +1049,14 @@
             }
             cg=[];
             runs.forEach(r=> cg.push(...r));
-            if(calcFit(cg).gt(f0)) return cg;
+            if(calcFit(cg).gt(f0)) return [cg,cg];
           }
           cg.forEach((v,i)=>{
             parentGenes[i]=v;
             donorGenes[i]=v;
           });
+
+          return [parentGenes,donorGenes];
         }
         let geneSet = "ABCDEFGH".split("");
         let idToLocationLookup = {
@@ -1033,13 +1064,13 @@
           "E": [3, 0], "F": [5, 1], "G": [7, 2], "H": [6, 4] };
         let optimal= calcFit(geneSet);
         let extra={
-          maxAge:500, poolSize:25,
+          gen:0, maxAge:500, poolSize:25,
           crossOver,
           calcFit,
           mutate,
           create(){
             let g= _.shuffle(geneSet,false);
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }
         }
         let [tout,best] = runGASearch(optimal, extra);
@@ -1056,15 +1087,16 @@
      */
     class CH13{
       static test(){
+        let params=GA.config();
         let bitValues=[512, 256, 128, 64, 32, 16, 8, 4, 2, 1];
         let numBits= bitValues.length;
         let geneSet = [0,1];
-        let optimal= NumericFitness(3.14159);
+        let optimal= new NumFitness(3.14159);
         function calcFit(genes){
           let denominator = getDenominator(genes, bitValues);
-          if(denominator == 0) return NumericFitness(0);
+          if(denominator == 0) return new NumFitness(0);
           let ratio = getNumerator(genes, bitValues) / denominator;
-          return NumericFitness(Math.PI - Math.abs(Math.PI - ratio));
+          return new NumFitness(Math.PI - Math.abs(Math.PI - ratio));
         }
         function bitsToInt(bits){
           let result = 0;
@@ -1082,15 +1114,17 @@
           return bitsToInt(genes.slice(bitValues.length));
         }
         function mutate(genes){
-          let numeratorIndex = _.randInt2(0, numBits-1);
-          let denominatorIndex= _.randInt2(numBits, genes.length-1);
-          genes[numeratorIndex] = 1 - genes[numeratorIndex];
-          genes[denominatorIndex] = 1 - genes[denominatorIndex];
+          if(_.rand()<params.mutationRate){
+            let numeratorIndex = _.randInt2(0, numBits-1);
+            let denominatorIndex= _.randInt2(numBits, genes.length-1);
+            genes[numeratorIndex] = 1 - genes[numeratorIndex];
+            genes[denominatorIndex] = 1 - genes[denominatorIndex];
+          }
         }
         let extra={
-          maxAge:250, calcFit,mutate,create(){
+          gen:0, maxAge:250, calcFit,mutate,create(){
             let g= _.fill(bitValues.length*2,0).map(x=> _.randItem(geneSet));
-            return Chromosome(g,calcFit(g));
+            return new Chromosome(g,calcFit(g));
           }};
         let [tout,best] = runGASearch(optimal, extra);
         showBest(best,extra,tout);
@@ -1177,6 +1211,7 @@
         createGate, indexA, indexB }
       }
       static test(){
+        let params=GA.config();
         let extra,inputs = new Map();
         let maxLength=50;
         let rules = [[[false, false], false],
@@ -1216,7 +1251,7 @@
             _.zip(sourceLabels, rule[0], inputs);
             if(circuit.getOutput() == rule[1]) ++rulesPassed;
           });
-          return NumericFitness(rulesPassed)
+          return new NumFitness(rulesPassed)
         }
         function createGene(index){
           let gateType= index<sources.length ? sources[index] : _.randItem(gates);
@@ -1246,7 +1281,7 @@
             if(fnGetFitness(childGenes).gt(f0)) return;
           }
         }
-        let optimal= NumericFitness(rules.length);
+        let optimal= new NumFitness(rules.length);
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         function fnOptimizationFunction(variableLength){
           maxLength = variableLength;
@@ -1263,19 +1298,20 @@
         }
         function fnCreate(){
           let g= _.fill(maxLength,0).map((v,i)=> createGene(i));
-          return Chromosome(g,calcFit(g));
+          return new Chromosome(g,calcFit(g));
         }
         function fnMutate(genes){
-          mutate(genes, createGene, calcFit, sources.length)
+          if(_.rand()<params.mutationRate)
+            mutate(genes, createGene, calcFit, sources.length)
         }
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         function fnIsImprovement(currentBest, child){
-          return child.fitness.eq(NumericFitness(rules.length)) &&
+          return child.fitness.eq(new NumFitness(rules.length)) &&
                                   nodesToCircuit(child.genes)[1].length < nodesToCircuit(currentBest.genes)[1].length
         }
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         function fnIsOptimal(child){
-          return child.fitness.eq(NumericFitness(rules.length)) &&
+          return child.fitness.eq(new NumFitness(rules.length)) &&
                                   nodesToCircuit(child.genes)[1].length <= expectedLength;
         }
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1285,8 +1321,8 @@
 
         //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
         let X={}
-        let best = hillClimb(fnOptimizationFunction, fnIsImprovement,
-                             fnIsOptimal, fnGetNextFeatureValue, maxLength, X);
+        let best = GA.hillClimb(fnOptimizationFunction, fnIsImprovement,
+                                fnIsOptimal, fnGetNextFeatureValue, maxLength, X);
         let cc=nodesToCircuit(best.genes)[0];
         GA.showBest(best,X);
         console.log(`${cc}`);
@@ -1294,11 +1330,6 @@
       }
     }
     //Circuits.test();
-
-
-
-
-
 
     const _$={ };
     return _$;

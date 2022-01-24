@@ -10,224 +10,313 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(global){
+;(function(gscope){
 
 	"use strict";
 
 	/**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const int=Math.floor;
     const {u:_, is}= Core;
 
 		/**
-     * @module mcfud/NNetGA
+     * @module mcfud/algo/NNetGA
      */
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		const MAX_PERTURBATION = 0.3,
-			    BIAS= -1,
-			    ACTIVATION_RESPONSE = 1;
+		const Params={
+
+      NUM_HIDDEN: 1,
+      BIAS:-1,
+      NEURONS_PER_HIDDEN:10,
+      ACTIVATION_RESPONSE: 1,
+      MAX_PERTURBATION: 0.3,
+      NUM_ELITE:4,
+      NUM_COPIES_ELITE:1,
+      TOURNAMENT_COMPETITORS :5,
+
+			probTournament: 0.75,
+			crossOverRate: 0.7,
+			mutationRate: 0.1
+
+    };
+
+		/**Fitness Interface.
+		 * @class
+		 */
+		class Fitness{
+			/**
+			 */
+			constructor(){}
+			/**
+			 * @param {Fitness} x
+			 * @return {boolean}
+			 */
+			gt(x){}
+			/**
+			 * @param {Fitness} x
+			 * @return {boolean}
+			 */
+			lt(x){}
+			/**
+			 * @param {Fitness} x
+			 * @return {boolean}
+			 */
+			eq(x){}
+			/**
+			 * @return {Fitness}
+			 */
+			clone(){}
+			/**
+			 * @return {number}
+			 */
+			score(){}
+			/**
+			 * @param {any} n
+			 */
+			update(n){}
+		}
+
+		/**Numeric fitness.
+		 * @class
+		 */
+		class NumFitness extends Fitness{
+			/**
+			 * @param {number} v
+			 * @param {boolean} flip default false
+			 */
+			constructor(v,flip){
+				super();
+				this.value=v;
+				this.flip=flip;
+			}
+			/**
+			 * @param {NumFitness} b
+			 * @return {boolean}
+			 */
+			gt(b){
+				return this.flip? this.value < b.value: this.value > b.value
+			}
+			/**
+			 * @param {NumFitness} b
+			 * @return {boolean}
+			 */
+			eq(b){
+				return this.value==b.value
+			}
+			/**
+			 * @param {NumFitness} b
+			 * @return {boolean}
+			 */
+			lt(b){
+				return this.flip? this.value > b.value: this.value < b.value
+			}
+			/**
+			 * @return {number}
+			 */
+			score(){
+				return this.value
+			}
+			/**
+			 * @param {number} n
+			 */
+			update(n){
+				this.value=n
+			}
+			/**
+			 * @return {NumFitness}
+			 */
+			clone(){
+				return new NumFitness(this.value, this.flip);
+			}
+		}
 
 		/**
-     * @typedef {object} Statistics
-     * @property {number} averageScore
+		 * @property {number} averageScore
 		 * @property {number} totalScore
 		 * @property {number} bestScore
 		 * @property {number} worstScore
 		 * @property {object} best
-     */
+		 */
+		class Statistics{
+			/**
+			 */
+			constructor(){
+				this.averageScore=0;
+				this.totalScore=0;
+				this.bestScore=0;
+				this.worstScore=0;
+				this.best=null;
+			}
+		}
+
 
 		/**
-     * @typedef {object} FitnessObject
-     * @property {function} gt greater than
-     * @property {function} lt less than
-		 * @property {function} eq equals
-		 * @property {function} clone
-		 * @property {function} score
-     */
-
-		/**
-     * @typedef {object} ChromosomeObject
-     * @property {number} age
-     * @property {array} genes
-		 * @property {FitnessObject} fitness
-		 * @property {function} clone
-     */
-
-		/**
-     * @typedef {object} NeuronObject
-     * @property {number} numInputs number of inputs into neuron
-     * @property {number[]} weights list of weights
-     */
-
-		/**
-     * @typedef {object} NeuronLayerObject
-     * @property {number} numNeurons number of neurons in layer
-     * @property {NeuronObject[]} neurons list of neurons
-     */
-
-		/**
-     * @typedef {object} NeuronNetObject
-		 * @property {number} numOfWeights
-		 * @property {number} numOutputs
 		 * @property {number} numInputs
-		 * @property {number} numHidden
-		 * @property {number} neuronsPerHidden
-		 * @property {NeuronLayerObject[]} layers
-		 * @property {function} putWeights
-		 * @property {function} getNumberOfWeights
-		 * @property {function} update
-		 * @property {function} sigmoid
-		 * @property {function} calcSplitPoints
-     */
-
-		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {number} numInputs
-		 * @return {NeuronObject}
+		 * @property {number} activation
+		 * @property {number} error
+		 * @property {number[]} weights
 		 */
-		function SNeuron(numInputs){
-			//add one for bias
-			let weights= _.fill(numInputs+1, ()=> _.randMinus1To1());
-			return{ activation:0, error:0, weights, numInputs: weights.length };
-		}
-
-		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {number} numNeurons
-		 * @param {number} numInputsPerNeuron
-		 * @return {NeuronLayerObject}
-		 */
-		function SNeuronLayer(numNeurons, numInputsPerNeuron){
-			return {
-				numNeurons,
-				neurons: _.fill(numNeurons,()=> SNeuron(numInputsPerNeuron))
+		class Neuron{
+			/**
+			 * @param {number} inputs
+			 */
+			constructor(inputs){
+				//we need an additional weight for the bias hence the +1
+				let ws= _.fill(inputs+1, ()=> _.randMinus1To1());
+				this.numInputs= ws.length;
+				this.activation=0;
+				this.weights=ws;
+				this.error=0;
 			}
 		}
 
 		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {number} numInputs
-		 * @param {number} numOutputs
-		 * @param {number} numHidden
-		 * @param {number} neuronsPerHidden
-		 * @return {NeuralNetObject}
+		 * @property {number} numNeurons
+		 * @property {Neuron[]} neurons
 		 */
-		function NeuralNet(numInputs, numOutputs, numHidden, neuronsPerHidden){
-			function createNet(out){
-				//make the first layer
-				out.push(SNeuronLayer(numHidden>0?neuronsPerHidden:numOutputs,numInputs));
-				if(numHidden>0){
-					for(let i=0;i<numHidden-1;++i)
-						out.push(SNeuronLayer(neuronsPerHidden, neuronsPerHidden));
-					out.push(SNeuronLayer(numOutputs, neuronsPerHidden));
-				}
-				return [out, countWeights(out)];
+		class NeuronLayer{
+			/**
+			 * @param {number} numNeurons
+			 * @param {number} numInputsPerNeuron
+			 */
+			constructor(numNeurons, numInputsPerNeuron){
+				this.numNeurons=numNeurons;
+				this.neurons= _.fill(numNeurons,()=> new Neuron(numInputsPerNeuron));
 			}
-			function countWeights(l){
-				let sum = 0
-				_.doseq(l, y=>
-					_.doseq(y.neurons, u=> {sum += u.weights.length}));
-				return sum;
-			}
-			let [layers, numOfWeights]=createNet([]);
-			return{
-				numOfWeights,
-				numOutputs,
-				numInputs,
-				numHidden,
-				neuronsPerHidden,
-				layers,
-				//getWeights(){ return this.layers.map(y=> y.neurons.map(u=> u.weights.map(v=>v)).flat()).flat(); },
-				putWeights(weights){
-					let pos=0;
-					_.doseq(this.layers, y=>
-						_.doseq(y.neurons, u=>
-							_.doseq(u.weights, (v,i)=> u.weights[i]= weights[pos++])));
-				},
-				getNumberOfWeights(){
-					return this.numOfWeights;//countWeights(this.layers)
-				},
-				update(inputs){
-					let sumInput,numInputs,idx = 0, out=[];
-					if(inputs.length == this.numInputs)
-						_.doseq(this.layers, (y,i)=>{
-							if(i>0)
-								inputs = out;
-							idx  = 0;
-							out= [];
-							y.neurons.forEach(u=>{
-								idx = 0;
-								sumInput = 0;
-								numInputs = u.numInputs;
-								for(let k=0;k<numInputs-1;++k){
-									sumInput += (u.weights[k] * inputs[idx]);
-									++idx;
-								}
-								sumInput += (u.weights[numInputs-1] * BIAS);
-								u.activation= this.sigmoid(sumInput, ACTIVATION_RESPONSE);
-								out.push(u.activation);
-							});
-						});
-					_.assert(out.length== this.numOutputs, "out length incorrect");
+		}
+
+		/**
+		 * @class
+		 */
+		class NeuralNet{
+			/**
+			 * @param {number} inputs
+			 * @param {number} outputs
+			 * @param {number} numHidden
+			 * @param {number} neuronsPerHidden
+			 */
+			constructor(inputs, outputs, numHidden, neuronsPerHidden){
+				function createNet(out){
+					//create the layers of the network
+					if(numHidden>0){
+						//create first layer
+						out.push(new NeuronLayer(neuronsPerHidden, inputs));
+						for(let i=0; i<numHidden-1; ++i)
+							out.push(new NeuronLayer(neuronsPerHidden,neuronsPerHidden));
+						//create output layer
+						out.push(new NeuronLayer(outputs, neuronsPerHidden))
+					}else{
+						//create output layer
+						out.push(new NeuronLayer(outputs, inputs))
+					}
 					return out;
-				},
-				sigmoid(input, response){
-					return (1 / (1 + Math.exp(-input / response)))
-				},
-				calcSplitPoints(){
-					let pts= [],
-							pos = 0;
-					this.layers.forEach(y=> y.neurons.forEach(u=>{
-						pos += u.numInputs;
-						pts.push(pos-1);
-					}));
-					return pts;
 				}
+				this.layers= createNet([]);
+				this.numOfWeights=this.layers.reduce((sum,y)=>{
+					return sum + y.neurons.reduce((acc,u)=>{
+						return acc+u.weights.length
+					},0)
+				},0);
+				this.numOutputs=outputs;
+				this.numInputs=inputs;
+				this.numHidden=numHidden;
+				this.neuronsPerHidden=neuronsPerHidden;
+			}
+			/**
+			 * @param {number[]} weights
+			 */
+			putWeights(weights){
+				_.assert(weights.length>=this.numOfWeights,"bad input to putWeights");
+				let pos=0;
+				this.layers.forEach(y=>{
+					y.neurons.forEach(u=>{
+						u.weights.forEach((v,i)=> u.weights[i]= weights[pos++])
+					})
+				})
+			}
+			/**
+			 * @return {number}
+			 */
+			getNumberOfWeights(){
+				return this.numOfWeights
+			}
+			/**Same as update.
+			 * @param {number[]}
+			 * @return {number[]}
+			 */
+			feedForward(inputs){
+				return this.update(inputs)
+			}
+			/**
+			 * @param {number[]} inputs
+			 * @return {number[]}
+			 */
+			update(inputs){
+				_.assert(inputs.length >= this.numInputs,"invalid input size");
+				let sum,nodes,idx, out=[];
+				this.layers.forEach((y,i)=>{
+					if(i>0)
+						inputs=out;
+					out=[];
+					y.neurons.forEach(u=>{
+						idx=0;
+						sum=0;
+						nodes=u.numInputs;
+						//skip the bias hence -1
+						for(let k=0;k<nodes-1;++k)
+							sum += (u.weights[k] * inputs[idx++]);
+						sum += (u.weights[nodes-1] * Params.BIAS);
+						out.push(u.activation= this.sigmoid(sum, Params.ACTIVATION_RESPONSE));
+					});
+				});
+				return _.assert(out.length== this.numOutputs, "out length incorrect") ? out : [];
+			}
+			/**
+			 * @private
+			 */
+			sigmoid(input, response){
+				return (1 / (1 + Math.exp(-input / response)))
+			}
+			/**
+			 * @return {number[]}
+			 */
+			calcSplitPoints(){
+				let pts= [],
+						pos = 0;
+				this.layers.forEach(y=> y.neurons.forEach(u=>{
+					pos += u.numInputs;
+					pts.push(pos-1);
+				}));
+				return pts;
 			}
 		}
 
 		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
-		 * @param {FitnessObject} fitness
-		 * @return {ChromosomeObject}
+		 * @property {number} age
+		 * @property {any[]} genes
+		 * @property {Fitness} fitness
 		 */
-		function Chromosome(genes, fitness){
-			return {
-				age:0,genes,fitness, clone(){
-					return Chromosome(this.genes.slice(),this.fitness.clone())
-				}
+		class Chromosome{
+			/**
+			 * @param {any[]} genes
+			 * @param {Fitness} fitness
+			 */
+			constructor(genes, fitness){
+				this.fitness=fitness;
+				this.genes=genes;
+				this.age=0;
 			}
-		}
-
-		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {number} v
-		 * @return {FitnessObject}
-		 */
-		function NumericFitness(v,flipped){
-			return{
-				value:v,
-				gt(b){
-					return flipped? this.value < b.value: this.value > b.value
-				},
-				eq(b){
-					return this.value==b.value
-				},
-				lt(b){
-					return flipped? this.value > b.value: this.value < b.value
-				},
-				score(){
-					return this.value
-				},
-				clone(){
-					return NumericFitness(v)
-				}
+			/**
+			 * @return {Chromosome}
+			 */
+			clone(){
+				return new Chromosome(this.genes.slice(),this.fitness.clone())
 			}
 		}
 
@@ -239,329 +328,403 @@
 		}
 
 		/**Choose two random points and “scramble” the genes located between them.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} genes
 		 */
-		function mutateSM(genes, mRate){
-			if(_.rand()<=mRate){
+		function mutateSM(genes){
+			if(_.rand() < Params.mutationRate){
 				let [beg, end] = randSpan(genes);
 				let tmp,count= end-beg-1;
-				switch(count){
-					case -1:
-					case 0:
-					case 1:
-						break;
-					case 2:
-						tmp=genes[beg+1];
-						genes[beg+1]=genes[beg+2];
-						genes[beg+2]=tmp;
-						break;
-					default:
-						tmp=_.shuffle(genes.slice(beg+1,end));
-						for(let k=0,i=beg+1;i<end;++i){
-							genes[i]=tmp[k++];
-						}
-						break;
+				if(count==2){
+					tmp=genes[beg+1];
+					genes[beg+1]=genes[beg+2];
+					genes[beg+2]=tmp;
+				}else if(count>2){
+					tmp=_.shuffle(genes.slice(beg+1,end));
+					for(let k=0,i=beg+1;i<end;++i){
+						genes[i]=tmp[k++]
+					}
 				}
 			}
 		}
 
-		/**Select two random points, grab the chunk of chromosome between them,
-		 * and then reinsert at a random position displaced from the original.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
+		/**Select two random points, grab the chunk of chromosome
+		 * between them and then insert it back into the chromosome
+		 * in a random position displaced from the original.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} genes
 		 */
-		function mutateDM(genes,mRate){
-			if(_.rand()<=mRate){
+		function mutateDM(genes){
+			if(_.rand()< Params.mutationRate){
 				let [beg, end]= randSpan(genes);
-				let p,tmp,rem,count= end-beg-1;
-				switch(count){
-					case -1:
-					case 0:
-						break;
-					default:
-						tmp=genes.slice(beg+1,end);
-						rem=genes.slice(0,beg+1).concat(genes.slice(end));
-						p=_.randInt2(rem.length-1);
-						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-						_.assert(tmp.length==genes.length,"Boom");
-						tmp.forEach((v,i)=> genes[i]=v);
-						break;
+				let p,tmp,rem,
+					  N=genes.length,count= end-beg-1;
+				if(count>0){
+					tmp=genes.slice(beg+1,end);
+					rem=genes.slice(0,beg+1).concat(genes.slice(end));
+					p=_.randInt(rem.length);
+					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+					_.assert(tmp.length==N,"mutateDM error");
+					genes.length=0;
+					tmp.forEach(v=> genes.push(v));
 				}
 			}
 		}
 
 		/**Almost the same as the DM operator, except here only one gene is selected
 		 * to be displaced and inserted back into the chromosome.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} genes
 		 */
-		function mutateIM(genes,mRate){
-			if(_.rand()<=mRate){
-				let b,a=_.randInt(genes.length);
-				b=_.randInt(genes.length);
-				while(b==a)
-					b=_.randInt(genes.length);
-				_.swap(genes, a,b);
+		function mutateIM(genes){
+			if(_.rand() < Params.mutationRate){
+				//choose a gene to move
+				let pos=_.randInt(genes.length),
+						left,right,N=genes.length,v = genes[pos];
+				//remove from the chromosome
+				genes.splice(pos,1);
+				//move the iterator to the insertion location
+				pos = _.randInt(genes.length);
+				left=genes.slice(0,pos);
+				right=genes.slice(pos);
+				genes.length=0;
+				left.forEach(n=> genes.push(n));
+				genes.push(v);
+				right.forEach(n=> genes.push(n));
+				_.assert(N==genes.length,"mutateIM error");
 			}
 		}
 
 		/**Select two random points and reverse the genes between them.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} genes
 		 */
-		function mutateIVM(genes,mRate){
-			if(_.rand()<=mRate){
+		function mutateIVM(genes){
+			if(_.rand()<Params.mutationRate){
 				let [beg, end]= randSpan(genes);
-				let tmp,count= end-beg-1;
-				switch(count){
-					case -1:
-					case 0:
-					case 1:
-						break;
-					default:
-						tmp=genes.slice(beg+1,end).reverse();
-						for(let k=0, i=beg+1;i<end;++i){
-							genes[i]=tmp[k++];
-						}
-						break;
+				let tmp,N=genes.length,count= end-beg-1;
+				if(count>1){
+					tmp=genes.slice(beg+1,end).reverse();
+					for(let k=0, i=beg+1;i<end;++i){
+						genes[i]=tmp[k++];
+					}
 				}
+				_.assert(N==genes.length,"mutateIVM error");
 			}
 		}
 
 		/**Select two random points, reverse the order between the two points,
 		 * and then displace them somewhere along the length of the original chromosome.
 		 * This is similar to performing IVM and then DM using the same start and end points.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} genes
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} genes
 		 */
-		function mutateDIVM(genes,mRate){
-			if(_.rand()<=mRate){
+		function mutateDIVM(genes){
+			if(_.rand()<Params.mutationRate){
 				let [beg, end]= randSpan(genes);
-				let p,tmp,rem,count= end-beg-1;
-				switch(count){
-					case -1:
-					case 0:
-						break;
-					default:
-						tmp=genes.slice(beg+1,end).reverse();
-						rem=genes.slice(0,beg+1).concat(genes.slice(end));
-						p=_.randInt2(rem.length-1);
-						tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-						_.assert(tmp.length==genes.length,"Boom");
-						tmp.forEach((v,i)=> genes[i]=v);
-						break;
+				let N=genes.length,
+						p,tmp,rem,count= end-beg-1;
+				if(count>0){
+					tmp=genes.slice(beg+1,end).reverse();
+					rem=genes.slice(0,beg+1).concat(genes.slice(end));
+					p=_.randInt(rem.length);
+					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
+					_.assert(tmp.length==N,"mutateDIVM error");
+					genes.length=0;
+					tmp.forEach(v=> genes.push(v));
 				}
 			}
 		}
 
 		/**Several genes are chosen at random from one parent and
-		 * then the order of those cities is imposed on
+		 * then the order of those selections is imposed on
 		 * the respective genes in the other parent.
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} mum
-		 * @param {array} dad
-		 * @param {number} cRate
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} mum
+		 * @param {any[]} dad
+		 * @return {array}
 		 */
-		function crossOverOBX(mum, dad,cRate){
-			if(_.rand()>cRate){ return }
-			let a= int(mum.length * 0.2),
-					b= int(mum.length * 0.8),
-					n=_.randInt2(a,b),
-					xs= _.listIndexesOf(mum,true).slice(n),
-					tmp= xs.map(i=> mum[i]),
-					b1=[],b2=[] ,bin=new Set(tmp);
-			//cross over and modify b2
-			for(let i=0;i<dad.length;++i){
-				if(tmp.length>0 && bin.has(dad[i])){
-					b2.push(tmp.shift());
-				}else{
-					b2.push(dad[i]);
+		function crossOverOBX(mum,dad){
+			let temp=[],
+			    positions=[],
+			    b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
+			b1 = mum.slice();
+			b2 = dad.slice();
+			if(_.rand() > Params.crossOverRate || mum === dad){}else{
+				//keep adding until we can add no more record the positions as we go
+				while(pos < mum.length){
+					positions.push(pos);
+					temp.push(mum[pos]);
+					pos += _.randInt2(1, mum.length-pos);
+				}
+				//so now we have n amount of genes from mum in the temp
+				//we can impose their order in dad.
+				cpos = 0;
+				for(let cit=0; cit<b2.length; ++cit){
+					for(let i=0; i<temp.length; ++i){
+						if(b2[cit]==temp[i]){
+						 b2[cit] = temp[cpos++];
+						 break;
+						}
+					}
+				}
+				//now vice versa
+				temp.length=0;
+				cpos = 0;
+				//first grab from the same positions in dad
+				for(let i=0; i<positions.length; ++i){
+					temp.push(dad[positions[i]])
+				}
+				//and impose their order in mum
+				for(let cit=0; cit<b1.length; ++cit){
+					for(let i=0; i<temp.length; ++i){
+						if(b1[cit]==temp[i]){
+							b1[cit] = temp[cpos++];
+							break;
+						}
+					}
 				}
 			}
-			_.assert(b2.length==dad.length,"Boom");
-			//cross over and modify b1
-			tmp= xs.map(i=> dad[i]);
-			bin=new Set(tmp);
-			for(let i=0;i<mum.length;++i){
-				if(tmp.length>0 && bin.has(mum[i])){
-					b1.push(tmp.shift());
-				}else{
-					b1.push(mum[i]);
-				}
-			}
-			_.assert(b1.length==mum.length,"Boom");
-
-			b1.forEach((v,i)=> mum[i]=v);
-			b2.forEach((v,i)=> dad[i]=v);
+			return [b1, b2];
 		}
 
 		/**Similar to Order-Based CrossOver, but instead of imposing the order of the genes,
 		 * this imposes the position.
-		 * @memberof module:mcfud/NNetGA
+		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} mum
 		 * @param {array} dad
-		 * @param {number} cRate
+		 * @return {array}
 		 */
-		function crossOverPBX(mum, dad,cRate){
-			if(_.rand()>cRate){ return }
-			let a= int(mum.length * 0.2),
-					b= int(mum.length * 0.8),
-					n=_.randInt2(a,b),
-					xs= _.listIndexesOf(mum,true).slice(n),
-					b1=[], b2=[] , bin=new Set(xs);
-			//cross over and modify b2
-			for(let i=0;i<dad.length;++i){
-				if(bin.has(i)){
-					b2.push(mum[i]);
-				}else{
+		function crossOverPBX(mum, dad){
+			let b1,b2;
+			if(_.rand() > Params.crossOverRate || mum === dad){
+				b1 = mum.slice();
+				b2 = dad.slice();
+			}else{
+				//initialize the babies with minus values so we can tell which positions
+				//have been filled later in the algorithm
+				b1=_.fill(mum.length, -1);
+				b2=_.fill(mum.length, -1);
+				let positions=[],
+				    pos = _.randInt2(0, mum.length-2);
+				//keep adding random cities until we can add no more
+				//record the positions as we go
+				while(pos< mum.length){
+					positions.push(pos);
+					pos += _.randInt2(1, mum.length-pos);
+				}
+				//now we have chosen some cities it's time to copy the selected cities
+				//over into the offspring in the same position.
+				for(let pos=0; pos<positions.length; ++pos){
+					b1[positions[pos]] = mum[positions[pos]];
+					b2[positions[pos]] = dad[positions[pos]];
+				}
+				//fill in the blanks. First create two position markers so we know
+				//whereabouts we are in b1 and b2
+				let c1=0, c2=0;
+				for(let pos=0; pos<mum.length; ++pos){
+					//advance position marker until we reach a free position in b2
+					while(b2[c2] > -1 && c2 < mum.length){ ++c2 }
+					//b2 gets the next from mum which is not already present
+					if(b2.indexOf(mum[pos])<0){
+						b2[c2] = mum[pos]
+					}
+					//now do the same for baby1
+					while(b1[c1] > -1 && c1 < mum.length){ ++c1 }
+					//b1 gets the next from dad which is not already present
+					if(b1.indexOf(dad[pos])<0){
+						b1[c1] = dad[pos]
+					}
+				}
+			}
+			return [b1,b2];
+		}
+
+		/**
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} mum
+		 * @param {array} dad
+		 * @return {array}
+		 */
+		function crossOverRND(mum,dad){
+			let b1,b2;
+			if(_.rand() > Params.crossOverRate || mum===dad){
+				b1 = mum.slice();
+				b2 = dad.slice();
+			}else{
+				let cp = _.randInt(mum.length);
+				b1=[];
+				b2=[];
+				for(let i=0; i<cp; ++i){
+					b1.push(mum[i]);
 					b2.push(dad[i]);
 				}
-			}
-			_.assert(b2.length==dad.length,"Boom");
-			//cross over and modify b1
-			for(let i=0;i<mum.length;++i){
-				if(bin.has(i)){
+				for(let i=cp; i<mum.length; ++i){
 					b1.push(dad[i]);
-				}else{
-					b1.push(mum[i]);
+					b2.push(mum[i]);
 				}
 			}
-			_.assert(b1.length==mum.length,"Boom");
-
-			b1.forEach((v,i)=> mum[i]=v);
-			b2.forEach((v,i)=> dad[i]=v);
+			return [b1,b2];
 		}
 
-		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {array} mum
-		 * @param {array} dad
-		 * @param {number} cRate
+		/**Partially matched crossover.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {any[]} mum
+		 * @param {any[]} dad
+		 * @return {array}
 		 */
-		function crossOverRND(mum, dad, cRate){
-			if(_.rand() <= cRate){
-				let cp,b1,b2;
-				cp = _.randInt(mum.length);
-				b1=mum.slice(0,cp).concat(dad.slice(cp));
-				b2=dad.slice(0,cp).concat(mum.slice(cp));
-				b1.forEach((v,i)=> mum[i]=v);
-				b2.forEach((v,i)=> dad[i]=v);
-			}
-		}
-
-		function crossOverPMX(b1,b2,cRate){
-			if(_.rand() <= cRate){
-				let beg = _.randInt2(0, b1.length-2);
-				let end = _.randInt2(beg+1, b1.length-1);
-				for(let t,pos=beg; pos<=end;++pos){
-					let gene1 = b1[pos];
-					let gene2 = b2[pos];
-					if(gene1 != gene2){
-						let posGene1 = b1.indexOf(gene1);
-						let posGene2 = b1.indexOf(gene2);
-						_.swap(b1,posGene1,posGene2);
-						posGene1 = b2.indexOf(gene1);
-						posGene2 = b2.indexOf(gene2);
-						_.swap(b2,posGene1,posGene2);
+		function crossOverPMX(mum, dad){
+			let b1 = mum.slice(),
+			    b2 = dad.slice();
+			if(_.rand() > Params.crossOverRate || mum === dad){}else{
+				//first we choose a section of the chromosome
+				let beg = _.randInt2(0, mum.length-2);
+				let end = beg;
+				while(end <= beg)
+					end = _.randInt2(0, mum.length-1);
+				//now we iterate through the matched pairs of genes from beg
+				//to end swapping the places in each child
+				for(let p1,p2,g1,g2,pos=beg; pos<end+1; ++pos){
+					//these are the genes we want to swap
+					g1 = mum[pos];
+					g2 = dad[pos];
+					if(g1 != g2){
+						//find and swap them in b1
+						p1 = b1.indexOf(g1);
+						p2 = b1.indexOf(g2);
+						_.swap(b1, p1,p2);
+						//and in b2
+						p1 = b2.indexOf(g1);
+						p2 = b2.indexOf(g2);
+						_.swap(b2, p1,p2);
 					}
 				}
 			}
-		}
-
-		function XXcrossOver(b1,b2,cRate){
-			if(_.rand() <= cRate){
-				let beg = _.randInt2(0, b1.length-2),
-				    end = _.randInt2(beg+1, b1.length-1);
-				let gene1,gene2,
-					  posGene1,posGene2;
-				for(let t,pos=beg; pos<=end; ++pos){
-					gene1 = b1[pos];
-					gene2 = b2[pos];
-					if(gene1 != gene2){
-						posGene1 = b1.indexOf(gene1);
-						posGene2 = b1.indexOf(gene2);
-						_.swap(b1,posGene1,posGene2);
-						posGene1 = b2.indexOf(gene1);
-						posGene2 = b2.indexOf(gene2);
-						_.swap(b2,posGene1,posGene2);
-					}
-				}
-			}
+			return [b1,b2];
 		}
 
 		/**
-		 * @memberof module:mcfud/NNetGA
+		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} mum
 		 * @param {array} dad
-		 * @param {number} cRate
-		 * @param {array} splits
+		 * @param {array} splitPoints
+		 * @return {array}
 		 */
-		function crossOverAtSplits(mum, dad,cRate,splits){
-			if(_.rand() <= cRate){
-				let cp,cp1,cp2,b1,b2;
-				cp = _.randInt(splits.length-2);
-				cp1 = splits[cp];
-				cp2 = splits[_.randInt2(cp1, splits.length-1)];
-				b1= mum.slice(0,cp1).concat(dad.slice(cp1,cp2)).concat(mum.slice(cp2));
-				b2= dad.slice(0,cp1).concat(mum.slice(cp1,cp2)).concat(dad.slice(cp2));
-				b1.forEach((v,i)=> mum[i]=v);
-				b2.forEach((v,i)=> dad[i]=v);
+		function crossOverAtSplits(mum, dad, splitPoints){
+			let b1, b2;
+			if(_.rand() > Params.crossOverRate || mum === dad){
+				b1=mum.slice();
+				b2=dad.slice();
+			}else{
+				//determine two crossover points
+				let cp1 = splitPoints[_.randInt2(0, splitPoints.length-2)],
+				    cp2 = splitPoints[_.randInt2(cp1, splitPoints.length-1)];
+				b1=[];
+				b2=[];
+				//create the offspring
+				for(let i=0; i<mum.length; ++i){
+					if(i<cp1 || i>=cp2){
+						//keep the same genes if outside of crossover points
+						b1.push(mum[i]);
+						b2.push(dad[i]);
+					}else{
+						//switch over the belly block
+						b1.push(dad[i]);
+						b2.push(mum[i]);
+					}
+				}
 			}
+			return [b1,b2];
 		}
 
-		function chromoRoulette(pop,stats){
-			let sum= stats? stats.totalScore : pop.reduce((acc,p)=>{ return acc+ p.fitness.score() },0);
+		/**Roulette selection.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop
+		 * @param {number} totalScore
+		 * @return {}
+		 */
+		function getChromoRoulette(pop, totalScore){
+			let hit, sum = 0, slice = _.rand() * totalScore;
+			for(let i=0; i<pop.length; ++i){
+				sum += pop[i].fitness.score();
+				//if the fitness so far > random number return the chromo at
+				//this point
+				if(sum >= slice){
+					hit = pop[i];
+					break;
+				}
+			}
+			return hit;
+		}
+
+		/**Roulette selection with probabilities.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop
+		 * @param {number} totalScore
+		 * @return {}
+		 */
+		function chromoRoulette(pop,totalScore){
 			let i,prev=0,R=_.rand();
-			let ps=pop.map((p)=>{ return prev= (prev+ p.fitness.score()/sum) });
+			let ps=pop.map(p=>{ return prev= (prev+ p.fitness.score()/totalScore) });
 			for(i=0;i<ps.length-1;++i)
 				if(R >= ps[i] && R <= ps[i+1]) return pop[i]
 			return pop[0];
 		}
 
-		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function chromoRoulette0(pop,stats){
-			let sel=0, best= 0,
-					slice = _.rand() * stats.totalScore;
-			for(let p,i=0;i<pop.length;++i){
-				p=pop[i];
-				best += p.fitness.score();
-				if(best >= slice){
-					sel= i;
-					break;
+		/**
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop
+		 * @param {number} N
+		 * @return {}
+		 */
+		function tournamentSelectionN(pop,N){
+			let chosenOne = 0,
+					bestSoFar = NumFitness(-Infinity);
+			//Select N members from the population at random testing against
+			//the best found so far
+			for(let i=0; i<N; ++i){
+				let thisTry = _.randInt(pop.length);
+				if(pop[thisTry].fitness.gt(bestSoFar)){
+					chosenOne = thisTry;
+					bestSoFar = pop[thisTry].fitness;
 				}
 			}
-			return pop[sel];
+			return pop[chosenOne];
 		}
 
-		function tournamentSelection(pop,N){
-			let sel= 0,
-					best= -Infinity;
-			for(let t,i=0;i<N;++i){
-				t = _.randInt(pop.length);
-				if(pop[t].fitness.score()>best){
-					sel= t;
-					best= pop[t].fitness.score();
-				}
+		/**
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop current generation
+		 * @return {}
+		 */
+		function tournamentSelection(pop){
+			let g1 = _.randInt(pop.length),
+					g2 = _.randInt(pop.length);
+			//make sure they are different
+			while(g1 == g2)
+				g2 = _.randInt2(0,pop.length-1);
+			if(_.rand() < Params.probTournament){
+				return pop[g1].fitness.gt(pop[g2].fitness)? pop[g1] : pop[g2]
+			}else{
+				return pop[g1].fitness.lt(pop[g2].fitness)? pop[g1] : pop[g2]
 			}
-			return pop[sel];
 		}
 
 		/**Calculate statistics on population.
-		 * @memberof module:mcfud/NNetGA
+		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop current generation
-		 * @return {object} statistics
+		 * @return {Statistics}
 		 */
-		function calcStats(pop,flipped){
+		function calcStats(pop,flip){
 			let best= 0,
 					worst= Infinity,
-					stats={averageScore:0,totalScore:0,bestScore:0,worstScore:0,best:null};
-			if(flipped){
+					stats=new Statistics();
+			if(flip){
 				best=Infinity;
 				worst=0;
 			}
 			pop.forEach((c,i)=>{
-				if(flipped){
+				if(flip){
 					if(c.fitness.score() < best){
 						best = c.fitness.score();
 						stats.bestScore = best;
@@ -586,6 +749,88 @@
 			return stats;
 		}
 
+		/**This type of fitness scaling sorts the population into ascending
+		 * order of fitness and then simply assigns a fitness score based on
+		 * its position in the ladder.
+		 * (so if a genome ends up last it gets score of zero,
+		 * if best then it gets a score equal to the size of the population.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop current generation
+		 * @return {Statistics}
+		 */
+		function fitnessScaleRank(pop){
+			//sort population into ascending order
+			pop.sort((a,b)=>{
+				return a.fitness.lt(b.fitness)?-1:(
+					a.fitness.gt(b.fitness)?1:0
+				)
+			});
+			//now assign fitness according to the genome's position on
+			//this new fitness 'ladder'
+			for(let i=0; i<pop.length; ++i)
+				pop[i].fitness = new NumFitness(i);
+			//recalculate values used in selection
+			return calcStats(pop);
+		}
+
+		/**Scales the fitness using sigma scaling.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop current generation
+		 * @param {Statistics} stats
+		 * @return {array} [sigma, new_stats]
+		 */
+		function fitnessScaleSigma(pop, stats){
+			let i,total = 0;
+			//first iterate through the population to calculate the standard deviation
+			for(i=0; i<pop.length; ++i){
+				total += (pop[i].fitness.score() - stats.averageScore) *
+								 (pop[i].fitness.score() - stats.averageScore);
+			}
+			let old,variance = total/pop.length;
+			//standard deviation is the square root of the variance
+			let sigma = Math.sqrt(variance);
+			//now iterate through the population to reassign the fitness scores
+			for(i=0; i<pop.length; ++i){
+				old= pop[i].fitness.score();
+				pop[i].fitness = new NumFitness((old-stats.averageScore)/(2*sigma));
+			}
+			return [sigma, calcStats(pop)];
+		}
+
+		/**Applies Boltzmann scaling to a populations fitness scores
+		 * The static value Temp is the boltzmann temperature which is
+		 * reduced each generation by a small amount.
+		 * As Temp decreases the difference spread between the high and
+		 * low fitnesses increases.
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {array} pop current generation
+		 * @param {number} boltzmannTemp
+		 * @return {array} [boltzmannTemp, new_stats]
+		 */
+		function fitnessScaleBoltzmann(pop, boltzmannTemp){
+			//reduce the temp a little each generation
+			boltzmannTemp -= Parmas.BOLTZMANN_DT;
+			//make sure it doesn't fall below minimum value
+			if(boltzmannTemp< Parmas.MIN_TEMP) boltzmannTemp = Parmas.MIN_TEMP;
+			//iterate through the population to find the average e^(fitness/temp)
+			//keep a record of e^(fitness/temp) for each individual
+			let expBoltz=[],
+					i,average = 0;
+			for(i=0; i<pop.length; ++i){
+				expBoltz.push(Math.exp(pop[i].fitness.score() / boltzmannTemp));
+				average += expBoltz[i];
+			}
+
+			average /= pop.length;
+
+			//now iterate once more to calculate the new expected values
+			for(i=0; i<pop.length; ++i)
+				pop[i].fitness = new NumFitness(expBoltz[i]/average);
+
+			//recalculate values used in selection
+			return [boltzmannTemp, calcStats(pop)];
+		}
+
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function markStart(extra,fld="cycles"){
 			let s= extra.startTime=_.now();
@@ -604,17 +849,21 @@
 			while(parents.length>1 && p2==p1){
 				p2= _.randInt(parents.length)
 			}
-			let c1=parents[p1].genes.slice();
-			let c2=parents[p2].genes.slice();
-			if(crossOver)
-				crossOver(c1,c2);
+			let c1=parents[p1].genes,
+			    c,b1,b2,c2=parents[p2].genes;
+			if(crossOver){
+				[b1,b2]=crossOver(c1,c2);
+			}else{
+				b1=c1.slice();
+				b2=c2.slice();
+			}
       if(mutate){
-        mutate(c1);
-			  mutate(c2);
+        mutate(b1);
+				mutate(b2);
       }
-			let f1= calcFit(c1, parents[p1].fitness);
-			let f2= calcFit(c2, parents[p2].fitness);
-			return f1.gt(f2)? Chromosome(c1, f1): Chromosome(c2, f2);
+			let f1= calcFit(b1, parents[p1].fitness),
+			    f2= calcFit(b2, parents[p2].fitness);
+			return f1.gt(f2)? new Chromosome(b1, f1): new Chromosome(b2, f2);
     }
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -631,7 +880,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function* getNextStar([start,maxMillis],extra){
 			let {mutate,create,maxAge,
-				   calcFit,poolSize,crossOver}=extra;
+					 calcFit,poolSize,crossOver}=extra;
 			let parent, bestParent = create();
       yield bestParent;
       let parents = [bestParent],
@@ -688,16 +937,16 @@
     }
 
 		/**
-		 * @memberof module:mcfud/NNetGA
-		 * @param {FitnessObject} optimal
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {Fitness} optimal
 		 * @param {object} extra
 		 * @return {array}
 		 */
 		function runGASearch(optimal,extra){
 			let start= markStart(extra),
-				  maxCycles=(extra.maxCycles|| 100),
-				  maxMillis= (extra.maxSeconds || 30) * 1000,
-			    imp, now, gen= getNextStar([start,maxMillis],extra);
+					maxCycles=(extra.maxCycles|| 100),
+					maxMillis= (extra.maxSeconds || 30) * 1000,
+					imp, now, gen= getNextStar([start,maxMillis],extra);
 			while(true){
 				imp= gen.next().value;
 				now= markEnd(extra);
@@ -717,10 +966,16 @@
 			return [now==null, imp]
 		}
 
+		/**
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {number|array} pop
+		 * @param {object} extra
+		 * @return {array}
+		 */
 		function runGACycle(pop,extra){
 			let { maxCycles, targetScore, maxSeconds }=extra;
 			let maxMillis= (maxSeconds || 30) * 1000,
-			    s,now, start= markStart(extra);
+					s,now, start= markStart(extra);
 			maxCycles= maxCycles || 100;
 			while(true){
 				pop= genPop(pop, extra);
@@ -742,6 +997,7 @@
 				}
 				extra.cycles += 1;
 			}
+			extra.gen++;
 			return [now == null, pop];
 		}
 
@@ -752,38 +1008,38 @@
 
 			let b1,b2,res,mum,dad,vecNewPop = [];
 			let stats=calcStats(pop);
-			let {calcFit, crossOver, mutate,
-				   NUM_ELITES, TOURNAMENT_COMPETITORS}= extra;
+			let {calcFit, crossOver, mutate }= extra;
 
 			pop.sort((a,b)=> a.fitness.lt(b.fitness)?-1:(a.fitness.gt(b.fitness)?1:0));
-			if(is.num(NUM_ELITES)){
-				for(let k=NUM_ELITES, i=pop.length-1;i>=0;--i){
-					if(k>0){
-						vecNewPop.push(pop[i]);
-						--k;
-					}else{
-						break;
-					}
+			for(let k=Params.NUM_ELITES, i=pop.length-1;i>=0;--i){
+				if(k>0){
+					vecNewPop.push(pop[i]);
+					--k;
+				}else{
+					break;
 				}
 			}
 
 			while(vecNewPop.length < pop.length){
-				if(TOURNAMENT_COMPETITORS !== undefined){
-					mum = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
-					dad = tournamentSelection(pop,TOURNAMENT_COMPETITORS);
+				if(Params.TOURNAMENT_COMPETITORS !== undefined){
+					mum = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
+					dad = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
 				}else{
 					mum = chromoRoulette(pop,stats);
 					dad = chromoRoulette(pop,stats);
 				}
-				b1=mum.genes.slice();
-				b2=dad.genes.slice();
-				if(crossOver)
-					crossOver(b1,b2);
+				if(crossOver){
+					[b1,b2]= crossOver(mum.genes,dad.genes);
+				}else{
+					b1=mum.genes.slice();
+					b2=dad.genes.slice();
+				}
 				if(mutate){
 					mutate(b1);
 					mutate(b2);
 				}
-				vecNewPop.push(Chromosome(b1, calcFit(b1, mum.fitness)), Chromosome(b2, calcFit(b2,dad.fitness)));
+				vecNewPop.push(new Chromosome(b1, calcFit(b1, mum.fitness)),
+					             new Chromosome(b2, calcFit(b2,dad.fitness)));
 			}
 
 			while(vecNewPop.length > pop.length){
@@ -793,18 +1049,24 @@
 			return vecNewPop;
 		}
 
-		function hillClimb(optimizationFunction, isImprovement, isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+		/**
+		 * @memberof module:mcfud/algo/NNetGA
+		 * @param {function} optimizationFunction
+		 * @param {function} isImprovement
+		 * @param {function} isOptimal
+		 * @param {function} getNextFeatureValue
+		 * @param {any} initialFeatureValue
+		 * @param {object} extra
+		 * @return {object}
+		 */
+		function hillClimb(optimizationFunction, isImprovement,
+			                 isOptimal, getNextFeatureValue, initialFeatureValue,extra){
 			let start= extra.startTime=_.now();
-			let best = optimizationFunction(initialFeatureValue);
-			//console.log("bb===="+best.genes.join(","));
-			//stdout = sys.stdout sys.stdout = None
+			let child,best = optimizationFunction(initialFeatureValue);
 			while(!isOptimal(best)){
-				let child = optimizationFunction( getNextFeatureValue(best));
+				child = optimizationFunction( getNextFeatureValue(best));
 				if(isImprovement(best, child)){
 					best = child
-					//sys.stdout = stdout
-					//display(best, featureValue)
-					//sys.stdout = None
 				}
 			}
 			extra.endTime=_.now();
@@ -862,52 +1124,67 @@
 			return best;
 		}
 
-
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const _$={
 
-			MAX_PERTURBATION,
-			BIAS,
-			//ACTIVATION_RESPONSE : 1,
+			NeuronLayer,
+			Neuron,
+			NeuralNet,
 
-			//NUM_COPIES_ELITE  = 1,
-			//TOURNAMENT_COMPETITORS = 4;
-			CrossOverRate : 0.7,
-			MutationRate  : 0.1,
-			NumericFitness,
+			runGASearch,
+			runGACycle,
+
+			calcStats,
+
+			NumFitness,
+			Fitness,
 			Chromosome,
 
 			mutateSM,
 			mutateDM,
-			mutateIM,
 			mutateIVM,
 			mutateDIVM,
 
+			crossOverOBX,
+			crossOverPBX,
 			crossOverRND,
-      crossOverOBX,
-      crossOverPBX,
 			crossOverPMX,
 			crossOverAtSplits,
 
-			calcStats,
-			runGACycle,
-			runGASearch,
-
 			hillClimb,
 
-			SNeuron,
-			SNeuronLayer,
-			NeuralNet,
+			//getChromoRoulette,
+			//chromoRoulette,
+			//tournamentSelectionN,
+			//tournamentSelection,
 
+			//fitnessScaleRank,
+			//fitnessScaleSigma,
+			//fitnessScaleBoltzmann,
+
+			/**
+			 * @memberof module:mcfud/algo/NNetGA
+			 * @param {object} best
+			 * @param {object} extra
+			 * @param {boolean} timeOut
+			 */
 			showBest(best,extra,tout){
         console.log(_.fill(80,"-").join(""));
         console.log("total time: " + _.prettyMillis(extra.endTime-extra.startTime));
 				if(tout)
 					console.log("time expired");
+				console.log("total generations= " + extra.gen);
         console.log("total cycles= " + extra.cycles);
         console.log("fitness= "+ best.fitness.score());
         console.log(_.fill(80,"-").join(""));
-      }
+      },
+			/**
+			 * @memberof module:mcfud/algo/NNetGA
+			 * @param {object} options
+			 */
+			config(options){
+				return _.inject(Params, options)
+			}
 		};
 
 		return _$;
@@ -917,7 +1194,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    global["io/czlab/mcfud/NNetGA"]=_module
+    gscope["io/czlab/mcfud/algo/NNetGA"]=_module
   }
 
 })(this)
