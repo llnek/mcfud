@@ -64,6 +64,8 @@
      * @module mcfud/core
      */
 
+    const GOLDEN_RATIO=1.6180339887;
+
     /**
      * @private
      * @var {function}
@@ -582,6 +584,16 @@
         return r/v;
       },
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
+      /**Divide into 2 parts based on golden-ratio.
+       * @memberof module:mcfud/core._
+       * @param {number} len
+       * @return {array} [a,b]
+       */
+      toGoldenRatio(len){
+        let a= len / GOLDEN_RATIO;
+        let b= a / GOLDEN_RATIO;
+        return [this.rounded(a),this.rounded(b)];
+      },
       /**Check if obj is a sub-class of this parent-class.
        * @memberof module:mcfud/core._
        * @param {class} type

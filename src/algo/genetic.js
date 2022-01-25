@@ -364,9 +364,9 @@
 					rem=genes.slice(0,beg+1).concat(genes.slice(end));
 					p=_.randInt(rem.length);
 					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-					_.assert(tmp.length==N,"mutateDM error");
 					genes.length=0;
 					tmp.forEach(v=> genes.push(v));
+					_.assert(genes.length==N,"mutateDM error");
 				}
 			}
 		}
@@ -429,9 +429,9 @@
 					rem=genes.slice(0,beg+1).concat(genes.slice(end));
 					p=_.randInt(rem.length);
 					tmp=rem.slice(0,p).concat(tmp).concat(rem.slice(p));
-					_.assert(tmp.length==N,"mutateDIVM error");
 					genes.length=0;
 					tmp.forEach(v=> genes.push(v));
+					_.assert(genes.length==N,"mutateDIVM error");
 				}
 			}
 		}
@@ -445,18 +445,13 @@
 		 * @return {array}
 		 */
 		function crossOverOBX(mum,dad){
-			let temp=[],
-			    positions=[],
+			let temp, positions,
 			    b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
 			b1 = mum.slice();
 			b2 = dad.slice();
 			if(_.rand() > Params.crossOverRate || mum === dad){}else{
-				//keep adding until we can add no more record the positions as we go
-				while(pos < mum.length){
-					positions.push(pos);
-					temp.push(mum[pos]);
-					pos += _.randInt2(1, mum.length-pos);
-				}
+				positions=_.listIndexesOf(mum,true).slice(0, _.toGoldenRatio(mum.length)[1]).sort();
+				temp=positions.map(p=> mum[p]);
 				//so now we have n amount of genes from mum in the temp
 				//we can impose their order in dad.
 				cpos = 0;
@@ -501,41 +496,36 @@
 				b1 = mum.slice();
 				b2 = dad.slice();
 			}else{
-				//initialize the babies with minus values so we can tell which positions
+				//initialize the babies with null values so we can tell which positions
 				//have been filled later in the algorithm
-				b1=_.fill(mum.length, -1);
-				b2=_.fill(mum.length, -1);
-				let positions=[],
-				    pos = _.randInt2(0, mum.length-2);
-				//keep adding random cities until we can add no more
-				//record the positions as we go
-				while(pos< mum.length){
-					positions.push(pos);
-					pos += _.randInt2(1, mum.length-pos);
-				}
+				b1=_.fill(mum.length, null);
+				b2=_.fill(mum.length, null);
+				let positions=_.listIndexesOf(mum,true).slice(0, _.toGoldenRatio(mum.length)[1]).sort();
 				//now we have chosen some cities it's time to copy the selected cities
 				//over into the offspring in the same position.
-				for(let pos=0; pos<positions.length; ++pos){
-					b1[positions[pos]] = mum[positions[pos]];
-					b2[positions[pos]] = dad[positions[pos]];
-				}
+				positions.forEach(i=>{
+					b1[i] = mum[i];
+					b2[i] = dad[i];
+				});
 				//fill in the blanks. First create two position markers so we know
 				//whereabouts we are in b1 and b2
 				let c1=0, c2=0;
-				for(let pos=0; pos<mum.length; ++pos){
+				for(let i=0; i<mum.length; ++i){
 					//advance position marker until we reach a free position in b2
-					while(b2[c2] > -1 && c2 < mum.length){ ++c2 }
+					while(b2[c2] !==null && c2 < mum.length){ ++c2 }
 					//b2 gets the next from mum which is not already present
-					if(b2.indexOf(mum[pos])<0){
-						b2[c2] = mum[pos]
+					if(b2.indexOf(mum[i])<0){
+						b2[c2] = mum[i]
 					}
 					//now do the same for baby1
-					while(b1[c1] > -1 && c1 < mum.length){ ++c1 }
+					while(b1[c1] !==null && c1 < mum.length){ ++c1 }
 					//b1 gets the next from dad which is not already present
-					if(b1.indexOf(dad[pos])<0){
-						b1[c1] = dad[pos]
+					if(b1.indexOf(dad[i])<0){
+						b1[c1] = dad[i]
 					}
 				}
+				_.assert(!b1.some(x=> x===null), "crossOverPBX null error");
+				_.assert(!b2.some(x=> x===null), "crossOverPBX null error");
 			}
 			return [b1,b2];
 		}
@@ -641,7 +631,7 @@
 		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop
 		 * @param {number} totalScore
-		 * @return {}
+		 * @return {Chromosome}
 		 */
 		function getChromoRoulette(pop, totalScore){
 			let hit, sum = 0, slice = _.rand() * totalScore;
@@ -661,7 +651,7 @@
 		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop
 		 * @param {number} totalScore
-		 * @return {}
+		 * @return {Chromosome}
 		 */
 		function chromoRoulette(pop,totalScore){
 			let i,prev=0,R=_.rand();
@@ -675,7 +665,7 @@
 		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop
 		 * @param {number} N
-		 * @return {}
+		 * @return {Chromosome}
 		 */
 		function tournamentSelectionN(pop,N){
 			let chosenOne = 0,
@@ -695,7 +685,7 @@
 		/**
 		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop current generation
-		 * @return {}
+		 * @return {Chromosome}
 		 */
 		function tournamentSelection(pop){
 			let g1 = _.randInt(pop.length),
@@ -710,37 +700,38 @@
 			}
 		}
 
-		/**Calculate statistics on population.
+		/**Calculate statistics on population based on scores.
 		 * @memberof module:mcfud/algo/NNetGA
 		 * @param {array} pop current generation
+		 * @param {boolean} flip true if smaller score is better
 		 * @return {Statistics}
 		 */
 		function calcStats(pop,flip){
 			let best= 0,
 					worst= Infinity,
 					stats=new Statistics();
-			if(flip){
-				best=Infinity;
-				worst=0;
+			if(flip){ worst=0; best=Infinity; }
+			function B(c){
+				best = c.fitness.score();
+				stats.bestScore = best;
+				stats.best= c;
 			}
-			pop.forEach((c,i)=>{
+			function W(c){
+				worst = c.fitness.score();
+				stats.worstScore = worst;
+			}
+			pop.forEach(c=>{
 				if(flip){
 					if(c.fitness.score() < best){
-						best = c.fitness.score();
-						stats.bestScore = best;
-						stats.best= c;
+						B(c)
 					}else if(c.fitness.score() > worst){
-						worst = c.fitness.score();
-						stats.worstScore = worst;
+						W(c)
 					}
 				}else{
 					if(c.fitness.score() > best){
-						best = c.fitness.score();
-						stats.bestScore = best;
-						stats.best= c;
+						B(c)
 					}else if(c.fitness.score() < worst){
-						worst = c.fitness.score();
-						stats.worstScore = worst;
+						W(c)
 					}
 				}
 				stats.totalScore += c.fitness.score();
@@ -767,8 +758,7 @@
 			});
 			//now assign fitness according to the genome's position on
 			//this new fitness 'ladder'
-			for(let i=0; i<pop.length; ++i)
-				pop[i].fitness = new NumFitness(i);
+			pop.forEach((p,i)=> p.fitness.update(i));
 			//recalculate values used in selection
 			return calcStats(pop);
 		}
@@ -790,10 +780,10 @@
 			//standard deviation is the square root of the variance
 			let sigma = Math.sqrt(variance);
 			//now iterate through the population to reassign the fitness scores
-			for(i=0; i<pop.length; ++i){
-				old= pop[i].fitness.score();
-				pop[i].fitness = new NumFitness((old-stats.averageScore)/(2*sigma));
-			}
+			pop.forEach(p=>{
+				old= p.fitness.score();
+				p.fitness.update((old-stats.averageScore)/(2*sigma));
+			});
 			return [sigma, calcStats(pop)];
 		}
 
@@ -816,17 +806,13 @@
 			//keep a record of e^(fitness/temp) for each individual
 			let expBoltz=[],
 					i,average = 0;
-			for(i=0; i<pop.length; ++i){
-				expBoltz.push(Math.exp(pop[i].fitness.score() / boltzmannTemp));
+			pop.forEach((p,i)=>{
+				expBoltz.push(Math.exp(p.fitness.score() / boltzmannTemp));
 				average += expBoltz[i];
-			}
-
+			});
 			average /= pop.length;
-
 			//now iterate once more to calculate the new expected values
-			for(i=0; i<pop.length; ++i)
-				pop[i].fitness = new NumFitness(expBoltz[i]/average);
-
+			pop.forEach((p,i)=> p.fitness.update(expBoltz[i]/average));
 			//recalculate values used in selection
 			return [boltzmannTemp, calcStats(pop)];
 		}
@@ -868,70 +854,71 @@
 
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function bisectLeft(arr,e){
+			//ascending array
       let a,i=0;
       for(;i<arr.length;++i){
         a=arr[i];
         if(a.fitness.eq(e.fitness) ||
-           !e.fitness.gt(a.fitness)) break;
+           e.fitness.lt(a.fitness)) break;
       }
       return i;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-		function* getNextStar([start,maxMillis],extra){
-			let {mutate,create,maxAge,
-					 calcFit,poolSize,crossOver}=extra;
-			let parent, bestParent = create();
-      yield bestParent;
-      let parents = [bestParent],
-          history = [bestParent],
-          ratio,child, index,pindex, lastParentIndex;
+		function* getNextStar([start,maxMillis],{
+			mutate,create,maxAge,
+		  calcFit,poolSize,crossOver
+		})
+		{
+			let par, bestPar = create();
+      yield bestPar;
+      let parents = [bestPar],
+          history = [bestPar],
+          ratio,child,index,pindex,lastParIndex;
 			poolSize=poolSize || 1;
 			maxAge= maxAge || 50;
       for(let i=0;i<poolSize-1;++i){
-        parent = create();
-        if(parent.fitness.gt(bestParent.fitness)){
-          yield (bestParent = parent);
-          history.push(parent);
+        par = create();
+        if(par.fitness.gt(bestPar.fitness)){
+          yield (bestPar = par);
+          history.push(par);
         }
-        parents.push(parent);
+        parents.push(par);
       }
-      lastParentIndex = poolSize - 1;
+      lastParIndex = poolSize - 1;
       pindex = 1;
       while(true){
-				if(_.now()-start > maxMillis) yield bestParent;
-        pindex = pindex>0? pindex-1 : lastParentIndex;
-        parent = parents[pindex];
+				if(_.now()-start > maxMillis) yield bestPar;
+        pindex = pindex>0? pindex-1 : lastParIndex;
+        par = parents[pindex];
         child = newChild(pindex, parents, crossOver, mutate, calcFit);
-        if(parent.fitness.gt(child.fitness)){
-          if(maxAge===undefined){
-						continue
-					}
-          parent.age += 1;
-					if(maxAge > parent.age){
-						continue
-					}
+        if(par.fitness.gt(child.fitness)){
+          if(maxAge===undefined){ continue }
+          par.age += 1;
+					if(maxAge > par.age){ continue }
           index = bisectLeft(history, child, 0, history.length);
           ratio= index / history.length;
           if(_.rand() < Math.exp(-ratio)){
             parents[pindex] = child;
             continue;
           }
-          bestParent.age = 0;
-          parents[pindex] = bestParent;
+          bestPar.age = 0;
+          parents[pindex] = bestPar;
           continue;
         }
-        if(!child.fitness.gt(parent.fitness)){
+        if(!child.fitness.gt(par.fitness)){
           //same fitness
-          child.age = parent.age + 1;
+          child.age = par.age + 1;
           parents[pindex] = child;
           continue;
         }
+				//child is better, so replace the parent
 				child.age = 0;
 				parents[pindex] = child;
-        if(child.fitness.gt(bestParent.fitness)){
-          yield (bestParent = child);
-          history.push(bestParent);
+				//replace best too?
+        if(child.fitness.gt(bestPar.fitness)){
+          yield (bestPar = child);
+          history.push(bestPar);
 				}
       }
     }
@@ -973,9 +960,9 @@
 		 * @return {array}
 		 */
 		function runGACycle(pop,extra){
-			let { maxCycles, targetScore, maxSeconds }=extra;
-			let maxMillis= (maxSeconds || 30) * 1000,
-					s,now, start= markStart(extra);
+			let {maxCycles, targetScore, maxSeconds}=extra;
+			let s,now, start= markStart(extra),
+          maxMillis= (maxSeconds || 30) * 1000;
 			maxCycles= maxCycles || 100;
 			while(true){
 				pop= genPop(pop, extra);
@@ -988,28 +975,28 @@
 				//pop.forEach(p=> console.log(p.genes.join("")));
 				s=calcStats(pop);
 				//matched?
-				if(_.echt(targetScore) && s.bestScore >= targetScore){
-					break;
-				}
+				if(_.echt(targetScore) &&
+					 s.bestScore >= targetScore){ break }
 				//too many?
-				if(extra.cycles>= maxCycles){
-					break;
-				}
+				if(extra.cycles>= maxCycles){ break }
 				extra.cycles += 1;
 			}
 			extra.gen++;
 			return [now == null, pop];
 		}
 
-		function genPop(pop,extra){
-
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+		function genPop(pop,{
+			calcFit, crossOver, create,mutate
+		})
+		{
 			if(is.num(pop))
-				return _.fill(pop, ()=> extra.create());
+				return _.fill(pop, ()=> create());
 
 			let b1,b2,res,mum,dad,vecNewPop = [];
 			let stats=calcStats(pop);
-			let {calcFit, crossOver, mutate }= extra;
 
+			//ascending
 			pop.sort((a,b)=> a.fitness.lt(b.fitness)?-1:(a.fitness.gt(b.fitness)?1:0));
 			for(let k=Params.NUM_ELITES, i=pop.length-1;i>=0;--i){
 				if(k>0){
@@ -1073,6 +1060,7 @@
 			return best;
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function tournament(create, crossOver, compete, sortKey, numParents=10, maxGenerations=100){
 			let best,bestScore,parents,pool=[];
 			for(let i=0,z=1+numParents*numParents;i<z;++i){
