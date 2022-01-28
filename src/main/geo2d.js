@@ -21,16 +21,17 @@
 
   /**Create the module.
    */
-  function _module(Core,_M,_V){
+  function _module(Core,_M,_V,_X){
 
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
     if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
+    if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
 
     const MFL=Math.floor;
     const ABS=Math.abs;
     const MaxVerts=36;
-    const {u:_}=Core;
+    const {is,u:_}=Core;
 
     /**
      * @module mcfud/geo2d
@@ -632,6 +633,80 @@
       return true;
     }
 
+    /**2D transformation matrix.
+     * @memberof module:mcfud/geo2d
+     * @class
+     * @property {object} m internal 3x3 matrix
+     */
+    class C2DMatrix{
+      static create(){ return new C2DMatrix() }
+      constructor(){
+        this.identity()
+      }
+      identity(){
+        this.m=_X.matIdentity(3);
+        return this;
+      }
+      translate(x, y){
+        this.m=_X.matMult(this.m,_X.mat3(1,0,x, 0,1,y,0,0,1));
+        return this;
+      }
+      scale(xScale, yScale){
+        this.m=_X.matMult(this.m,_X.mat3(xScale,0,0, 0,yScale,0, 0,0,1));
+        return this;
+      }
+      shear(xDir, yDir){
+        this.m=_X.matMult(this.m,_X.mat3(1,xDir,0, yDir,1,0, 0,0,1));
+        return this;
+      }
+      rotateCCW(rot,cx,cy){
+        let s = Math.sin(rot),
+            c = Math.cos(rot);
+        if(cx!==undefined && cy!==undefined){
+          this.translate(-cx,-cy);
+          this.rotateCCW(rot);
+          this.translate(cx,cy);
+        }else{
+          this.m=_X.matMult(this.m,_X.mat3(c,-s,0, s,c,0, 0,0,1))
+        }
+        return this;
+      }
+      rotateCW(rot,cx,cy){
+        let s = Math.sin(rot),
+            c = Math.cos(rot);
+        if(cx!==undefined && cy!==undefined){
+          this.translate(-cx,-cy);
+          this.rotateCW(rot);
+          this.translate(cx,cy);
+        }else{
+          this.m=_X.matMult(this.m,_X.mat3(c,s,0, -s,c,0, 0,0,1))
+        }
+        return this;
+      }
+      transformXY(x,y){
+        let v=[x,y,1],
+            r=_X.matVMult(this.m,v);
+        r.length=2;
+        return 2;
+      }
+      transformPoints(ps){
+        let r,v=[0,0,1];
+        ps.forEach(p=>{
+          if(is.vec(p)){
+            v[0]=p[0];v[1]=p[1];
+          }else{
+            v[0]=p.x;v[1]=p.y;
+          }
+          r=_X.matVMult(this.m,v);
+          if(is.vec(p)){
+            p[0]=r[0];p[1]=r[1];
+          }else{
+            p.x=r[0];p.y=r[1];
+          }
+        });
+      }
+    }
+
     const _$={
       Rect,
       Area,
@@ -639,6 +714,7 @@
       Circle,
       Polygon,
       Manifold,
+      C2DMatrix,
       /**Sort vertices in counter clockwise order.
        * @memberof module:mcfud/geo2d
        * @param {Vec2[]} vs
@@ -1047,7 +1123,8 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"),
                            require("./math"),
-                           require("./vec2"))
+                           require("./vec2"),
+                           require("./matrix"))
   }else{
     gscope["io/czlab/mcfud/geo2d"]=_module
   }

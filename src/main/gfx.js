@@ -18,10 +18,11 @@
 
   /**Create the module.
    */
-  function _module(Core,_M){
+  function _module(Core,_M, _X){
 
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
+    if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
 
     const TWO_PI=Math.PI*2;
     const {u:_}=Core;
@@ -30,146 +31,13 @@
      * @module mcfud/gfx
      */
 
-    /**
-     * @typedef {number[]} Vec2
-     */
-
-    /**
-     * @memberof module:mcfud/gfx
-     * @class
-     * @property {number[]} m
-     */
-    class TXMatrix2D{
-      /**
-       * @param {Vec2[]} source
-       */
-      constructor(source){
-        if(source){
-          this.m = [];
-          this.clone(source);
-        }else{
-          this.m = [1,0,0,0,1,0];
-        }
-      }
-      /**Toggle this into an `Identity` matrix
-       * @return {TXMatrix2D} self
-       */
-      identity(){
-        const m = this.m;
-        m[0] = 1; m[1] = 0; m[2] = 0;
-        m[3] = 0; m[4] = 1; m[5] = 0;
-        return this;
-      }
-      /**Deep clone a matrix.
-       * @param {TXMatrix2D}
-       * @return {TXMatrix2D} self
-       */
-      clone(matrix){
-        let d = this.m,
-            s = matrix.m;
-        d[0]=s[0]; d[1]=s[1]; d[2] = s[2];
-        d[3]=s[3]; d[4]=s[4]; d[5] = s[5];
-        return this;
-      }
-      /**Multiply by this matrix
-       * @param {TXMatrix2D} matrix
-       * @return {TXMatrix2D} self
-       */
-      multiply(matrix){
-        let a = this.m,
-            b = matrix.m;
-        let m11 = a[0]*b[0] + a[1]*b[3];
-        let m12 = a[0]*b[1] + a[1]*b[4];
-        let m13 = a[0]*b[2] + a[1]*b[5] + a[2];
-        let m21 = a[3]*b[0] + a[4]*b[3];
-        let m22 = a[3]*b[1] + a[4]*b[4];
-        let m23 = a[3]*b[2] + a[4]*b[5] + a[5];
-
-        a[0]=m11; a[1]=m12; a[2] = m13;
-        a[3]=m21; a[4]=m22; a[5] = m23;
-        return this;
-      }
-      /**Apply rotation.
-       * @param {number} radians
-       * @return {TXMatrix2D} self
-       */
-      rotate(radians){
-        if(!_.feq0(radians)){
-          let m=this.m,
-              cos = Math.cos(radians),
-              sin = Math.sin(radians);
-          let m11 = m[0]*cos  + m[1]*sin;
-          let m12 = -m[0]*sin + m[1]*cos;
-          let m21 = m[3]*cos  + m[4]*sin;
-          let m22 = -m[3]*sin + m[4]*cos;
-          m[0] = m11; m[1] = m12;
-          m[3] = m21; m[4] = m22;
-        }
-        return this;
-      }
-      /**Apply rotation (in degrees).
-       * @param {number} degrees
-       * @return {TXMatrix2D} self
-       */
-      rotateDeg(degrees){
-        return _.feq0(degrees)? this: this.rotate(Math.PI * degrees / 180)
-      }
-      /**Apply scaling.
-       * @param {number} sx
-       * @param {number} sy
-       * @return {TXMatrix2D} self
-       */
-      scale(sx,sy){
-        let m = this.m;
-        if(sy===undefined){ sy=sx }
-        m[0] *= sx;
-        m[1] *= sy;
-        m[3] *= sx;
-        m[4] *= sy;
-        return this;
-      }
-      /**Apply translation.
-       * @param {number} tx
-       * @param {number} ty
-       * @return {TXMatrix2D} self
-       */
-      translate(tx,ty){
-        let m = this.m;
-        m[2] += m[0]*tx + m[1]*ty;
-        m[5] += m[3]*tx + m[4]*ty;
-        return this;
-      }
-      /**Transform this point.
-       * @param {number} x
-       * @param {number} y
-       * @return {Vec2}
-       */
-      transform(x,y){
-        return [ x * this.m[0] + y * this.m[1] + this.m[2],
-                 x * this.m[3] + y * this.m[4] + this.m[5] ];
-      }
-      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
-       * @param {object} obj
-       * @return {object} obj
-       */
-      transformPoint(obj){
-        const [x,y]= this.transform(obj.x,obj.y);
-        obj.x = x;
-        obj.y = y;
-        return obj;
-      }
-      /**@see {@link module:mcfud/gfx.TXMatrix2D#transform}
-       * @param {Vec2} inArr
-       * @return {Vec2}
-       */
-      transformArray(inArr){
-        return this.transform(inArr[0],inArr[1])
-      }
+    const _$={
       /**Set HTML5 2d-context's transformation matrix.
-       * @param {object} html5 2d-context
+       * @memberof module:mcfud/gfx
+       * @param {object} ctx html2d-context
+       * @param {C2DMatrix} m
        */
-      setContextTransform(ctx){
-        const m = this.m;
+      setContextTransform(ctx,m){
         // source:
         //  m[0] m[1] m[2]
         //  m[3] m[4] m[5]
@@ -180,12 +48,10 @@
         //  m12  m22  dy
         //  0    0    1
         //  setTransform(m11, m12, m21, m22, dx, dy)
-        ctx.transform(m[0],m[3],m[1],m[4],m[2],m[5]);
-      }
-    }
-
-    const _$={
-      TXMatrix2D,
+        ctx.transform(m.cells[0],m.cells[3],
+                      m.cells[1],m.cells[4],
+                      m.cells[2],m.cells[5]);
+      },
       /**Html5 Text Style object.
        * @example
        * "14px 'Arial'" "#dddddd" "left" "top"
@@ -337,7 +203,8 @@
   //export--------------------------------------------------------------------
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("./core"),
-                           require("./math"))
+                           require("./math"),
+                           require("./matrix"))
   }else{
     gscope["io/czlab/mcfud/gfx"]=_module
   }
