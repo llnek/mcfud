@@ -119,6 +119,19 @@
         const biasRelative= 0.95;
         const biasAbsolute= 0.01;
         return a >= (b*biasRelative + a*biasAbsolute)
+      },
+      /**Re-maps a number from one range to another.
+       * @param {number} n  the incoming value to be converted
+       * @param {number} start1 lower bound of the value's current range
+       * @param {number} stop1  upper bound of the value's current range
+       * @param {number} start2 lower bound of the value's target range
+       * @param {number} stop2  upper bound of the value's target range
+       * @param  {boolean} [withinBounds] constrain the value to the newly mapped range
+       * @return {number}
+       */
+      remap(n, start1, stop1, start2, stop2, withinBounds){
+        const v= (n - start1) / (stop1 - start1) * (stop2 - start2) + start2;
+        return !withinBounds ? v : (start2 < stop2? this.clamp(start2, stop2, v) : this.clamp(stop2, start2,v));
       }
     };
 

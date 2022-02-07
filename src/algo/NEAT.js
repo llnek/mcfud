@@ -85,7 +85,7 @@
       //the chance, each epoch, that a neuron or link will be added to the genome
       chanceAddLink:0.07,
       chanceAddNode:0.03,
-      chanceAddRecurrentLink: 0.05,
+      chanceAddRecurrentLink: -1,//0.05,
       //mutation probabilities for mutating the weights
       mutationRate:0.8,
       maxWeightPerturbation:0.5,
@@ -384,6 +384,9 @@
         let c=new NeuralNet(null,this.depth);
         c.vecNeurons= this.vecNeurons.map(n=> n.clone());
         return c;
+      }
+      compute(inputs,type){
+        return this.update(inputs, type)
       }
       /**Update network for this clock cycle.
        * @param {number[]} inputs

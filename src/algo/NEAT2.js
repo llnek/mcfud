@@ -25,7 +25,7 @@
     const {u:_, is}= Core;
 
     /**
-     * @module mcfud/algo/NEAT
+     * @module mcfud/algo/NEAT2
      */
 
     const NeuronType={
@@ -34,7 +34,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Create a numeric fitness object.
-     * @memberof module:mcfud/algo/NEAT
+     * @memberof module:mcfud/algo/NEAT2
      * @param {number} v
      * @param {boolean} flipped
      * @return {object}
@@ -301,7 +301,7 @@
        * @param {number[]} values
        * @return {number[]}
        */
-      feedForward(values){
+      update(values){
         _.assert(this.network.length>0,"invalid network");
         _.assert(values.length==this.inputs, "invalid input values");
         for(let n,i=0; i<this.inputs; ++i){
@@ -327,8 +327,8 @@
 
         return outs;
       }
-      think(values){
-        return this.feedForward(values)
+      compute(values){
+        return this.update(values)
       }
       /**Sets up the NN.
        * @return {Genome} this
@@ -768,7 +768,7 @@
     /**
      * @class
      */
-    class Population{
+    class NeatGA{
       /**
        * @param {number} size
        * @param {number} inputs
@@ -783,6 +783,12 @@
           g.mutate(this.history);
           return g.generateNetwork();
         });
+      }
+      /**Cycles through all the members of the population and creates their phenotypes.
+       * @return {Genome[]} the current phenotypes
+       */
+      createPhenotypes(){
+        return this.genomes;
       }
       /**Called when all the players are dead and a new generation needs to be made.
        */
@@ -892,7 +898,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      Population, Genome, LinkGene, Neuron, Species,
+      NeatGA, Genome, LinkGene, Neuron, Species,
       NumFitness, InnovHistory,
       configParams(options){
         return _.inject(Params,options)
@@ -906,7 +912,7 @@
   if(typeof module === "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
-    gscope["io/czlab/mcfud/algo/NEAT"]=_module
+    gscope["io/czlab/mcfud/algo/NEAT2"]=_module
   }
 
 })(this)
