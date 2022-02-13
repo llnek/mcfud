@@ -25,11 +25,26 @@
     const DEG_2PI= 360;
     const TWO_PI= 2*Math.PI;
     const PI= Math.PI;
+    const int=Math.floor;
     const {is,u:_}= Core;
 
     /**
      * @module mcfud/math
      */
+
+    const PERLIN_YWRAPB = 4;
+    const PERLIN_YWRAP = 1 << PERLIN_YWRAPB;
+    const PERLIN_ZWRAPB = 8;
+    const PERLIN_ZWRAP = 1 << PERLIN_ZWRAPB;
+    const PERLIN_SIZE = 4095;
+
+    let perlin_octaves = 4; // default to medium smooth
+    let perlin_amp_falloff = 0.5; // 50% reduction/octave
+    let _perlinArr;
+
+    function scaled_cosine(i){
+      return 0.5 * (1.0 - Math.cos(i * Math.PI))
+    }
 
     /** @ignore */
     function _mod_deg(deg){
@@ -132,7 +147,73 @@
       remap(n, start1, stop1, start2, stop2, withinBounds){
         const v= (n - start1) / (stop1 - start1) * (stop2 - start2) + start2;
         return !withinBounds ? v : (start2 < stop2? this.clamp(start2, stop2, v) : this.clamp(stop2, start2,v));
+      },
+      /**Perlin noise in 1D.
+       * from https://github.com/OneLoneCoder/videos/blob/master/OneLoneCoder_PerlinNoise.cpp
+       * @param {number} nCount
+       * @param {number[]} fSeed
+       * @param {number} nOctaves
+       * @param {number} fBias
+       * @param {number[]} fOutput
+       * @return {number[]} fOutput
+       */
+      perlin1D(nCount, fSeed, nOctaves, fBias, fOutput){
+        let fNoise, fScaleAcc, fScale;
+        let nPitch, nSample1, nSample2, fBlend, fSample;
+        for(let x=0; x<nCount; ++x){
+          fNoise = 0; fScaleAcc = 0; fScale = 1;
+          for(let o=0; o<nOctaves; ++o){
+            nPitch = nCount >> o;
+            nSample1 = int(x/nPitch) * nPitch;
+            nSample2 = (nSample1 + nPitch) % nCount;
+            fBlend = (x - nSample1) / nPitch;
+            fSample = (1 - fBlend) * fSeed[int(nSample1)] + fBlend * fSeed[int(nSample2)];
+
+            fScaleAcc += fScale;
+            fNoise += fSample * fScale;
+            fScale = fScale / fBias;
+          }
+          //scale to seed range
+          fOutput[x] = fNoise / fScaleAcc;
+        }
+      },
+      /**Perlin noise in 2D.
+       * from https://github.com/OneLoneCoder/videos/blob/master/OneLoneCoder_PerlinNoise.cpp
+       * @param {number} nWidth
+       * @param {number} nHeight
+       * @param {number[]} fSeed
+       * @param {number} nOctaves
+       * @param {number} fBias
+       * @param {number[]} fOutput
+       * @return {number[]} fOutput
+       */
+      perlin2D(nWidth, nHeight, fSeed, nOctaves, fBias, fOutput){
+        let fNoise, fScaleAcc, fScale;
+        let fBlendX, fBlendY, fSampleT, fSampleB;
+        let nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
+        for(let x=0; x<nWidth; ++x)
+          for(let y=0; y<nHeight; ++y){
+            fNoise = 0; fScaleAcc = 0; fScale = 1;
+            for(let o=0; o<nOctaves; ++o){
+              nPitch = nWidth >> o;
+              nSampleX1 = int(x / nPitch) * nPitch;
+              nSampleY1 = int(y / nPitch) * nPitch;
+              nSampleX2 = (nSampleX1 + nPitch) % nWidth;
+              nSampleY2 = (nSampleY1 + nPitch) % nHeight;
+              fBlendX = (x - nSampleX1) / nPitch;
+              fBlendY = (y - nSampleY1) / nPitch;
+              fSampleT = (1 - fBlendX) * fSeed[int(nSampleY1 * nWidth + nSampleX1)] + fBlendX * fSeed[int(nSampleY1 * nWidth + nSampleX2)];
+              fSampleB = (1 - fBlendX) * fSeed[int(nSampleY2 * nWidth + nSampleX1)] + fBlendX * fSeed[int(nSampleY2 * nWidth + nSampleX2)];
+
+              fScaleAcc += fScale;
+              fNoise += (fBlendY * (fSampleB - fSampleT) + fSampleT) * fScale;
+              fScale = fScale / fBias;
+            }
+            //scale to seed range
+            fOutput[y * nWidth + x] = fNoise / fScaleAcc;
+          }
       }
+
     };
 
     return _$;
