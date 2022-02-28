@@ -262,6 +262,15 @@ Test.deftest("Vec2").
     let ok2= v.x===-4&&v.y===-3 && w.x===-4&&w.y===-3;
     return ok1&&ok2;
   }).
+  ensure("clamp",()=>{
+    let v=V.vec(3,4);
+    let n=V.len(v);
+    let w= V.clamp(v,1,4);
+    let ok1= V.len(w)==4;
+    V.clamp$(v,2,4);
+    let ok2= V.len(v)==4;
+    return n==5 && ok1 && ok2;
+  }).
   ensure("translate",()=>{
     let pos=V.vec(1,1);
     let v= V.translate(pos,V.vecXY(3,4),V.vec(-4,-3));

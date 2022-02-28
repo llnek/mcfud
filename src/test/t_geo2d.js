@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 "use strict";
@@ -54,8 +54,8 @@ Test.deftest("Geo2d").
     return p.join("")=="1513" && q.join("")=="1515";
   }).
   ensure("getAABB",()=>{
-    let r= G.getAABB(new G.Circle(10).setPos(100,200));
-    let w=G.getAABB(new G.Polygon(100,200).set([[20,10],[15,20],[10,10],[15,0]]));
+    let r= G.getAABB(G.bodyWrap(new G.Circle(10),100,200));
+    let w=G.getAABB(G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10],[15,0]]),100,200));
     return r.pos.join("")+r.width+r.height=="901902020" &&
            w.pos.join("")+w.width+w.height=="1102001020";
   }).
@@ -122,21 +122,21 @@ Test.deftest("Geo2d").
     return r.pos.join("")+r.width+r.height=="151555" && !z;
   }).
   ensure("hitTestPointCircle",()=>{
-    return G.hitTestPointCircle(6,6,new G.Circle(10).setPos(5,5)) &&
-           !G.hitTestPointCircle(0,0,new G.Circle(2).setPos(5,5));
+    return G.hitTestPointCircle(6,6, G.bodyWrap(new G.Circle(10),5,5)) &&
+           !G.hitTestPointCircle(0,0, G.bodyWrap(new G.Circle(2),5,5));
   }).
   ensure("hitTestPointPolygon",()=>{
-    let p=new G.Polygon(10,10).set([[20,0],[15,10],[10,0]]);
+    let p=G.bodyWrap(new G.Polygon([[20,0],[15,10],[10,0]]),10,10);
     return G.hitTestPointPolygon(25,12,p) &&
            !G.hitTestPointPolygon(1,3,p);
   }).
   ensure("hitTestCircleCircle",()=>{
-    return G.hitCircleCircle(new G.Circle(5).setPos(10,10), new G.Circle(4).setPos(12,12)) &&
-           !G.hitCircleCircle(new G.Circle(5).setPos(10,10), new G.Circle(4).setPos(20,20));
+    return G.hitCircleCircle(G.bodyWrap(new G.Circle(5),10,10), G.bodyWrap(new G.Circle(4),12,12)) &&
+           !G.hitCircleCircle(G.bodyWrap(new G.Circle(5),10,10), G.bodyWrap(new G.Circle(4),20,20));
   }).
   ensure("hitCircleCircle",()=>{
-    let a=new G.Circle(5).setPos(10,10);
-    let b=new G.Circle(4).setPos(12,12);
+    let a=G.bodyWrap(new G.Circle(5),10,10);
+    let b=G.bodyWrap(new G.Circle(4),12,12);
     let m= G.hitCircleCircle(a,b);
     let ok1,ok2,ok3;
     if(m){
@@ -145,32 +145,34 @@ Test.deftest("Geo2d").
            _arrayEq(m.overlapV, [4.363961030678928, 4.363961030678928 ]) &&
            _.feq(m.overlap, 6.17157287525381);
     }
-    a=new G.Circle(2).setPos(14,14);
-    b=new G.Circle(6).setPos(12,12);
+    a=G.bodyWrap(new G.Circle(2),14,14);
+    b=G.bodyWrap(new G.Circle(6),12,12);
     m= G.hitCircleCircle(a,b);
     if(m){
       ok2= _arrayEq(m.overlapN, [ -0.7071067811865475, -0.7071067811865475 ]) &&
            _arrayEq(m.overlapV, [ -3.65685424949238, -3.65685424949238 ]) &&
            _.feq(m.overlap, 5.17157287525381) && m.AInB && !m.BInA;
     }
-    a=new G.Circle(6).setPos(12,12);
-    b=new G.Circle(2).setPos(14,14);
+    a=G.bodyWrap(new G.Circle(6),12,12);
+    b=G.bodyWrap(new G.Circle(2),14,14);
     m= G.hitCircleCircle(a,b);
     if(m){
       ok3= _arrayEq(m.overlapN, [ 0.7071067811865475, 0.7071067811865475 ]) &&
            _arrayEq(m.overlapV, [ 3.65685424949238, 3.65685424949238 ]) &&
            _.feq(m.overlap, 5.17157287525381) && !m.AInB && m.BInA;
     }
-    return ok1 && ok2 && ok3 && !G.hitCircleCircle(new G.Circle(5).setPos(10,10), new G.Circle(4).setPos(20,20));
+    return ok1 && ok2 && ok3 &&
+      !G.hitCircleCircle(G.bodyWrap(new G.Circle(5),10,10), G.bodyWrap(new G.Circle(4),20,20));
   }).
   ensure("hitTestPolygonCircle",()=>{
-    return G.hitTestPolygonCircle(new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]),
-                                  new G.Circle(5).setPos(32,24)) &&
-           !G.hitPolygonCircle(new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]), new G.Circle(2).setPos(45,24));
+    return G.hitTestPolygonCircle(G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10),
+                                  G.bodyWrap(new G.Circle(5),32,24)) &&
+           !G.hitPolygonCircle(G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10),
+                               G.bodyWrap(new G.Circle(2),45,24));
   }).
   ensure("hitPolygonCircle",()=>{
-    let p=new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]);
-    let c=new G.Circle(5).setPos(32,24);
+    let p=G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10);
+    let c=G.bodyWrap(new G.Circle(5),32,24);
     let m=G.hitPolygonCircle(p,c);
     let ok1,ok2,ok3;
     if(m){
@@ -178,27 +180,29 @@ Test.deftest("Geo2d").
            _arrayEq(m.overlapV, [ 1.2721359549995794, 0.6360679774997897 ]) &&
            p===m.A && c === m.B && _.feq(m.overlap, 1.4222912360003366);
     }
-    p=new G.Polygon(0,0).set([[20,0],[20,20],[0,20],[0,0]]);
-    c=new G.Circle(2).setPos(5,5);
+    p=G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),0,0);
+    c=G.bodyWrap(new G.Circle(2),5,5);
     m=G.hitPolygonCircle(p,c);
     if(m){
       ok2= _arrayEq(m.overlapN, [ -1, 0 ]) &&
            _arrayEq(m.overlapV, [ -7, 0 ]) &&
            p===m.A && c===m.B && _.feq(m.overlap,7) && m.BInA;
     }
-    p=new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]);
-    c=new G.Circle(50).setPos(24,28);
+    p=G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10);
+    c=G.bodyWrap(new G.Circle(50),24,28);
     m=G.hitPolygonCircle(p,c);
     if(m){
       ok3= _arrayEq(m.overlapN, [ -0.8944271909999159, 0.4472135954999579 ]) &&
            _arrayEq(m.overlapV, [ -44.721359549995796, 22.360679774997898 ]) &&
            p===m.A && c===m.B && _.feq(m.overlap,50) && m.AInB;
     }
-    return ok1 && ok2 && ok3 && !G.hitPolygonCircle(new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]), new G.Circle(2).setPos(45,24));
+    return ok1 && ok2 && ok3 &&
+      !G.hitPolygonCircle(G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10),
+                          G.bodyWrap(new G.Circle(2),45,24));
   }).
   ensure("hitCirclePolygon",()=>{
-    let p=new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]);
-    let c=new G.Circle(5).setPos(32,24);
+    let p=G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10);
+    let c=G.bodyWrap(new G.Circle(5),32,24);
     let m=G.hitCirclePolygon(c,p);
     let ok1,ok2,ok3;
     if(m){
@@ -206,16 +210,16 @@ Test.deftest("Geo2d").
            _arrayEq(m.overlapV, [ -1.2721359549995794, -0.6360679774997897 ]) &&
            m.A===c && m.B===p && _.feq(m.overlap, 1.4222912360003366);
     }
-    p=new G.Polygon(0,0).set([[20,0],[20,20],[0,20],[0,0]]);
-    c=new G.Circle(2).setPos(5,5);
+    p=G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),0,0);
+    c=G.bodyWrap(new G.Circle(2),5,5);
     m=G.hitCirclePolygon(c,p);
     if(m){
       ok2= _arrayEq(m.overlapN, [ 1, 0 ]) &&
            _arrayEq(m.overlapV, [ 7, 0 ]) &&
            m.A===c && m.B===p && _.feq(m.overlap,7) && m.AInB;
     }
-    p=new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]);
-    c=new G.Circle(50).setPos(24,28);
+    p=G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10);
+    c=G.bodyWrap(new G.Circle(50),24,28);
     m=G.hitCirclePolygon(c,p);
     if(m){
       ok3= _arrayEq(m.overlapN, [ 0.8944271909999159, -0.4472135954999579 ]) &&
@@ -223,17 +227,18 @@ Test.deftest("Geo2d").
            m.A===c && m.B===p && _.feq(m.overlap,50) && m.BInA;
     }
     return ok1 && ok2 && ok3 &&
-      !G.hitCirclePolygon(new G.Circle(2).setPos(45,24), new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]));
+      !G.hitCirclePolygon(G.bodyWrap(new G.Circle(2),45,24),
+                          G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10));
   }).
   ensure("hitTestCirclePolygon",()=>{
-    return G.hitTestCirclePolygon(new G.Circle(5).setPos(32,24),
-                                  new G.Polygon(10,10).set([[20,10],[15,20],[10,10]])) &&
-           !G.hitCirclePolygon(new G.Circle(2).setPos(45,24),
-                               new G.Polygon(10,10).set([[20,10],[15,20],[10,10]]));
+    return G.hitTestCirclePolygon(G.bodyWrap(new G.Circle(5),32,24),
+                                  G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10)) &&
+           !G.hitCirclePolygon(G.bodyWrap(new G.Circle(2),45,24),
+                               G.bodyWrap(new G.Polygon([[20,10],[15,20],[10,10]]),10,10));
   }).
   ensure("hitPolygonPolygon",()=>{
-    let a= new G.Polygon(10,10).set([[20,0],[15,10],[0,0]]);
-    let b= new G.Polygon(5,5).set([[20,0],[20,20],[0,20],[0,0]]);
+    let a= G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),10,10);
+    let b= G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),5,5);
     let m= G.hitPolygonPolygon(a,b);
     let ok1,ok2,ok3;
     if(m){
@@ -241,16 +246,16 @@ Test.deftest("Geo2d").
            _arrayEq(m.overlapV, [ -6.923076923076925, 10.384615384615387 ]) &&
            m.A===a && m.B===b && _.feq(m.overlap, 12.480754415067658);
     }
-    a= new G.Polygon(10,10).set([[20,0],[15,10],[0,0]]);
-    b= new G.Polygon(5,5).set([[100,0],[100,100],[0,100],[0,0]]);
+    a= G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),10,10);
+    b= G.bodyWrap(new G.Polygon([[100,0],[100,100],[0,100],[0,0]]),5,5);
     m= G.hitPolygonPolygon(a,b);
     if(m){
       ok2= _arrayEq(m.overlapN, [ 0, 1 ]) &&
            _arrayEq(m.overlapV, [ 0, 15 ]) &&
         m.A===a && m.B===b && _.feq(m.overlap,15) && m.AInB;
     }
-    b= new G.Polygon(10,10).set([[20,0],[15,10],[0,0]]);
-    a= new G.Polygon(5,5).set([[100,0],[100,100],[0,100],[0,0]]);
+    b= G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),10,10);
+    a= G.bodyWrap(new G.Polygon([[100,0],[100,100],[0,100],[0,0]]),5,5);
     m= G.hitPolygonPolygon(a,b);
     if(m){
       ok3= _arrayEq(m.overlapN, [ 0, -1 ]) &&
@@ -258,14 +263,15 @@ Test.deftest("Geo2d").
            m.A===a && m.B===b && _.feq(m.overlap,15) && m.BInA;
     }
 
-    return ok1 && ok2 && ok3 && !G.hitPolygonPolygon(new G.Polygon(0,0).set([[20,0],[15,10],[0,0]]),
-                                                     new G.Polygon(50,50).set([[20,0],[20,20],[0,20],[0,0]]));
+    return ok1 && ok2 && ok3 &&
+      !G.hitPolygonPolygon(G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),0,0),
+                           G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),50,50));
   }).
   ensure("hitTestPolygonPolygon",()=>{
-    return G.hitPolygonPolygon(new G.Polygon(10,10).set([[20,0],[15,10],[0,0]]),
-                               new G.Polygon(5,5).set([[20,0],[20,20],[0,20],[0,0]])) &&
-           !G.hitPolygonPolygon(new G.Polygon(0,0).set([[20,0],[15,10],[0,0]]),
-                                new G.Polygon(50,50).set([[20,0],[20,20],[0,20],[0,0]]));
+    return G.hitPolygonPolygon(G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),10,10),
+                               G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),5,5)) &&
+           !G.hitPolygonPolygon(G.bodyWrap(new G.Polygon([[20,0],[15,10],[0,0]]),0,0),
+                                G.bodyWrap(new G.Polygon([[20,0],[20,20],[0,20],[0,0]]),50,50));
   }).end(tearDown)).then(function(r){
   Test.prn(r);
   });

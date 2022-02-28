@@ -10,16 +10,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic,Sort){
+  function _module(Core,_M,Basic,Sort){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
@@ -79,7 +81,9 @@
     //FrequencyCounter.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function SNode(key,val,next){ return {key,val,next} }
+    const SNode=(key,val,next)=> ({key,val,next});
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an (unordered) symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -88,7 +92,7 @@
       constructor(){
       //* @property {object} first the linked list of key-value pairs
       //* @property {number} n number of key-value pairs
-        this.first=null;
+        this.first=UNDEF;
         this.n=0;
       }
       /**Returns the number of key-value pairs in this symbol table.
@@ -158,7 +162,7 @@
         // delete key in linked list beginning at Node x
         // warning: function call stack too large if table is large
         const _delete=(x,key)=>{
-          if(!x) return null;
+          if(!x) return UNDEF;
           if(key==x.key){
             this.n -= 1;
             return x.next;
@@ -284,7 +288,7 @@
             lo=0, hi=this.n-1;
         this._argOk(key);
         while(lo <= hi){
-          mid = lo+int((hi-lo)/2);
+          mid = lo+ _M.ndiv(hi-lo,2);
           cmp = this.compare(key,this.mKeys[mid]);
           if(cmp < 0) hi = mid-1;
           else if(cmp > 0) lo = mid+1;
@@ -339,12 +343,12 @@
               this.vals[j] = this.vals[j+1];
             }
             this.n-=1;
-            this.mKeys[this.n] = null;  // to avoid loitering
-            this.vals[this.n] = null;
+            this.mKeys[this.n] = UNDEF;  // to avoid loitering
+            this.vals[this.n] = UNDEF;
             // resize if 1/4 full
             if(this.n>0 &&
-               this.n == int(this.mKeys.length/4))
-              this._resize(int(this.mKeys.length/2));
+               this.n == _M.ndiv(this.mKeys.length,4))
+              this._resize(_M.ndiv(this.mKeys.length,2));
             this._check();
           }
         }
@@ -473,6 +477,7 @@
     }
     //BinarySearchST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -482,7 +487,7 @@
         //* @property {object} root
         //* @property {function} compare
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
         this._argOk=(x)=> _.assert(x, "Invalid argument");
         this._check=()=>{
           if(!this.isBST(this.root,null,null)) console.log("Not in symmetric order");
@@ -516,7 +521,7 @@
         };
       }
       Node(key, val, size){
-        return{ key,val,size, left:null, right:null }
+        return{ key,val,size};// left:null, right:null
       }
       /**Returns true if this symbol table is empty.
        * @return {boolean}
@@ -677,7 +682,7 @@
         return x.key;
       }
       _ceilingNode(x, key){
-        if(_.nichts(x)){return null}
+        if(_.nichts(x)){return UNDEF}
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0){
@@ -701,7 +706,7 @@
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(_.nichts(x)){return null}
+        if(_.nichts(x)){return UNDEF}
         let leftSize = this._sizeNode(x.left);
         if(leftSize > rank) return this._selectNode(x.left,  rank);
         if(leftSize < rank) return this._selectNode(x.right, rank - leftSize - 1);
@@ -838,6 +843,7 @@
     }
     //BST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -849,7 +855,7 @@
         //* @property {object} root
         //* @property {function} compare
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
         this._argOk=(x)=>_.assert(x, "Invalid argument");
         this._check=()=>{
           // is the tree rooted at x a BST with all keys strictly between min and max
@@ -905,7 +911,7 @@
       }
       Node(key, val, color, size){
         //color is parent color
-        return {key,val,color,size,left:null,right:null}
+        return {key,val,color,size};//left:null,right:null
       }
       // is node x red; false if x is null ?
       _isRed(x){
@@ -1182,7 +1188,7 @@
       }
       // the largest key in the subtree rooted at x less than or equal to the given key
       _floorNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0)  return this._floorNode(x.left, key);
@@ -1203,7 +1209,7 @@
       }
       // the smallest key in the subtree rooted at x greater than or equal to the given key
       _ceilingNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp > 0)  return this._ceilingNode(x.right, key);
@@ -1225,7 +1231,7 @@
       // Return key in BST rooted at x of given rank.
       // Precondition: rank is in legal range.
       _selectNode(x, rank){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let leftSize = this._sizeNode(x.left);
         return leftSize > rank? this._selectNode(x.left,  rank)
                               : (leftSize < rank? this._selectNode(x.right, rank - leftSize - 1): x.key);
@@ -1323,6 +1329,7 @@
     }
     //RedBlackBST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method for binary searching for an integer in a sorted array of integers.
      * @memberof module:mcfud/algo_search
      * @class
@@ -1338,7 +1345,7 @@
             hi = a.length - 1;
         while(lo <= hi){
           // Key is in a[lo..hi] or not present.
-          let mid = lo + int((hi-lo)/2);
+          let mid = lo + _M.ndiv(hi-lo,2);
           if(key < a[mid]) hi = mid - 1;
           else if(key > a[mid]) lo = mid + 1;
           else return mid;
@@ -1356,6 +1363,7 @@
     }
     //BinarySearch.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_search
      * @class
@@ -1364,14 +1372,14 @@
       Node(key, val, height, size){
         // height: height of the subtree
         // size: number of nodes in subtree
-        return {key, val, height, size, left:null, right: null}
+        return {key, val, height, size};// left:null, right: null
       }
       /**
        * @param {function} compareFn
        */
       constructor(compareFn){
         this.compare=compareFn;
-        this.root=null;
+        this.root=UNDEF;
       }
       /**Checks if the symbol table is empty.
        * @return {boolean}
@@ -1415,7 +1423,7 @@
        *         {@code null} if no such key
        */
       _getNode(x, key){
-        if(!x) return null;
+        if(!x) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp < 0) return this._getNode(x.left, key);
         if(cmp > 0) return this._getNode(x.right, key);
@@ -1437,7 +1445,7 @@
        */
       put(key, val){
         if(_.nichts(key)) throw Error("first argument to put() is null");
-        if(val === undefined ){
+        if(val === undefined){
           this.delete(key);
         }else{
           this.root = this._putNode(this.root, key, val);
@@ -1634,7 +1642,7 @@
        *         to the given key
        */
       _floorNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp < 0) return this._floorNode(x.left, key);
@@ -1661,7 +1669,7 @@
        *         equal to the given key
        */
       _ceilingNode(x, key){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let cmp = this.compare(key,x.key);
         if(cmp == 0) return x;
         if(cmp > 0) return this._ceilingNode(x.right, key);
@@ -1683,7 +1691,7 @@
        * @return {object} the node with key the kth smallest key in the subtree
        */
       _selectNode(x, k){
-        if(_.nichts(x)) return null;
+        if(_.nichts(x)) return UNDEF;
         let t = this._sizeNode(x.left);
         if(t > k) return this._selectNode(x.left, k);
         if(t < k) return this._selectNode(x.right, k - t - 1);
@@ -1846,6 +1854,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**A* search algo for grid.
      * @memberof module:mcfud/algo_search
@@ -1971,23 +1980,26 @@
     }
     //AStarGrid.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       AStarGrid,
       AVLTreeST,
-      BinarySearch,
       RedBlackBST,
       BST,
+      BinarySearch,
       BinarySearchST,
-      SequentialSearchST,
-      FrequencyCounter
+      FrequencyCounter,
+      SequentialSearchST
     };
 
     return _$;
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"),require("./sort"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"),
+                           require("./basic"),require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/search"]=_module
   }

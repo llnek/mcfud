@@ -10,9 +10,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -62,6 +62,7 @@
      * @property {function} trigger(event) apply this event to the state machine
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Create a FSM instance.
        * @memberof module:mcfud/fsm
@@ -72,8 +73,7 @@
         let _state=defn.initState();
         return {
           /** the current state */
-          state(){
-            return _state },
+          state(){ return _state },
           /** run the current state `code` */
           process(){
             const fromStateObj=defn[_state];
@@ -93,9 +93,9 @@
                 fromStateObj.exit && fromStateObj.exit();
                 nextStateObj.enter && nextStateObj.enter();
                 if(options && options.action){
-                  options.action();
+                  options.action()
                 }else if(tx.action){
-                  options ? tx.action(options) : tx.action();
+                  tx.action(options)
                 }
                 return (_state = nextState);
               }
@@ -104,6 +104,7 @@
         }
       }
     };
+
     return _$;
   }
 
@@ -137,7 +138,7 @@
   };
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/fsm"]=_module

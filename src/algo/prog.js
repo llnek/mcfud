@@ -10,18 +10,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core,Basic,Sort){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
+
     const {Bag,Stack,Queue,StdCompare:CMP,prnIter}= Basic;
     const {MinPQ}= Sort;
     const int=Math.floor;
@@ -31,6 +33,7 @@
      * @module mcfud/algo_prog
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class Fibonacci{
       static solve0(N){
         _.assert(N>0,"bad fib number");
@@ -62,6 +65,7 @@
     }
     //Fibonacci.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic NQueen problem.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -106,6 +110,7 @@
     }
     //NQueen.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic Kinight's tour problem using Warnsdorff's algorithm.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -186,6 +191,7 @@
     }
     //KnightsTour.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic Sudoku.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -259,6 +265,7 @@
     }
     //Sudoku.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic coin change.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -315,6 +322,7 @@
     }
     //UnboundedKnapsack.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic min coins.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -335,7 +343,7 @@
                 if(r !== Infinity && r+1 < table[v]) table[v] = r+1;
               }
           }
-          return table[V]===Infinity? -1: table[V];
+          return table[V]==Infinity? -1: table[V];
         })(coins,coins.length,amount);
       }
       static test(){
@@ -346,6 +354,7 @@
     }
     //MinCoins.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Classic min coins.
      * @memberof module:mcfud/algo_prog
      * @class
@@ -398,6 +407,7 @@
     }
     //MinCoins2.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class TowerOfHanoi{
       static solve(N){
         let steps=[],
@@ -431,6 +441,7 @@
     }
     //TowerOfHanoi.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class GenerateGuess{
       static solve(target){
         const GS = " abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!.";
@@ -477,6 +488,7 @@
     }
     //GenerateGuess.solve("Hello World!");
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class Tiles{
       static Node(data,level,fval){
         return{
@@ -570,6 +582,7 @@
     //Tiles.solve([[1,2,3],[0,4,6],[7,5,8]],[[1,2,3],[4,5,6],[7,8,0]]);
     //Tiles.solve([[2,5,3],[1,6,0],[7,8,4]],[[0,1,2],[3,4,5],[6,7,8]]);
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class BBTiles{
       static N=3;
       static Node(parent, mat, emptyTilePos, cost, level){
@@ -654,7 +667,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"),require("./basic"),require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/prog"]=_module

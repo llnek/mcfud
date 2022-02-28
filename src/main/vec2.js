@@ -10,45 +10,51 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
   */
-  function _module(Core=null){
+  function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_, is}= Core;
 
-    function assertArgs(a,b){
-      _.assert(!is.num(a) && !is.num(b) && a && b, "wanted 2 vecs");
-    }
-
-    function assertArg(a){
-      _.assert(!is.num(a) && a, "wanted vec");
-    }
-
-    function _ctor(b,x=0,y=0){ return b ? [x,y] : {x:x,y:y} }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const assertArgs=(a,b)=> _.assert(!is.num(a) && !is.num(b) && a && b, "wanted 2 vecs");
+    const assertArg=(a)=> _.assert(!is.num(a) && a, "wanted vec");
+    const _ctor=(b,x=0,y=0)=> b ? [x,y] : {x,y};
     const MVPool={};
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     class MV{
       constructor(){
         this.x=0;
         this.y=0;
       }
       unit(out){
-        if(is.bool(out)){ out=_ctor(out) }
-        if(is.vec(out)){out[0]=this.x;out[1]=this.y}else{
-          out.x=this.x;out.y=this.y;
+        if(is.bool(out)){
+          out=_ctor(out)
+        }
+        if(is.vec(out)){
+          out[0]=this.x;
+          out[1]=this.y
+        }else{
+          out.x=this.x;
+          out.y=this.y;
         }
         return out;
       }
       bind(v){
-        if(is.vec(v)){this.x=v[0];this.y=v[1]}else{
-          this.x=v.x;this.y=v.y
+        if(is.vec(v)){
+          this.x=v[0];
+          this.y=v[1]
+        }else{
+          this.x=v.x;
+          this.y=v.y
         }
         return this;
       }
@@ -82,6 +88,7 @@
       "/"(m){ return this.op("/",m.x,m.y) }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     _.inject(MVPool,{
       take(){ return this._pool.pop() },
       drop(...args){
@@ -98,23 +105,26 @@
      * @typedef {number[]} Vec2
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Rotate a vector around a pivot. */
     function _v2rot(ax,ay,cos,sin,cx,cy,out){
-      const x_= ax-cx;
-      const y_= ay-cy;
-      const x= cx+(x_*cos - y_*sin);
-      const y= cy+(x_ * sin + y_ * cos);
+      const x_= ax-cx,
+            y_= ay-cy,
+            x= cx+(x_*cos - y_*sin),
+            y= cy+(x_ * sin + y_ * cos);
       if(is.vec(out)){
-        out[0]=x;out[1]=y;
+        out[0]=x;
+        out[1]=y;
       }else{
-        out.x=x;out.y=y;
+        out.x=x;
+        out.y=y;
       }
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _opXXX(a,b,op,local){
-      let p1=MVPool.take().bind(a);
-      let out,pr;
+      let out,pr, p1=MVPool.take().bind(a);
       if(is.num(b)){
         pr=p1.op(op,b,b);
       }else{
@@ -127,7 +137,38 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
+      /**Get the x part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {number} x
+       */
+      gx(v){
+        return is.vec(v)?v[0]:v.x },
+      /**Set the x part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} x
+       */
+      sx(v,x){
+        is.vec[v]? (v[0]=x) : (v.x=x)
+      },
+      /**Get the y part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @return {number} y
+       */
+      gy(v){
+        return is.vec(v)?v[1]:v.y },
+      /**Set the y part.
+       * @memberof module:mcfud/vec2
+       * @param {Vec2} v
+       * @param {number} y
+       */
+      sy(v,y){
+        is.vec[v]? (v[1]=y) : (v.y=y)
+      },
       /**Create a free vector.
        * @memberof module:mcfud/vec2
        * @param {number} x
@@ -149,7 +190,7 @@
        * @return {Vec2}
        */
       add(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"+") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"+") },
       /**Vector addition: A=A+B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -157,7 +198,7 @@
        * @return {Vec2}
        */
       add$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"+",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"+",true) },
       /**Vector subtraction: A-B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -165,7 +206,7 @@
        * @return {Vec2}
        */
       sub(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"-") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"-") },
       /**Vector subtraction: A=A-B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -173,7 +214,7 @@
        * @return {Vec2}
        */
       sub$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"-",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"-",true) },
       /**Vector multiply: A*B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -181,7 +222,7 @@
        * @return {Vec2}
        */
       mul(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"*") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"*") },
       /**Vector multiply: A=A*B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -189,7 +230,7 @@
        * @return {Vec2}
        */
       mul$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"*",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"*",true) },
       /**Vector division: A/B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -197,7 +238,7 @@
        * @return {Vec2}
        */
       div(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"/") },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"/") },
       /**Vector division: A=A/B
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -205,7 +246,7 @@
        * @return {Vec2}
        */
       div$(a,b){
-        return _.assert(arguments.length===2) && _opXXX(a,b,"/",true) },
+        return _.assert(arguments.length==2) && _opXXX(a,b,"/",true) },
       /**Dot product of 2 vectors,
        * cos(t) = a·b / (|a| * |b|)
        * @memberof module:mcfud/vec2
@@ -215,9 +256,9 @@
        */
       dot(a,b){
         assertArgs(a,b);
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        let out=p1.x*p2.x + p1.y*p2.y;
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            out=p1.x*p2.x + p1.y*p2.y;
         MVPool.drop(p1,p2);
         return out;
       },
@@ -228,9 +269,9 @@
        * @return {boolean}
        */
       equals(a,b){
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        ok= p1.x==p2.x && p1.y==p2.y;
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            ok= p1.x==p2.x && p1.y==p2.y;
         MVPool.drop(p1,p2);
         return ok;
       },
@@ -242,12 +283,12 @@
        */
       vecAB(a,b){
         assertArgs(a,b);
-        let p1=MVPool.take().bind(a);
-        let p2=MVPool.take().bind(b);
-        let pr=MVPool.take();
+        let p1=MVPool.take().bind(a),
+            p2=MVPool.take().bind(b),
+            out,pr=MVPool.take();
         pr.x=p2.x-p1.x;
         pr.y=p2.y-p1.y;
-        let out=pr.unit(is.vec(a));
+        out=pr.unit(is.vec(a));
         MVPool.drop(p1,p2,pr);
         return out;
       },
@@ -278,15 +319,16 @@
        * @param {Vec2} b
        * @return {number}
        */
-      dist(a,b){ return Math.sqrt(this.dist2(a,b)) },
+      dist(a,b){
+        return Math.sqrt(this.dist2(a,b)) },
       /**Normalize this vector: a/|a|
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
        * @return {Vec2} undefined if zero length
        */
       unit(a){
-        let p1=MVPool.take().bind(a);
-        let d=this.len(a);
+        let d=this.len(a),
+            out, p1=MVPool.take().bind(a);
         if(_.feq0(d)){
           p1.x=0;
           p1.y=0;
@@ -294,7 +336,7 @@
           p1.x /= d;
           p1.y /= d;
         }
-        let out= p1.unit(is.vec(a));
+        out= p1.unit(is.vec(a));
         MVPool.drop(p1);
         return out;
       },
@@ -304,8 +346,8 @@
        * @return {Vec2} undefined if zero length
        */
       unit$(a){
-        let p1=MVPool.take().bind(a);
-        let d=this.len(a);
+        let d=this.len(a),
+            out, p1=MVPool.take().bind(a);
         if(_.feq0(d)){
           p1.x=0;
           p1.y=0;
@@ -313,7 +355,7 @@
           p1.x /= d;
           p1.y /= d;
         }
-        let out= p1.unit(a);
+        out= p1.unit(a);
         MVPool.drop(p1);
         return out;
       },
@@ -325,11 +367,11 @@
        */
       copy(des,src){
         assertArgs(des,src);
-        let p1=MVPool.take().bind(des);
-        let p2=MVPool.take().bind(src);
+        let p1=MVPool.take().bind(des),
+            out, p2=MVPool.take().bind(src);
         p1.x=p2.x;
         p1.y=p2.y;
-        let out= p1.unit(des);
+        out= p1.unit(des);
         MVPool.drop(p1,p2);
         return out;
       },
@@ -339,8 +381,8 @@
        * @return {Vec2}
        */
       clone(v){
-        let p1= MVPool.take().bind(v);
-        let out= p1.unit(is.vec(v));
+        let p1= MVPool.take().bind(v),
+            out= p1.unit(is.vec(v));
         MVPool.drop(p1);
         return out;
       },
@@ -352,10 +394,10 @@
        * @return {Vec2}
        */
       set(des,x,y){
-        let p1= MVPool.take().bind(des);
+        let out, p1= MVPool.take().bind(des);
         if(is.num(x)) p1.x=x;
         if(is.num(y)) p1.y=y;
-        let out= p1.unit(des);
+        out= p1.unit(des);
         MVPool.drop(p1);
         return out;
       },
@@ -383,17 +425,17 @@
        * @return {Vec2}
        */
       rot(a,rot,pivot=null){
-        let p1= MVPool.take().bind(a);
-        let cx=0,cy=0;
+        let cx=0,cy=0,
+            out,p2,p1= MVPool.take().bind(a);
         if(pivot){
-          let p2=MVPool.take().bind(pivot);
+          p2=MVPool.take().bind(pivot);
           cx=p2.x;
           cy=p2.y;
           MVPool.drop(p2);
         }
-        let out= _v2rot(p1.x,p1.y,
-                        Math.cos(rot),
-                        Math.sin(rot), cx,cy,_ctor(is.vec(a)));
+        out= _v2rot(p1.x,p1.y,
+                    Math.cos(rot),
+                    Math.sin(rot), cx,cy,_ctor(is.vec(a)));
         MVPool.drop(p1);
         return out;
       },
@@ -405,17 +447,17 @@
        * @return {Vec2}
        */
       rot$(a,rot,pivot){
-        let p1= MVPool.take().bind(a);
-        let cx=0,cy=0;
+        let cx=0,cy=0,
+            out,p2,p1= MVPool.take().bind(a);
         if(pivot){
-          let p2=MVPool.take().bind(pivot);
+          p2=MVPool.take().bind(pivot);
           cx=p2.x;
           cy=p2.y;
           MVPool.drop(p2);
         }
-        let out= _v2rot(p1.x,p1.y,
-                        Math.cos(rot),
-                        Math.sin(rot), cx,cy,a);
+        out= _v2rot(p1.x,p1.y,
+                    Math.cos(rot),
+                    Math.sin(rot), cx,cy,a);
         MVPool.drop(p1);
         return out;
       },
@@ -433,24 +475,24 @@
       cross(p1,p2){
         let out;
         if(is.num(p1)){
-          let b= MVPool.take().bind(p2);
-          let r= MVPool.take();
+          let r= MVPool.take(),
+              b= MVPool.take().bind(p2);
           r.x=-p1 * b.y;
           r.y=p1 * b.x;
           out=r.unit(is.vec(p2));
           MVPool.drop(b,r);
         }
         else if(is.num(p2)){
-          let b= MVPool.take().bind(p1);
-          let r= MVPool.take();
+          let r= MVPool.take(),
+              b= MVPool.take().bind(p1);
           r.x=p2 * b.y;
           r.y= -p2 * b.x;
           out=r.unit(is.vec(p1));
           MVPool.drop(b,r);
         }else{
           assertArgs(p1,p2);
-          let a= MVPool.take().bind(p1);
-          let b= MVPool.take().bind(p2);
+          let a= MVPool.take().bind(p1),
+              b= MVPool.take().bind(p2);
           out= a.x * b.y - a.y * b.x;
           MVPool.drop(a,b);
         }
@@ -463,7 +505,8 @@
        * @param {Vec2} b
        * @return {number}
        */
-      angle(a,b){ return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
+      angle(a,b){
+        return Math.acos(this.dot(a,b)/(this.len(a)*this.len(b))) },
       /**Change vector to be perpendicular to what it was before, effectively
        * rotates it 90 degrees(normal).
        * @memberof module:mcfud/vec2
@@ -472,8 +515,8 @@
        * @return {Vec2}
        */
       normal(a,ccw=false){
-        let p1=MVPool.take().bind(a);
-        let pr=MVPool.take();
+        let pr=MVPool.take(),
+            out,p1=MVPool.take().bind(a);
         if(ccw){
           pr.x= -p1.y;
           pr.y= p1.x;
@@ -481,7 +524,7 @@
           pr.x= p1.y;
           pr.y= -p1.x;
         }
-        let out= pr.unit(is.vec(a));
+        out= pr.unit(is.vec(a));
         MVPool.drop(p1,pr);
         return out;
       },
@@ -493,8 +536,8 @@
        * @return {Vec2}
        */
       normal$(a,ccw=false){
-        let p1=MVPool.take().bind(a);
-        let pr=MVPool.take();
+        let pr=MVPool.take(),
+            out, p1=MVPool.take().bind(a);
         if(ccw){
           pr.x= -p1.y;
           pr.y= p1.x;
@@ -502,7 +545,7 @@
           pr.x= p1.y;
           pr.y= -p1.x;
         }
-        let out= pr.unit(a);
+        out= pr.unit(a);
         MVPool.drop(p1,pr);
         return out;
       },
@@ -512,7 +555,8 @@
        * @param {Vec2} b
        * @return {number}
        */
-      proj_scalar(a,b){ return this.dot(a,b)/this.len(b) },
+      proj_scalar(a,b){
+        return this.dot(a,b)/this.len(b) },
       /**Find vector A projection onto B.
        * @memberof module:mcfud/vec2
        * @param {Vec2} a
@@ -522,8 +566,8 @@
       proj(a,b){
         const bn = this.unit(b);
         this.mul$(bn, this.dot(a,bn));
-        let pr=MVPool.take().bind(bn);
-        let out=pr.unit(is.vec(a));
+        let pr=MVPool.take().bind(bn),
+            out=pr.unit(is.vec(a));
         MVPool.drop(pr);
         return out;
       },
@@ -533,7 +577,8 @@
        * @param {Vec2} b
        * @return {Vec2}
        */
-      perp(a,b){ return this.sub(a, this.proj(a,b)) },
+      perp(a,b){
+        return this.sub(a, this.proj(a,b)) },
       /**Reflect a ray, normal must be normalized.
        * @memberof module:mcfud/vec2
        * @param {Vec2} ray
@@ -543,7 +588,7 @@
       reflect(ray,surface_normal){
         //ray of light hitting a surface, find the reflected ray
         //reflect= ray - 2(ray.surface_normal)surface_normal
-        let v= 2*this.dot(ray,surface_normal);
+        const v= 2*this.dot(ray,surface_normal);
         return this.sub(ray, this.mul(surface_normal, v));
       },
       /**Negate a vector.
@@ -567,7 +612,7 @@
       translate(pos,...args){
         let pr,p2,p1=MVPool.take().bind(pos);
         let ret,out;
-        if(args.length===1 && is.vec(args[0]) && !is.num(args[0][0])){
+        if(args.length==1 && is.vec(args[0]) && !is.num(args[0][0])){
           args=args[0];
         }
         ret=args.map(a=>{
@@ -588,8 +633,9 @@
        * @return {Vec2}
        */
       clamp$(v, min, max){
-        const n = this.len(v);
-        return this.mul$(this.div$(v, n || 1 ), Math.max(min, Math.min(max, n )));
+        const n = this.len(v),
+              _n= Math.max(min, Math.min(max, n));
+        return n==_n ? v : this.mul$(this.div$(v, n || 1 ), _n);
       },
       /**Clamp a vector.
        * @memberof module:mcfud/vec2
@@ -599,16 +645,18 @@
        * @return {Vec2}
        */
       clamp(v, min, max){
-        const n = this.len(v);
-        return this.mul(this.div(v, n || 1 ), Math.max(min, Math.min(max, n )));
+        const n = this.len(v),
+              _n= Math.max(min, Math.min(max, n));
+        return n==_n?v: this.mul(this.div(v, n || 1 ), _n);
       }
 
     };
+
     return _$;
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/vec2"]=_module

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 "use strict";
@@ -58,6 +58,9 @@ Test.deftest("Math").
   }).
   ensure("wrap",()=>{
     return M.wrap(3,10)===4 && M.wrap(10,10)===1;
+  }).
+  ensure("remap",()=>{
+    return M.remap(3,1,10, 10,100)===30 && M.remap(12,1,10,10,100,true)===100;
   }).
   ensure("biasGreater",()=>{
     return !M.biasGreater(10,11);

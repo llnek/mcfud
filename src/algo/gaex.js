@@ -10,19 +10,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core,GA){
-    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+
     if(!GA) GA= gscope["io/czlab/mcfud/algo/NNetGA"]();
+    if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+
     const int=Math.floor;
     const {is,u:_}= Core;
+
     const {NumFitness,Fitness, runGACycle,
            hillClimb, runGASearch,Chromosome,showBest,calcStats}= GA;
 
@@ -53,11 +56,8 @@
           let genes= _.shuffle(gs).slice(0,N);
           return new Chromosome(genes, calcFit(genes));
         }
-        function XXmutate(b){
-          return GA.mutateIM(b);
-        }
         function mutate(c){
-          if(_.rand()< params.mutationRate){
+          if(_.rand() < params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(gs);
           }
@@ -114,6 +114,8 @@
         return new CH3_Fitness(this.numbersInSeqCnt, this.totalGap)
       }
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Find n numbers in sorted order.
      * @memberof module:mcfud/algo/gaex
      * @class
@@ -136,7 +138,7 @@
           return new Chromosome(g, calcFit(g));
         }
         function mutate(c){
-          if(_.rand()< params.mutationRate){
+          if(_.rand() < params.mutationRate){
             let i= _.randInt(c.length);
             c[i]= _.randItem(geneSet);
           }
@@ -1336,7 +1338,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"),require("./genetic"))
   }else{
     gscope["io/czlab/mcfud/algo/gaex"]=_module

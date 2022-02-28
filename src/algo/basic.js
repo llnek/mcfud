@@ -10,18 +10,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
 
-    const CMP=(a,b)=>{return a<b?-1:(a>b?1:0)};
+    const CMP=(a,b)=> a<b?-1:(a>b?1:0);
     const int=Math.floor;
     const {is, u:_}= Core;
 
@@ -30,16 +31,15 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _checkKey=(key)=> _.assert(is.num(key) || is.str(key), `expected number or string`);
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function prnIter(it, sep=" ",out=""){
       for(; it.hasNext();) out += `${it.next()}${sep}`;
       return out;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function _checkKey(key){
-      return _.assert(is.num(key) || is.str(key), `expected number or string`)
-    }
-
     /**Represents an interable.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -51,7 +51,8 @@
       hasNext(){ return _.echt(this.current) }
       remove(){ throw Error("Unsupported")  }
       next(){
-        if(!this.hasNext()) throw Error("NoSuchElementException");
+        if(!this.hasNext())
+          throw Error("NoSuchElementException");
         let item = this.current.item;
         this.current = this.current.next;
         return item;
@@ -65,7 +66,7 @@
      * @param {object} next
      * @return {object}
      */
-    function Node(item,next=null){
+    function Node(item,next=UNDEF){
       return { item, next }
     }
 
@@ -77,7 +78,7 @@
       constructor(){
         //* @property {first} beginning of bag
         //* @property {n} number of elements in bag
-        this.first = null;
+        this.first = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -133,6 +134,7 @@
     }
     //Bag.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a last-in-first-out (LIFO) stack of generic items.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -141,7 +143,7 @@
       constructor(){
         //* @property {first} top of stack
         //* @property {n} size of stack
-        this.first = null;
+        this.first = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -226,6 +228,7 @@
     }
     //Stack.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a first-in-first-out (FIFO) queue of generic items.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -235,8 +238,8 @@
         //* @property {first} beginning of queue
         //* @property {last} end of queue
         //* @property {n} number of elements on queue
-        this.first = null;
-        this.last  = null;
+        this.first = UNDEF;
+        this.last  = UNDEF;
         this.n = 0;
       }
       clone(){
@@ -285,7 +288,7 @@
         let item = this.first.item;
         this.first = this.first.next;
         this.n-=1;
-        if(this.isEmpty()) this.last = null;   // to avoid loitering
+        if(this.isEmpty()) this.last = UNDEF;   // to avoid loitering
         return item;
       }
       /**Returns a string representation of this queue.
@@ -332,7 +335,7 @@
         //* @property {object} root top of the map
         //* @property {number} n number of elements in map
         this.compare=C || CMP;
-        this.root=null;
+        this.root=UNDEF;
         this.n=0;
       }
       /**Number of entries in map.
@@ -370,7 +373,7 @@
         const _set=(key,value,node)=>{
           if(!node){
             this.n+=1;
-            return{key,value,left:null,right:null};
+            return{key,value};
           }
           let c= this.compare(key,node.key);
           if(c<0){
@@ -387,7 +390,7 @@
           this.root = _set(key, value, this.root);
       }
       _getMaxNode(node){
-        while(node !== null && node.right !== null){ node = node.right }
+        while(node && node.right){ node = node.right }
         return node;
       }
       _getMaxKey(){
@@ -396,7 +399,7 @@
           return n.key;
       }
       _getMinNode(node){
-        while(node !== null && node.left !== null){ node = node.left }
+        while(node && node.left){ node = node.left }
         return node;
       }
       _getMinKey(){
@@ -432,7 +435,7 @@
                 node= node.right;
                 this.n -=1;
               }else{
-                node= null;
+                node= UNDEF;
                 this.n -=1;
               }
             }
@@ -508,6 +511,7 @@
     }
     //TreeMap.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -641,6 +645,7 @@
     }
     //ST.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an ordered symbol table of generic key-value pairs.
      * @memberof module:mcfud/algo_basic
      * @class
@@ -655,7 +660,7 @@
         }
       }
       // internal nodes: only use key and next external nodes: only use key and value
-      Entry(key,val,next=null){ return{ key, val, next } }
+      Entry(key,val,next=UNDEF){ return{ key, val, next } }
       constructor(compareFn){
         //* @property {number} height  height of tree
         //* @property {number} n  number of key-value pairs in the B-tree
@@ -810,6 +815,7 @@
     }
     //BTree.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a <em>d</em>-dimensional mathematical vector.
      *  Vectors are mutable: their values can be changed after they are created.
      *  It includes methods for addition, subtraction,
@@ -952,9 +958,10 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      BTree,Bag,Stack,Queue,ST,TreeMap,SparseVector,Iterator,
       prnIter,
-      StdCompare:CMP
+      StdCompare:CMP,
+      BTree,Bag,Stack,Queue,ST,
+      TreeMap,SparseVector,Iterator
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -963,7 +970,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/basic"]=_module

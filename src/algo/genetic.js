@@ -12,7 +12,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
 	"use strict";
 
@@ -31,21 +31,21 @@
 		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		const Params={
 
+			mutationRate: 0.1,
+			crossOverRate: 0.7,
+			probTournament: 0.75,
+
       NUM_HIDDEN: 1,
       BIAS:-1,
-      NEURONS_PER_HIDDEN:10,
-      ACTIVATION_RESPONSE: 1,
-      MAX_PERTURBATION: 0.3,
       NUM_ELITE:4,
-      NUM_COPIES_ELITE:1,
-      TOURNAMENT_COMPETITORS :5,
-
-			probTournament: 0.75,
-			crossOverRate: 0.7,
-			mutationRate: 0.1
+      TOURNAMENT_SIZE :5,
+      MAX_PERTURBATION: 0.3,
+      ACTIVATION_RESPONSE: 1,
+      NEURONS_PER_HIDDEN: 10
 
     };
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**Fitness Interface.
 		 * @class
 		 */
@@ -82,6 +82,7 @@
 			update(n){}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**Numeric fitness.
 		 * @class
 		 */
@@ -136,6 +137,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} averageScore
 		 * @property {number} totalScore
@@ -151,11 +153,11 @@
 				this.totalScore=0;
 				this.bestScore=0;
 				this.worstScore=0;
-				this.best=null;
+				this.best=UNDEF;
 			}
 		}
 
-
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} numInputs
 		 * @property {number} activation
@@ -168,7 +170,7 @@
 			 */
 			constructor(inputs){
 				//we need an additional weight for the bias hence the +1
-				let ws= _.fill(inputs+1, ()=> _.randMinus1To1());
+				const ws= _.fill(inputs+1, ()=> _.randMinus1To1());
 				this.numInputs= ws.length;
 				this.activation=0;
 				this.weights=ws;
@@ -176,6 +178,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} numNeurons
 		 * @property {Neuron[]} neurons
@@ -191,6 +194,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @class
 		 */
@@ -202,22 +206,16 @@
 			 * @param {number} neuronsPerHidden
 			 */
 			constructor(inputs, outputs, numHidden, neuronsPerHidden){
-				function createNet(out){
-					//create the layers of the network
+				//create the layers of the network
+				this.layers=(function(out){
 					if(numHidden>0){
-						//create first layer
 						out.push(new NeuronLayer(neuronsPerHidden, inputs));
 						for(let i=0; i<numHidden-1; ++i)
 							out.push(new NeuronLayer(neuronsPerHidden,neuronsPerHidden));
-						//create output layer
-						out.push(new NeuronLayer(outputs, neuronsPerHidden))
-					}else{
-						//create output layer
-						out.push(new NeuronLayer(outputs, inputs))
+						inputs= neuronsPerHidden;
 					}
-					return out;
-				}
-				this.layers= createNet([]);
+					return _.conj(out,new NeuronLayer(outputs, inputs));
+				})([]);
 				this.numOfWeights=this.layers.reduce((sum,y)=>{
 					return sum + y.neurons.reduce((acc,u)=>{
 						return acc+u.weights.length
@@ -234,17 +232,13 @@
 			putWeights(weights){
 				_.assert(weights.length>=this.numOfWeights,"bad input to putWeights");
 				let pos=0;
-				this.layers.forEach(y=>{
-					y.neurons.forEach(u=>{
-						u.weights.forEach((v,i)=> u.weights[i]= weights[pos++])
-					})
-				})
+				this.layers.forEach(y=> y.neurons.forEach(u=> u.weights.forEach((v,i)=> u.weights[i]= weights[pos++])))
 			}
 			/**
 			 * @return {number[]}
 			 */
 			getWeights(){
-				let out=[];
+				const out=[];
 				for(let i=0; i<this.numHidden+1; ++i)
 					for(let j=0; j<this.layers[i].numNeurons; ++j)
 						for(let k=0; k<this.layers[i].neurons[j].numInputs; ++k){
@@ -293,7 +287,7 @@
 			 * @private
 			 */
 			sigmoid(input, response){
-				return (1 / (1 + Math.exp(-input / response)))
+				return 1 / (1 + Math.exp(-input / response))
 			}
 			/**
 			 * @return {number[]}
@@ -309,6 +303,7 @@
 			}
 		}
 
+		//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		/**
 		 * @property {number} age
 		 * @property {any[]} genes
@@ -367,10 +362,10 @@
 		 * @param {any[]} genes
 		 */
 		function mutateDM(genes){
-			if(_.rand()< Params.mutationRate){
+			if(_.rand() < Params.mutationRate){
 				let [beg, end]= randSpan(genes);
 				let p,tmp,rem,
-					  N=genes.length,count= end-beg-1;
+						N=genes.length,count= end-beg-1;
 				if(count>0){
 					tmp=genes.slice(beg+1,end);
 					rem=genes.slice(0,beg+1).concat(genes.slice(end));
@@ -458,7 +453,7 @@
 		 */
 		function crossOverOBX(mum,dad){
 			let temp, positions,
-			    b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
+					b1,b2,cpos, pos = _.randInt2(0, mum.length-2);
 			b1 = mum.slice();
 			b2 = dad.slice();
 			if(_.rand() > Params.crossOverRate || mum === dad){}else{
@@ -577,7 +572,7 @@
 		 */
 		function crossOverPMX(mum, dad){
 			let b1 = mum.slice(),
-			    b2 = dad.slice();
+					b2 = dad.slice();
 			if(_.rand() > Params.crossOverRate || mum === dad){}else{
 				//first we choose a section of the chromosome
 				let beg = _.randInt2(0, mum.length-2);
@@ -620,7 +615,7 @@
 			}else{
 				//determine two crossover points
 				let cp1 = splitPoints[_.randInt2(0, splitPoints.length-2)],
-				    cp2 = splitPoints[_.randInt2(cp1, splitPoints.length-1)];
+						cp2 = splitPoints[_.randInt2(cp1, splitPoints.length-1)];
 				b1=[];
 				b2=[];
 				//create the offspring
@@ -848,7 +843,7 @@
 				p2= _.randInt(parents.length)
 			}
 			let c1=parents[p1].genes,
-			    c,b1,b2,c2=parents[p2].genes;
+					c,b1,b2,c2=parents[p2].genes;
 			if(crossOver){
 				[b1,b2]=crossOver(c1,c2);
 			}else{
@@ -860,7 +855,7 @@
 				mutate(b2);
       }
 			let f1= calcFit(b1, parents[p1].fitness),
-			    f2= calcFit(b2, parents[p2].fitness);
+					f2= calcFit(b2, parents[p2].fitness);
 			return f1.gt(f2)? new Chromosome(b1, f1): new Chromosome(b2, f2);
     }
 
@@ -879,7 +874,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 		function* getNextStar([start,maxMillis],{
 			mutate,create,maxAge,
-		  calcFit,poolSize,crossOver
+			calcFit,poolSize,crossOver
 		})
 		{
 			let par, bestPar = create();
@@ -1020,9 +1015,9 @@
 			}
 
 			while(vecNewPop.length < pop.length){
-				if(Params.TOURNAMENT_COMPETITORS !== undefined){
-					mum = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
-					dad = tournamentSelection(pop,Params.TOURNAMENT_COMPETITORS);
+				if(Params.TOURNAMENT_SIZE !== undefined){
+					mum = tournamentSelection(pop,Params.TOURNAMENT_SIZE);
+					dad = tournamentSelection(pop,Params.TOURNAMENT_SIZE);
 				}else{
 					mum = chromoRoulette(pop,stats);
 					dad = chromoRoulette(pop,stats);
@@ -1038,7 +1033,7 @@
 					mutate(b2);
 				}
 				vecNewPop.push(new Chromosome(b1, calcFit(b1, mum.fitness)),
-					             new Chromosome(b2, calcFit(b2,dad.fitness)));
+											 new Chromosome(b2, calcFit(b2,dad.fitness)));
 			}
 
 			while(vecNewPop.length > pop.length){
@@ -1059,7 +1054,7 @@
 		 * @return {object}
 		 */
 		function hillClimb(optimizationFunction, isImprovement,
-			                 isOptimal, getNextFeatureValue, initialFeatureValue,extra){
+											 isOptimal, getNextFeatureValue, initialFeatureValue,extra){
 			let start= extra.startTime=_.now();
 			let child,best = optimizationFunction(initialFeatureValue);
 			while(!isOptimal(best)){
@@ -1106,7 +1101,6 @@
 				pool.sort(getSortKeys).reverse();
 				if(getSortKey(pool[0]) > getSortKey([best, bestScore])){
 					[best, bestScore] = pool[0];
-					//display(best, bestScore[CompetitionResult.Win], bestScore[CompetitionResult.Tie], bestScore[CompetitionResult.Loss], generation)
 				}
 				parents=[];
 				for(let i=0;i<numParents.length;++i){
@@ -1191,7 +1185,7 @@
 	}
 
 	//export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NNetGA"]=_module

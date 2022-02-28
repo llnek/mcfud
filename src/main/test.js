@@ -10,15 +10,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   "use strict";
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   /**Creates the module.
    */
   function _module(Core,Colors){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     if(!Colors){
       throw "Fatal: No Colors!"
@@ -46,9 +47,11 @@
      * @property {any[]} failed
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Checks for non-failure. */
-    function _f(s){ return !s.startsWith("F") }
+    const _f=(s)=> !s.startsWith("F");
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Make a string. */
     function rstr(len,ch){
       let out="";
@@ -57,17 +60,19 @@
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Check if valid exception was thrown. */
     function ex_thrown(expected,e){
       let out=t_bad;
       if(e){
         if(is.str(expected)){
-          out= expected==="any" || expected===e ? t_ok : t_bad
+          out= expected=="any" || expected==e ? t_ok : t_bad
         }else if(expected instanceof e){ out=t_ok }
       }
       return out;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Run the given form and check its result. */
     function ensure_eq(env,name,form){
       return new Promise((resolve,reject)=>{
@@ -79,7 +84,7 @@
               resolve(`${res?t_ok:t_bad}: ${name}`);
             })
           }else{
-            out= out ? (out===709394?t_skip:t_ok) : t_bad;
+            out= out ? (out==709394?t_skip:t_ok) : t_bad;
             resolve(`${out}: ${name}`);
           }
         }catch(e){
@@ -89,13 +94,14 @@
       })
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /** Run the given form and check if exception was thrown. */
     function ensure_ex(env,name,form,error){
       return new Promise((resolve,reject)=>{
         let out;
         try{
           out=form.call(env);
-          out=out===709394?t_ok:ex_thrown(error,null);
+          out=out==709394?t_ok:ex_thrown(error,null);
         }catch(e){
           out=ex_thrown(error,e) }
         resolve(`${out}: ${name}`);
@@ -211,9 +217,9 @@
             date: new Date().toString(),
             total: res.length,
             duration: mark2-mark,
-            passed: res.filter(s=>s[0]==="P"),
-            skippd: res.filter(s=>s[0]==="S"),
-            failed: res.filter(s=>s[0]==="F")
+            passed: res.filter(s=>s[0]=="P"),
+            skippd: res.filter(s=>s[0]=="S"),
+            failed: res.filter(s=>s[0]=="F")
           };
           return new Promise((resolve)=>{
             resolve(out);
@@ -226,7 +232,7 @@
   }
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"), require("colors/safe"))
   }else{
     gscope["io/czlab/mcfud/test"]= _module

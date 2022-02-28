@@ -10,16 +10,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic){
+  function _module(Core,_M,Basic){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     const {prnIter,Bag,Stack,Iterator,StdCompare:CMP}= Basic;
     const int=Math.floor;
@@ -33,13 +35,13 @@
     // resize the underlying array to have the given capacity
     function resize(c,n,lo,hi,a){
       _.assert(c>n,"bad resize capacity");
-      let temp = new Array(c);
-      for(let i=lo; i<hi; ++i) temp[i] = a[i];
+      let i, temp = new Array(c);
+      for(i=lo; i<hi; ++i) temp[i] = a[i];
       return temp;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function less(v, w, cmp){ return cmp(v,w) < 0 }
+    const less=(v, w, cmp)=> cmp(v,w) < 0;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function exch(a, i, j){
@@ -49,19 +51,22 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isSorted(a,C){ return isSorted3(a, 0, a.length,C) }
+    const isSorted=(a,C)=> isSorted3(a, 0, a.length,C);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function isSorted3(a, lo, hi,C){
-      for(let i = lo + 1; i < hi; ++i)
+      for(let i = lo+1; i < hi; ++i)
         if(less(a[i], a[i-1], C)) return false;
       return true;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function show(a){
-      let s="";
-      for(let i=0; i<a.length; ++i) s += `${a[i]} `;
+      let i,s="";
+      for(i=0; i<a.length; ++i) s += `${a[i]} `;
       console.log(s);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using insertion sort.
      * @memberof module:mcfud/algo_sort
@@ -122,6 +127,7 @@
     }
     //Insertion.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method for sorting an array using an optimized
      * binary insertion sort with half exchanges.
      * @memberof module:mcfud/algo_sort
@@ -139,7 +145,7 @@
           // binary search to determine index j at which to insert a[i]
           lo = 0; hi = i; v = a[i];
           while(lo<hi){
-            mid = lo + int((hi-lo) / 2);
+            mid = lo + _M.ndiv(hi-lo,2);
             if(less(v, a[mid],compareFn)) hi = mid;
             else lo = mid + 1;
           }
@@ -159,6 +165,7 @@
     }
     //BinaryInsertion.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using <em>selection sort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -187,6 +194,7 @@
     }
     //Selection.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using <em>Shellsort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -199,7 +207,7 @@
        */
       static sort(a, compareFn){
         let n = a.length,
-            h=1, n3=int(n/3);
+            h=1, n3= _M.ndiv(n,3);
         // 3x+1 increment sequence:  1, 4, 13, 40, 121, 364, 1093, ...
         while(h < n3) h = 3*h + 1;
         while(h >= 1){
@@ -208,7 +216,7 @@
             for(let j=i; j>=h && less(a[j], a[j-h],compareFn); j -= h)
               exch(a, j, j-h);
           }
-          h=int(h/3);
+          h= _M.ndiv(h,3);
         }
         return a;
       }
@@ -262,7 +270,7 @@
     // mergesort a[lo..hi] using auxiliary array aux[lo..hi]
     function sortIndex(a, index, aux, lo, hi,C){
       if(hi<=lo){}else{
-        let mid = lo + int((hi-lo) / 2);
+        let mid = lo + _M.ndiv(hi-lo,2);
         sortIndex(a, index, aux, lo, mid,C);
         sortIndex(a, index, aux, mid + 1, hi,C);
         mergeIndex(a, index, aux, lo, mid, hi,C);
@@ -270,6 +278,7 @@
       return a;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array
      * using a top-down, recursive version of <em>mergesort</em>.
      * @memberof module:mcfud/algo_sort
@@ -285,7 +294,7 @@
         // mergesort a[lo..hi] using auxiliary array aux[lo..hi]
         function _sort(a, aux, lo, hi,C){
           if(hi<=lo){}else{
-            let mid = lo + int((hi-lo) / 2);
+            let mid = lo + _M.ndiv(hi-lo,2);
             _sort(a, aux, lo, mid,C);
             _sort(a, aux, mid + 1, hi,C);
             merge(a, aux, lo, mid, hi,C);
@@ -321,6 +330,7 @@
     }
     //Merge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array using bubble sort.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -376,6 +386,8 @@
       // now, a[lo .. j-1] <= a[j] <= a[j+1 .. hi]
       return j;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides static methods for sorting an array and
      * selecting the ith smallest element in an array using quicksort.
      * @memberof module:mcfud/algo_sort
@@ -434,7 +446,7 @@
     //Quick.test();
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function less4(a,i, j,C){ return less(a[i], a[j],C) }
+    const less4=(a,i, j,C)=> less(a[i], a[j],C);
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // is pq[1..n] a max heap?
@@ -448,6 +460,7 @@
       if(!_.nichts(M.pq[0])) return false;
       return isMaxHeapOrdered(1,M);
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // is subtree of pq[1..n] rooted at k a max heap?
     function isMaxHeapOrdered(k,M){
@@ -461,6 +474,7 @@
       return isMaxHeapOrdered(left,M) && isMaxHeapOrdered(right,M);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      *  It supports the usual insert and delete-the-minimum operations,
      *  along with the merging of two heaps together.
@@ -469,8 +483,8 @@
      */
     class FibonacciMinPQ{
       Node(key){
-        //int order;            //Order of the tree rooted by this Node
-        return {key, order:0, prev:null, next:null, child:null}
+        //int order; //Order of the tree rooted by this Node
+        return {key, order:0};// prev:null, next:null, child:null
       }
       constructor(compareFn, keys){
         //private Node head;          //Head of the circular root list
@@ -480,8 +494,8 @@
         //private HashMap<Integer, Node> table = new HashMap<Integer, Node>(); //Used for the consolidate operation
         this.compare=compareFn;
         this.table=new Map();
-        this.head=null;
-        this._min=null;
+        this.head=UNDEF;
+        this._min=UNDEF;
         this.n=0;
         if(is.vec(keys))
           keys.forEach(k=> this.insert(k));
@@ -525,14 +539,14 @@
         this.head = this._cut(this._min, this.head);
         let x= this._min.child,
             key = this._min.key;
-        this._min.key = null;
+        this._min.key = UNDEF;
         if(x){
           this.head = this._meld(this.head, x);
-          this._min.child = null;
+          this._min.child = UNDEF;
         }
         this.n -= 1;
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
+        else this._min = UNDEF;
         return key;
       }
       /**Merges two heaps together
@@ -560,8 +574,8 @@
       _consolidate(){
         this.table.clear();
         let x = this.head,
-            y = null,
-            z = null,
+            y = UNDEF,
+            z = UNDEF,
             maxOrder = 0;
         this._min = this.head;
         do{
@@ -605,15 +619,15 @@
       //Removes a tree from the list defined by the head pointer
       _cut(x, head){
         if(x.next === x) {
-          x.next = null;
-          x.prev = null;
-          return null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
+          return UNDEF;
         }else{
           x.next.prev = x.prev;
           x.prev.next = x.next;
           let res = x.next;
-          x.next = null;
-          x.prev = null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
           return head === x?  res: head;
         }
       }
@@ -677,6 +691,7 @@
     }
     //FibonacciMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      *  It supports the usual insert and delete-the-minimum operations,
      *  along with delete and change-the-key methods.
@@ -688,8 +703,8 @@
         //Node<Key> prev, next;     //siblings of the Node
         ////Node<Key> parent, child;    //parent and child of this Node
         //boolean mark;         //Indicates if this Node already lost a child
-        return{key, order:0, index:0,
-               prev:null, next:null, parent:null, child:null, mark:false}
+        return{key, order:0, index:0};//
+        //prev:null, next:null, parent:null, child:null, mark:false
       }
       constructor(maxN,compareFn){
         //private Node<Key>[] nodes;      //Array of Nodes in the heap
@@ -702,8 +717,8 @@
           throw Error("Cannot create a priority queue of negative size");
         this.maxN = maxN;
         this.n=0;
-        this.head=null;
-        this._min=null;
+        this.head=UNDEF;
+        this._min=UNDEF;
         this.compare = compareFn;
         this.table=new Map();
         this.nodes = new Array(maxN);
@@ -765,19 +780,19 @@
         this.head = this._cutNode(this._min, this.head);
         let x = this._min.child,
             index = this._min.index;
-        this._min.key = null;
+        this._min.key = UNDEF;
         if(x){
           do{
-            x.parent = null;
+            x.parent = UNDEF;
             x = x.next;
           }while(x !== this._min.child);
           this.head = this._meld(this.head, x);
-          this._min.child = null;     //For garbage collection
+          this._min.child = UNDEF;     //For garbage collection
         }
         this.n-=1;
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
-        this.nodes[index] = null;
+        else this._min = UNDEF;
+        this.nodes[index] = UNDEF;
         return index;
       }
       /**Get the key associated with index i
@@ -842,17 +857,17 @@
         this.head = this._cutNode(x, this.head);
         if(x.child){
           let child = x.child;
-          x.child = null;     //For garbage collection
+          x.child = UNDEF;     //For garbage collection
           x = child;
           do{
-            child.parent = null;
+            child.parent = UNDEF;
             child = child.next;
           }while(child !== x);
           this.head = this._meld(this.head, child);
         }
         if(!this.isEmpty()) this._consolidate();
-        else this._min = null;
-        this.nodes[i] = null;
+        else this._min = UNDEF;
+        this.nodes[i] = UNDEF;
         this.n-=1;
       }
       _greater(n, m){
@@ -871,7 +886,7 @@
         let x = this.nodes[i];
         let parent = x.parent;
         parent.child = this._cutNode(x, parent.child);
-        x.parent = null;
+        x.parent = UNDEF;
         parent.order-=1;
         this.head = this._insertNode(x, this.head);
         parent.mark = !parent.mark;
@@ -882,8 +897,8 @@
       //Coalesces the roots, thus reshapes the heap
       //Caching a HashMap improves greatly performances
       _consolidate(){
-        let y = null,
-            z = null,
+        let y = UNDEF,
+            z = UNDEF,
             maxOrder = 0,
             x = this.head;
         this.table.clear();
@@ -905,7 +920,7 @@
           this.table.set(y.order, y);
           if(y.order > maxOrder) maxOrder = y.order;
         }while(x !== this.head);
-        this.head = null;
+        this.head = UNDEF;
         this.table.forEach(n=>{
           this._min = this._greater(this._min.key, n.key) ? n : this._min;
           this.head = this._insertNode(n, this.head);
@@ -927,15 +942,15 @@
       //Removes a tree from the list defined by the head pointer
       _cutNode(x, head){
         if(x.next === x){
-          x.next = null;
-          x.prev = null;
-          return null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
+          return UNDEF;
         }else{
           x.next.prev = x.prev;
           x.prev.next = x.next;
           let res = x.next;
-          x.next = null;
-          x.prev = null;
+          x.next = UNDEF;
+          x.prev = UNDEF;
           return head === x?  res: head;
         }
       }
@@ -999,6 +1014,7 @@
     }
     //IndexFibonacciMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -1063,16 +1079,16 @@
         let min=this.pq[1];
         exch(this.pq, 1, this.n--);
         this._sink(1);
-        this.pq[this.n+1] = null;// to avoid loitering and help with garbage collection
+        this.pq[this.n+1] = UNDEF;// to avoid loitering and help with garbage collection
         if((this.n>0) &&
-           (this.n==int((this.pq.length-1)/4)))
-          this.pq= resize(int(this.pq.length/2),this.n,1,this.n+1,this.pq);
+           (this.n== _M.ndiv(this.pq.length-1,4)))
+          this.pq= resize(_M.ndiv(this.pq.length,2),this.n,1,this.n+1,this.pq);
         return min;
       }
       _swim(k){
-        while(k>1 && this._greater(int(k/2), k)){
-          exch(this.pq, k, int(k/2));
-          k=int(k/2);
+        while(k>1 && this._greater(_M.ndiv(k,2), k)){
+          exch(this.pq, k, _M.ndiv(k,2));
+          k=_M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -1134,6 +1150,7 @@
     }
     //MinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -1206,8 +1223,8 @@
         this._sink(1);
         this.pq[this.n+1] = null;     // to avoid loitering and help with garbage collection
         if(this.n > 0 &&
-           this.n == int((this.pq.length-1)/4))
-          this.pq=resize(int(this.pq.length/2), this.n, 1, this.n+1, this.pq);
+           this.n == _M.ndiv(this.pq.length-1,4))
+          this.pq=resize(_M.ndiv(this.pq.length,2), this.n, 1, this.n+1, this.pq);
         return max;
       }
       _isMaxHeap(){
@@ -1225,9 +1242,9 @@
         return this._isMaxHeapOrdered(left) && this._isMaxHeapOrdered(right);
       }
       _swim(k){
-        while(k>1 && less4(this.pq, int(k/2), k, this.comparator)){
-          exch(this.pq, k, int(k/2));
-          k= int(k/2);
+        while(k>1 && less4(this.pq, _M.ndiv(k,2), k, this.comparator)){
+          exch(this.pq, k, _M.ndiv(k,2));
+          k= _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -1278,12 +1295,15 @@
     function lessOneOff(pq, i, j, C){
       return C(pq[i-1], pq[j-1]) < 0
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function exchOneOff(pq, i, j){
       const swap = pq[i-1];
       pq[i-1] = pq[j-1];
       pq[j-1] = swap;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Provides a static method to sort an array using <em>heapsort</em>.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -1305,7 +1325,7 @@
         }
         let k,n=pq.length;
         // heapify phase
-        for(k = int(n/2); k >= 1; --k){
+        for(k = _M.ndiv(n,2); k >= 1; --k){
           _sink4(pq, k, n, compareFn)
         }
         // sortdown phase
@@ -1326,6 +1346,7 @@
     }
     //Heap.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -1479,7 +1500,7 @@
         this._exch(index, this.n--);
         this._swim(index);
         this._sink(index);
-        this.mKeys[i] = null;
+        this.mKeys[i] = UNDEF;
         this.qp[i] = -1;
       }
       _validateIndex(i){
@@ -1497,9 +1518,9 @@
         this.qp[this.pq[j]] = j;
       }
       _swim(k){
-        while(k>1 && this._greater(int(k/2), k)){
-          this._exch(k, int(k/2));
-          k = int(k/2);
+        while(k>1 && this._greater(_M.ndiv(k,2), k)){
+          this._exch(k, _M.ndiv(k,2));
+          k = _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -1554,6 +1575,7 @@
     }
     //IndexMinPQ.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an indexed priority queue of generic keys.
      * @memberof module:mcfud/algo_sort
      * @class
@@ -1637,7 +1659,7 @@
         this._sink(1);
         _.assert(this.pq[this.n+1] == max,"bad delMax");
         this.qp[max] = -1;        // delete
-        this.mKeys[max] = null;    // to help with garbage collection
+        this.mKeys[max] = UNDEF;    // to help with garbage collection
         this.pq[this.n+1] = -1;        // not needed
         return max;
       }
@@ -1704,7 +1726,7 @@
         this._exch(index, this.n--);
         this._swim(index);
         this._sink(index);
-        this.mKeys[i] = null;
+        this.mKeys[i] = UNDEF;
         this.qp[i] = -1;
       }
       _validateIndex(i){
@@ -1722,9 +1744,9 @@
         this.qp[this.pq[j]] = j;
       }
       _swim(k){
-        while(k > 1 && this._less(int(k/2), k)) {
-          this._exch(k, int(k/2));
-          k = int(k/2);
+        while(k > 1 && this._less(_M.ndiv(k,2), k)) {
+          this._exch(k, _M.ndiv(k,2));
+          k = _M.ndiv(k,2);
         }
       }
       _sink(k){
@@ -1805,8 +1827,9 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"), require("./basic"))
   }else{
     gscope["io/czlab/mcfud/algo/sort"]=_module
   }

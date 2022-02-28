@@ -12,7 +12,7 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -54,11 +54,11 @@
         score(){
           return this.value
         },
-        clone(){
-          return NumFitness(v, flip)
-        },
         update(v){
           this.value=v;
+        },
+        clone(){
+          return NumFitness(this.value, flip)
         }
       }
     }
@@ -103,7 +103,7 @@
       /**
        */
       mutateWeight(){
-        if(_.rand() <Params.probWeightReplaced){
+        if(_.rand()<Params.probWeightReplaced){
           this.weight = _.randMinus1To1();
         }else{
           this.weight += _.randGaussian() * Params.maxWeightPerturbation;
@@ -426,7 +426,6 @@
           console.log("failed to add-link");
           return this;
         }
-
 
         if(this.nodes[rn1].layer > this.nodes[rn2].layer){
           temp = rn2;
@@ -909,7 +908,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NEAT2"]=_module

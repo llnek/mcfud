@@ -10,15 +10,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
 
@@ -40,8 +41,8 @@
        * @param {any} other
        */
       constructor(cur,other){
-        this.lastBestMove=null;
-        this.state= null;
+        this.lastBestMove=UNDEF;
+        this.state= UNDEF;
         this.other=other;
         this.cur=cur;
       }
@@ -165,11 +166,11 @@
       return score * (1 + 0.001 * depth);
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //option2
-    //
     function _negaAlphaBeta(board, game, depth, maxDepth, alpha, beta){
 
-      if(depth===0 || board.isOver(game)){
+      if(depth==0 || board.isOver(game)){
         return { depth, value: _calcScore(board,game,depth,maxDepth) }
       }
 
@@ -203,8 +204,6 @@
 
       return JSON.parse(JSON.stringify(alpha));
     }
-    //
-    //
 
     /**Implements the NegaMax Min-Max algo.
      * @see {@link https://github.com/Zulko/easyAI}
@@ -218,7 +217,7 @@
      */
     function _negaMax(board, game, depth,maxDepth,alpha, beta){
 
-      if(depth===0 || board.isOver(game)){
+      if(depth==0 || board.isOver(game)){
         return [_calcScore(board,game,depth,maxDepth),null]
       }
 
@@ -228,7 +227,7 @@
           bestValue = -Infinity,
           bestMove = openMoves[0];
 
-      if(depth===maxDepth)
+      if(depth==maxDepth)
         state.lastBestMove=bestMove;
 
       for(let rc, move, i=0; i<openMoves.length; ++i){
@@ -250,11 +249,12 @@
         }
         if(alpha < rc){
           alpha=rc;
-          if(depth === maxDepth)
+          if(depth == maxDepth)
             state.lastBestMove = move;
           if(alpha >= beta) break;
         }
       }
+
       return [bestValue, state.lastBestMove];
     }
 
@@ -270,8 +270,7 @@
       XXevalNegaMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        let score,move;
-        [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
+        let [score,move]= _negaMax(board, f, d,d, -Infinity, Infinity);
         if(_.nichts(move))
           console.log(`evalNegaMax: score=${score}, pos= ${move}, lastBestMove=${move}`);
         return move;

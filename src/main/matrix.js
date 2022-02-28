@@ -10,21 +10,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2020-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2020-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const ATAN2= Math.atan2;
     const COS= Math.cos;
     const SIN= Math.sin;
     const TAN= Math.tan;
-    const MFL=Math.floor;
+    const int=Math.floor;
     const {u:_, is}= Core;
 
     /**
@@ -45,33 +46,26 @@
      * @typedef {number[]} VecN
      */
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _arrayEq(a1,a2){
-      //2 numeric arrays are equal?
-      for(let i=0;i<a1.length;++i){
-        if(!_.feq(a1[i],a2[i])) return false }
-      return true
+      return a1.length == a2.length &&
+             a1.every((a,i)=> a==a2[i] || _.feq(a,a2[i]))
     }
 
-    /** @ignore */
-    function _odd(n){ return n%2 !== 0 }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _odd=(n)=> n%2 != 0;
 
-    /** @ignore */
-    function _cell(rows,cols,r,c){
-      //index where matrix is mapped to 1D array.
-      return (c-1) + ((r-1)*cols)
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //index where matrix is mapped to 1D array (1-based, so do the minus1)
+    const _cell=(rows,cols,r,c)=> (c-1) + ((r-1)*cols);
 
-    /** @ignore */
-    function _matnew(rows,cols,cells){
-      return {dim: [rows,cols], cells: cells}
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _matnew=(rows,cols,cells)=> ({cells, dim: [rows,cols]});
 
-    /** @ignore */
-    function _new_mat(rows,cols){
-      return _matnew(rows,cols, _.fill(rows*cols,0))
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const _new_mat=(rows,cols)=> _matnew(rows,cols, _.fill(rows*cols,0));
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /** @ignore */
       v4(x=0,y=0,z=0,K=0){ return [x,y,z,K] },
@@ -173,8 +167,8 @@
        */
       matrix([rows,cols],...args){
         const sz= rows*cols;
-        return args.length===0 ? _new_mat(rows,cols)
-                               : _.assert(sz===args.length) && _matnew(rows,cols,args)
+        return args.length==0 ? _new_mat(rows,cols)
+                              : _.assert(sz==args.length) && _matnew(rows,cols,args)
       },
       /**Get or set the value at this position.
        * @memberof module:mcfud/matrix
@@ -309,8 +303,8 @@
        * @return {boolean}
        */
       matEq(a,b){
-        return a.dim[0]===b.dim[0] &&
-               a.dim[1]===b.dim[1] && _arrayEq(a.cells,b.cells)
+        return a.dim[0]==b.dim[0] &&
+               a.dim[1]==b.dim[1] && _arrayEq(a.cells,b.cells)
       },
       /**Transpose this matrix.
        * @memberof module:mcfud/matrix
@@ -322,7 +316,7 @@
         const sz=rows*cols;
         const tmp=[];
         for(let i=0;i<sz;++i)
-          tmp.push(m.cells[MFL(i/rows) + cols*(i%rows)]);
+          tmp.push(m.cells[int(i/rows) + cols*(i%rows)]);
         return _matnew(cols,rows,tmp)
       },
       /**Multiply this matrix with a scalar value.
@@ -345,7 +339,7 @@
         let [bRows,bCols]=b.dim;
         let aCells=a.cells;
         let bCells=b.cells;
-        _.assert(aCols===bRows, "mismatch matrices");
+        _.assert(aCols==bRows, "mismatch matrices");
         let out=new Array(aRows*bCols);
         for(let i=0; i<aRows; ++i)
           for(let j=0; j<bCols; ++j){
@@ -363,7 +357,7 @@
       matDet(m){
         let [rows,cols]=m.dim;
         let tmp=[];
-        if(cols===2)
+        if(cols==2)
           return this._matDet2x2(m);
         for(let c=0; c< cols;++c)
           _.conj(tmp,this.matDet(this.matCut(m,1,c+1)));
@@ -393,7 +387,7 @@
         let tmp=[];
         for(let i=0; i<rows; ++i)
           for(let j=0; j<cols; ++j){
-            if(!(i === _row || j === _col))
+            if(!(i == _row || j == _col))
               _.conj(tmp, m.cells[j+i*cols]);
           }
         return _matnew(rows-1,cols-1, tmp)
@@ -409,8 +403,8 @@
       matMinor(m){
         const [rows,cols]=m.dim;
         let tmp=[];
-        _.assert(rows===cols);
-        if(cols===2)
+        _.assert(rows==cols);
+        if(cols==2)
           return this._matMinor2x2(m);
         for(let i=0; i< rows;++i)
           for(let j=0; j<cols; ++j){
@@ -421,7 +415,7 @@
       },
       /** @ignore */
       _matMinor2x2(m){
-        return _.assert(m.cells.length===4) &&
+        return _.assert(m.cells.length==4) &&
                this.mat2(m.cells[3],m.cells[2],m.cells[1],m.cells[0])
       },
       /**Find the `Matrix Cofactor` of this matrix.
@@ -456,7 +450,7 @@
       /** @ignore */
       _minv2x2(m){
         const [rows,cols]=m.dim;
-        _.assert(m.cells.length===4&&rows===2&&cols===2);
+        _.assert(m.cells.length==4&&rows==2&&cols==2);
         let r,c=m.cells;
         let det= c[0]*c[3] - c[1]*c[2];
         if(_.feq0(det))
@@ -475,7 +469,7 @@
        */
       matInv(m){
         const [rows,cols]=m.dim;
-        if(cols===2)
+        if(cols==2)
           return this._minv2x2(m);
         let d= this.matDet(m);
         return _.feq0(d) ? this.matIdentity(rows)
@@ -561,7 +555,7 @@
       matVMult(m,v){
         let cols=m.dim[1];
         let rows=v.length;
-        _.assert(cols===rows);
+        _.assert(cols==rows);
         let r= this.matMult(m, _matnew(rows, 1, v));
         let c=r.cells;
         r.cells=null;
@@ -615,13 +609,13 @@
        */
       isIdentity(m){
         const [rows,cols]=m.dim;
-        if(rows===cols){
+        if(rows==cols){
           for(let v,r=0;r<rows;++r){
             for(let c=0;c<cols;++c){
               v=m.cells[r*cols+c];
-              if((r+1)===(c+1)){
-                if(v !== 1) return false;
-              }else if(v !== 0) return false;
+              if((r+1)==(c+1)){
+                if(v != 1) return false;
+              }else if(v != 0) return false;
             }
           }
           return true
@@ -641,7 +635,7 @@
         //if xpose(A) X inv(A) === I
         //then A will be orthogonal
         let r,d= this.matDet(m);
-        return Math.abs(d)===1 &&
+        return Math.abs(d)==1 &&
                this.isIdentity(this.matMult(this.matXpose(m), this.matInv(m)));
       }
     };
@@ -650,7 +644,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/matrix"]=_module

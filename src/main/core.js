@@ -12,11 +12,11 @@
  *
  * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
-;(function(window,doco,seed_rand){
+;(function(window,doco,seed_rand,UNDEF){
 
   "use strict";
 
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     seed_rand=require("../tpcl/seedrandom.min")
   }else{
     doco=window.document
@@ -25,10 +25,12 @@
   /**Create the module.
   */
   function _module(){
+
     const root=window,
-          MFL=Math.floor,
+          int=Math.floor,
           Slicer=Array.prototype.slice,
           toStr=Object.prototype.toString;
+
     function isObj(obj){ return toStr.call(obj) == "[object Object]" }
     function isObject(obj){ return isObj(obj) }
     function isNil(obj){ return toStr.call(obj) == "[object Null]" }
@@ -39,25 +41,24 @@
     function isStr(obj){ return toStr.call(obj) == "[object String]" }
     function isNum(obj){ return toStr.call(obj) == "[object Number]" }
     function isBool(obj){ return toStr.call(obj) == "[object Boolean]" }
-    function isEven(n){ return n>0 ? (n%2 === 0) : ((-n)%2 === 0) }
+    function isEven(n){ return (n<0?-n:n)%2 == 0 }
     function isUndef(o){ return o===undefined }
     function isColl(o){ return isVec(o)||isMap(o)||isObj(o) }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //original source from https://developer.mozilla.org
     function completeAssign(target, source){
-      let descriptors = Object.keys(source).reduce((descriptors, key) => {
-        descriptors[key] = Object.getOwnPropertyDescriptor(source, key);
-        return descriptors;
+      let descriptors = Object.keys(source).reduce((acc, key)=>{
+        acc[key] = Object.getOwnPropertyDescriptor(source, key);
+        return acc;
       }, {});
       // By default, Object.assign copies enumerable Symbols, too
-      Object.getOwnPropertySymbols(source).forEach(sym => {
-        let descriptor = Object.getOwnPropertyDescriptor(source, sym);
-        if (descriptor.enumerable) {
-          descriptors[sym] = descriptor;
-        }
+      Object.getOwnPropertySymbols(source).forEach(sym=>{
+        let d= Object.getOwnPropertyDescriptor(source, sym);
+        if(d.enumerable)
+          descriptors[sym] = d;
       });
-      Object.defineProperties(target, descriptors);
-      return target;
+      return Object.defineProperties(target, descriptors);
     }
 
     /**
@@ -65,45 +66,51 @@
      */
 
     const GOLDEN_RATIO=1.6180339887;
+    const PRNG=(function(){
+      if(seed_rand)
+        return seed_rand();
+      if(Math.seedrandom)
+        return new Math.seedrandom();
+      return function(){ return Math.random() }
+    })();
 
-    /**
-     * @private
-     * @var {function}
-     */
-    let PRNG= seed_rand?seed_rand():new Math.seedrandom();
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _randXYInclusive(min,max){
-      return MFL(PRNG() * (max-min+1) + min) }
-
-    /** @ignore */
-    function _preAnd(conds,msg){
-      for(let c,i=0;i<conds.length;++i){
-        c=conds[i];
-        if(!c[0](c[1]))
-          throw new TypeError(`wanted ${msg}`) }
-      return true;
+      return min + int(PRNG() * (max-min+1))
     }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function _preAnd(conds,msg){
+      conds.forEach(c=>{
+        if(!c[0](c[1]))
+          throw new TypeError(`wanted ${msg}`)
+      });
+      return true
+    }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _preOr(conds,msg){
       for(let c,i=0;i<conds.length;++i){
         c=conds[i];
         if(c[0](c[1])){return true}
       }
-      throw new TypeError(`wanted ${msg}`); }
+      throw new TypeError(`wanted ${msg}`)
+    }
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _pre(f,arg,msg){
-      if(!f(arg)){
-        throw new TypeError(`wanted ${msg}`) } else {return true} }
+      if(!f(arg))
+        throw new TypeError(`wanted ${msg}`);
+      return true
+    }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //-- regex handling file names
     const BNAME=/(\/|\\\\)([^(\/|\\\\)]+)$/g;
     //-- regex handling file extensions
     const FEXT=/(\.[^\.\/\?\\]*)(\?.*)?$/;
 
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _fext(path,incdot){
       let t=FEXT.exec(path);
       if(t && t[1]){
@@ -113,30 +120,21 @@
       return t;
     }
 
-    /**
-     * private
-     * @var {number}
-     */
-    const EPSILON= 0.0000000001;
-
-    /**
-     * @private
-     * @var {number}
-     */
-    let _seqNum= 0;
-
-    /** @ignore */
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _everyF(F,_1,args){
-      let b=F(_1);
+      const b=F(_1);
       switch(args.length){
-      case 0: return b;
-      case 1: return b && F(args[0]);
-      case 2: return b && F(args[0]) && F(args[1]);
-      case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
-      default: return b && args.every(x => F(x));
+        case 0: return b;
+        case 1: return b && F(args[0]);
+        case 2: return b && F(args[0]) && F(args[1]);
+        case 3: return b && F(args[0]) && F(args[1]) && F(args[2]);
+        default: return b && args.every(x => F(x));
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const EPSILON= 0.0000000001;
+    let _seqNum= 0;
     const _$={};
 
     /** @namespace module:mcfud/core.is */
@@ -147,14 +145,14 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      fun(f,...args){ return _everyF(isFun,f,args) },
+      fun(f, ...args){ return _everyF(isFun,f,args) },
       /**Check if input(s) are type `string`.
        * @memberof module:mcfud/core.is
        * @param {any} s anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      str(s,...args){ return _everyF(isStr,s,args) },
+      str(s, ...args){ return _everyF(isStr,s,args) },
       //void0(obj){ return obj === void 0 },
       /**Check if input(s) are type `undefined`.
        * @memberof module:mcfud/core.is
@@ -162,34 +160,34 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      undef(o,...args){ return _everyF(isUndef,o,args) },
+      undef(o, ...args){ return _everyF(isUndef,o,args) },
       /**Check if input(s) are type `Map`.
        * @memberof module:mcfud/core.is
        * @param {any} m anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      map(m,...args){ return _everyF(isMap,m,args) },
+      map(m, ...args){ return _everyF(isMap,m,args) },
       /**Check if input(s) are type `Set`.
        * @memberof module:mcfud/core.is
        * @param {any} m anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      set(s,...args){ return _everyF(isSet,s,args) },
+      set(s, ...args){ return _everyF(isSet,s,args) },
       /**Check if input(s) are type `number`.
        * @memberof module:mcfud/core.is
        * @param {any} n anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      num(n,...args){ return _everyF(isNum,n,args) },
+      num(n, ...args){ return _everyF(isNum,n,args) },
       /**Check if input is a boolean.
        * @memberof module:mcfud/core.is
        * @param {boolean} n
        * @return {boolean}
        */
-      bool(n,...args){ return _everyF(isBool,n,args) },
+      bool(n, ...args){ return _everyF(isBool,n,args) },
       /**Check if input is a positive number.
        * @memberof module:mcfud/core.is
        * @param {number} n
@@ -208,26 +206,26 @@
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      vec(v,...args){ return _everyF(isVec,v,args) },
+      vec(v, ...args){ return _everyF(isVec,v,args) },
       /**Check if input(s) are type `object`.
        * @memberof module:mcfud/core.is
        * @param {any} o anything
        * @param {...any} args more of anything
        * @return {boolean}
        */
-      obj(o,...args){ return _everyF(isObj,o,args) },
+      obj(o, ...args){ return _everyF(isObj,o,args) },
       /**Check if this collection is `not empty`.
        * @memberof module:mcfud/core.is
        * @param {object|array|map} o
        * @return {boolean}
        */
-      some(o){ return _.size(o) > 0 },
+      notEmpty(o){ return _.size(o) > 0 },
       /**Check if this collection is `empty`.
        * @memberof module:mcfud/core.is
        * @param {object|array|map} o
        * @return {boolean}
        */
-      none(o){ return _.size(o) === 0 },
+      isEmpty(o){ return _.size(o) == 0 },
       /**Check if this property belongs to this object.
        * @memberof module:mcfud/core.is
        * @param {object} o
@@ -240,33 +238,28 @@
     /** @namespace module:mcfud/core._ */
     const _={
       /** error message */
-      error(...args){
-        console.error(...args) },
+      error(...args){ console.error(...args) },
       /** log message */
-      log(...args){
-        console.log(...args) },
-      /**Re-seed the internal prng object.
-       * @memberof module:mcfud/core._
-       * @return {number}
-       */
-      srand(){ PRNG= seed_rand?seed_rand():new Math.seedrandom() },
+      log(...args){ console.log(...args) },
       /**Check if this float approximates zero.
        * @memberof module:mcfud/core._
        * @param {number} a
        * @return {boolean}
        */
-      feq0(a){ return Math.abs(a) < EPSILON },
+      feq0(a){
+        return a >= -EPSILON && a <= EPSILON;
+      },
       /**Check if these 2 floats are equal.
        * @memberof module:mcfud/core._
        * @param {number} a
        * @param {number} b
+       * @param {number} diff [EPSILON]
        * @return {boolean}
        */
-      feq(a, b){ return Math.abs(a-b) < EPSILON },
-      /** Fuzzy greater_equals */
-      //fgteq(a,b){ return a>b || this.feq(a,b) },
-      /** Fuzzy less_equals */
-      //flteq(a,b){ return a<b || this.feq(a,b) },
+      feq(a, b, diff=EPSILON){
+        //return Math.abs(a-b) < EPSILON
+        return a >= b-diff && a <= b+diff;
+      },
       /**Serialize input to JSON.
        * @memberof module:mcfud/core._
        * @param {any} o anything
@@ -292,21 +285,22 @@
        * @param {number} y
        * @return {object} {x,y}
        */
-      p2(x=0,y=0){ return {x: x, y: y} },
+      p2(x=0,y=0){ return {x, y} },
       /**Unless n is a number, return it else 0.
        * @memberof module:mcfud/core._
        * @param {number} n
        * @return {number} n or 0
        */
       numOrZero(n){ return isNaN(n) ? 0 : n },
-      /**Unless a is defined, return it else b.
+      /**Set values to array.
        * @memberof module:mcfud/core._
-       * @param {any} a
-       * @param {any} b
-       * @return {any} a or b
+       * @param {array} a
+       * @param {...any} args
+       * @return {array} a
        */
-      setVec(a,...args){
-        args.forEach((v,i)=> a[i]=v)
+      setVec(a, ...args){
+        args.forEach((v,i)=> a[i]=v);
+        return a;
       },
       /**If not even, make it even.
        * @memberof module:mcfud/core._
@@ -314,7 +308,7 @@
        * @return {number}
        */
       evenN(n,dir){
-        n=Math.floor(n);
+        n=int(n);
         return isEven(n)?n:(dir?n+1:n-1) },
       /**Check if a is null or undefined - `not real`.
        * @memberof module:mcfud/core._
@@ -409,37 +403,40 @@
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Map} out [undefined]
        * @return {Map}
        */
-      zipMap(a,b,out){
-        let n=Math.min(a.length,b.length);
-        let m= out || new Map();
-        for(let i=0;i<n;++i){
+      zipMap(a,b,out=UNDEF){
+        let n=Math.min(a.length,b.length),
+            i,m= out || new Map();
+        for(i=0;i<n;++i){
           m.set(a[i],b[i])
         }
         return m;
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Map} out [undefined]
        * @return {Map}
        */
-      zip(a,b,out){
+      zip(a,b,out=UNDEF){
         return this.zipMap(a,b,out)
       },
       /**Items in a as keys, mapped to items in b as values.
        * @memberof module:mcfud/core._
-       * @param {array} array
-       * @param {array} array
+       * @param {array} a
+       * @param {array} b
+       * @param {Object} out [undefined]
        * @return {Object}
        */
-      zipObj(a,b,out){
-        let n=Math.min(a.length,b.length);
-        let m= out || {};
-        for(let i=0;i<n;++i){
+      zipObj(a,b,out=UNDEF){
+        let n=Math.min(a.length,b.length),
+            i,m= out || {};
+        for(i=0;i<n;++i){
           m[a[i]]= b[i];
         }
         return m;
@@ -510,7 +507,7 @@
        * @throws Error if condition is true
        * @return {boolean} true
        */
-      assertNot(cond,...args){
+      assertNot(cond, ...args){
         return this.assert(!cond,...args)
       },
       /**Assert that the condition is true.
@@ -520,9 +517,9 @@
        * @throws Error if condition is false
        * @return {boolean} true
        */
-      assert(cond,...args){
+      assert(cond, ...args){
         if(!cond)
-          throw args.length===0 ? "Assertion!" : args.join("");
+          throw args.length==0 ? "Assertion!" : args.join("");
         return true;
       },
       /**Check if target has none of these keys.
@@ -533,8 +530,6 @@
        */
       noSuchKeys(keys,target){
         return !this.some(this.seq(keys),k=> this.has(target,k)?k:null)
-        //if(r) console.log("keyfound="+r);
-        //return !r;
       },
       /**Get a random int between min and max (inclusive).
        * @memberof module:mcfud/core._
@@ -562,16 +557,12 @@
        * @param {number} num
        * @return {number}
        */
-      randInt(num){ return MFL(PRNG()*num) },
+      randInt(num){ return int(PRNG()*num) },
       /**Get a random float between 0 and 1.
        * @memberof module:mcfud/core._
        * @return {number}
        */
       rand(js=false){ return js? Math.random(): PRNG() },
-      /**Randomly choose -1 or 1.
-       * @memberof module:mcfud/core._
-       * @return {number}
-       */
       /**Returns a random number fitting a Gaussian, or normal, distribution.
        * @param {number} v number of times rand is summed, should be >= 1
        * @return {number}
@@ -579,8 +570,8 @@
       randGaussian(v=6){
         //adding a random value to the last increases the variance of the random numbers.
         //Dividing by the number of times you add normalises the result to a range of 0–1
-        let r=0;
-        for(let i=0; i<v; ++i) r += this.rand();
+        let i,r=0;
+        for(i=0; i<v; ++i) r += this.rand();
         return r/v;
       },
       randSign(){ return PRNG()>0.5 ? -1 : 1 },
@@ -590,8 +581,8 @@
        * @return {array} [a,b]
        */
       toGoldenRatio(len){
-        let a= len / GOLDEN_RATIO;
-        let b= a / GOLDEN_RATIO;
+        let a= len / GOLDEN_RATIO,
+            b= a / GOLDEN_RATIO;
         return [this.rounded(a),this.rounded(b)];
       },
       /**Check if obj is a sub-class of this parent-class.
@@ -607,15 +598,15 @@
        * @return {number}
        */
       hashCode(s){
-        let n=0;
-        for(let i=0; i<s.length; ++i)
+        let i,n=0;
+        for(i=0; i<s.length; ++i)
           n= Math.imul(31, n) + s.charCodeAt(i)
         return n;
       },
       /**Clear array.
        * @memberof module:mcfud/core._
        * @param {array} a
-       * @return {array}
+       * @return {array} a
        */
       cls(a){
         try{ a.length=0 }catch(e){}
@@ -628,13 +619,13 @@
        * @return {array} the samples
        */
       randSample(arr,n=1){
-        let ret;
+        let a,ret;
         if(n==1){
           ret= [this.randItem(arr)]
         }else if(n==0){
           ret=[]
         }else if(n>0){
-          let a= this.shuffle(arr,false);
+          a= this.shuffle(arr,false);
           ret = n>=a.length ? a : a.slice(0,n);
         }
         return ret;
@@ -642,10 +633,10 @@
       /**Randomly choose an item from this array.
        * @memberof module:mcfud/core._
        * @param {any[]} arr
-       * @param {boolean} wantIndex
+       * @param {boolean} wantIndex [false]
        * @return {any}
        */
-      randItem(arr,wantIndex){
+      randItem(arr,wantIndex=false){
         let rc,i= -1;
         if(arr){
           switch(arr.length){
@@ -657,7 +648,7 @@
               rc= arr[i= this.randSign()>0?1:0];
               break;
             default:
-              rc= arr[i= (MFL(PRNG()*arr.length))];
+              rc= arr[i= (int(PRNG()*arr.length))];
           }
         }
         return wantIndex ? [rc,i] : rc;
@@ -683,8 +674,8 @@
        */
       jsMap(...args){
         _pre(isEven,args.length,"even n# of args");
-        let out=new Map();
-        for(let i=0;i<args.length;){
+        let i,out=new Map();
+        for(i=0;i<args.length;){
           out.set(args[i],args[i+1]); i+=2; }
         return out;
       },
@@ -695,8 +686,8 @@
        */
       jsObj(...args){
         _pre(isEven,args.length,"even n# of args");
-        let out={};
-        for(let i=0;i<args.length;){
+        let i,out={};
+        for(i=0;i<args.length;){
           out[args[i]]=args[i+1]; i+=2; }
         return out;
       },
@@ -705,7 +696,7 @@
        * @param {...any} args data to initialize array
        * @return {any[]}
        */
-      jsVec(...args){ return args.length===0 ? [] : args.slice() },
+      jsVec(...args){ return args.length==0 ? [] : args.slice() },
       /**Get the last index.
        * memberof module:mcfud/core._
        * @param {any[]} c
@@ -816,8 +807,8 @@
        */
       copy(des,src=[]){
         _preAnd([[isVec,des],[isVec,src]],"arrays");
-        const len= Math.min(des.length,src.length);
-        for(let i=0;i<len;++i) des[i]=src[i];
+        let i,len= Math.min(des.length,src.length);
+        for(i=0;i<len;++i) des[i]=src[i];
         return des;
       },
       /**Append all or some items from `src` to `des`.
@@ -839,7 +830,7 @@
        * @param {number|function} v
        * @return {any[]}
        */
-      fill(a,v,...args){
+      fill(a,v, ...args){
         if(isNum(a)){a= new Array(a)}
         if(isVec(a))
           for(let i=0;i<a.length;++i)
@@ -853,8 +844,7 @@
        */
       size(o){
         return (isVec(o)||isStr(o)) ? o.length
-                                    : (isSet(o)||isMap(o)) ? o.size
-                                       : o ? this.keys(o).length : 0
+                                    : (isSet(o)||isMap(o)) ? o.size : o ? this.keys(o).length : 0
       },
       /**Get the next sequence number.
        * @memberof module:mcfud/core._
@@ -899,7 +889,7 @@
        * @return {number[]}
        */
       range(start,stop,step=1){
-        if(arguments.length===1){
+        if(arguments.length==1){
           stop=start; start=0; step=1; }
         let len = (stop-start)/step;
         const res=[];
@@ -934,7 +924,7 @@
             break;
           default:
             for(let x,j,i= res.length-1; i>0; --i){
-              j= MFL(PRNG() * (i+1));
+              j= int(PRNG() * (i+1));
               x= res[i];
               res[i] = res[j];
               res[j] = x;
@@ -951,7 +941,7 @@
                 res=Slicer.call(obj,0);
           for(let s,r,i=0; i<n; ++i){
             // choose index uniformly in [i, n-1]
-            r = i + MFL(PRNG() * (n - i));
+            r = i + int(PRNG() * (n - i));
             s= obj[r];
             obj[r] = obj[i];
             obj[i] = s;
@@ -1118,9 +1108,9 @@
        * @param {number} n
        * @param {callback} fn
        * @param {any} target
-       * @param {any} args
+       * @param {...any} args
        */
-      dotimes(n,fn,target,...args){
+      dotimes(n,fn,target, ...args){
         for(let i=0;i<n;++i)
           fn.call(target,i, ...args);
       },
@@ -1241,7 +1231,7 @@
        * @param {...any} items
        * @return {any[]} coll
        */
-      conj(coll,...items){
+      conj(coll, ...items){
         if(coll)
           items.forEach(o=> coll.push(o));
         return coll;
@@ -1253,7 +1243,7 @@
        * @return {any[]}
        */
       seq(arg,sep=/[,; \t\n]+/){
-        if(typeof arg === "string")
+        if(typeof arg == "string")
           arg= arg.split(sep).map(s=>s.trim()).filter(s=>s.length>0);
         if(!isVec(arg)){arg = [arg]}
         return arg;
@@ -1265,9 +1255,9 @@
        * @return {boolean}
        */
       has(coll,key){
-        return arguments.length===1 ? false
+        return arguments.length==1 ? false
           : isMap(coll) ? coll.has(key)
-          : isVec(coll) ? coll.indexOf(key) !== -1
+          : isVec(coll) ? coll.indexOf(key) != -1
           : isObj(coll) ? is.own(coll, key) : false;
       },
       /**Add keys to `des` only if that key is absent.
@@ -1299,7 +1289,7 @@
        * @param {...object} args
        * @return {object}
        */
-      inject(des,...args){
+      inject(des, ...args){
         des=des || {};
         args.forEach(s=> s && completeAssign(des,s));
         return des;
@@ -1311,8 +1301,8 @@
        */
       deepCopyArray(v){
         _pre(isVec,v,"array");
-        const out = [];
-        for(let i=0,z=v.length; i<z; ++i)
+        let i,z,out = [];
+        for(i=0,z=v.length; i<z; ++i)
           out[i]= isVec(v[i]) ? this.deepCopyArray(v[i]) : v[i];
         return out;
       },
@@ -1335,10 +1325,10 @@
         let key,ext;
         Object.keys(extended).forEach(key=>{
           ext= extended[key];
-          if(typeof ext !== "object" || ext === null || !original[key]){
+          if(typeof ext != "object" || ext === null || !original[key]){
             original[key] = ext;
           }else{
-            if(typeof original[key] !== "object"){
+            if(typeof original[key] != "object"){
               original[key] = ext instanceof Array ? [] : {}
             }
             this.merge(original[key], ext);
@@ -1601,11 +1591,11 @@
        * @return {string}
        */
       prettyMillis(ms){
-        let h,m,s= MFL(ms/1000);
-        m=MFL(s/60);
+        let h,m,s= int(ms/1000);
+        m=int(s/60);
         ms=ms-s*1000;
         s=s-m*60;
-        h= MFL(m/60);
+        h= int(m/60);
         m=m-h*60;
         let out=[];
         out.push(`${s}.${ms} secs`);
@@ -1623,7 +1613,10 @@
        * @return {array} arr
       */
       swap(arr,a,b){
-        let t= arr[a]; arr[a]=arr[b]; arr[b]=t; return arr;
+        let t= arr[a];
+        arr[a]=arr[b];
+        arr[b]=t;
+        return arr;
       },
       /**List indexes of this array
        * @memberof module:mcfud/core._
@@ -1674,8 +1667,8 @@
        */
       isCrossOrigin(url) {
         let wnd=window;
-        if(arguments.length===2 &&
-           arguments[1].hack===911){ wnd=arguments[1] }
+        if(arguments.length==2 &&
+           arguments[1].hack==911){ wnd=arguments[1] }
         if(wnd&&wnd.location&&url){
           const pos= url.indexOf("://");
           if(pos>0){
@@ -1693,7 +1686,7 @@
        * @param {any} arg
        */
       addEvent(event,target,cb,arg){
-        if(isVec(event) && arguments.length===1)
+        if(isVec(event) && arguments.length==1)
           event.forEach(e=> this.addEvent.apply(this, e));
         else
           target.addEventListener(event,cb,arg)
@@ -1706,7 +1699,7 @@
        * @param {any} arg
        */
       delEvent(event,target,cb,arg){
-        if(isVec(event) && arguments.length===1)
+        if(isVec(event) && arguments.length==1)
           event.forEach(e => this.delEvent.apply(this, e));
         else
           target.removeEventListener(event,cb,arg)
@@ -1726,7 +1719,7 @@
        * @return {number}
        */
       roundUnderOffset(val, offset){
-        let integral = Math.floor(val);
+        const integral = int(val);
         return (val - integral) < offset ? integral : (integral + 1);
       }
     };
@@ -1893,7 +1886,7 @@
        * @param {...any} args
        * @return {CEventBus} self
        */
-      pub(subject,...args){
+      pub(subject, ...args){
         let m,t,
             event=subject[0],
             target=subject[1] || NULL;
@@ -1937,7 +1930,7 @@
        * @return {CEventBus} self
        */
       unsub(subject,cb,ctx){
-        if(arguments.length===1 && !is.vec(subject)){
+        if(arguments.length==1 && !is.vec(subject)){
           this.drop(subject);
         }else{
           let event=subject[0],
@@ -1984,7 +1977,7 @@
 
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
-  if(typeof module==="object" && module.exports){
+  if(typeof module=="object" && module.exports){
     module.exports=_module()
   }else{
     window["io/czlab/mcfud/core"]=_module

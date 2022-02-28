@@ -10,9 +10,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
@@ -20,6 +20,7 @@
   const [LEFT_VORONOI, MID_VORONOI, RIGHT_VORONOI]= [1,0,-1];
 
   /**Create the module.
+   * Standard XY cartesian coordinates, Y axis goes UP
    */
   function _module(Core,_M,_V,_X){
 
@@ -28,8 +29,7 @@
     if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
     if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
 
-    const MFL=Math.floor;
-    const ABS=Math.abs;
+    const int=Math.floor;
     const MaxVerts=36;
     const {is,u:_}=Core;
 
@@ -59,16 +59,17 @@
       return c
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const TheHull=_.fill(MaxVerts,UNDEF);
     /**Original source from Randy Gaul's impulse-engine:
      * https://github.com/RandyGaul/ImpulseEngine#Shape.h
      */
-    function _orderPoints(vertices){
-      const count=vertices.length;
-      const hull= _.assert(count <= MaxVerts) && _.fill(MaxVerts);
+    function _orderPointsCCW(vertices){
+      _.assert(vertices.length>2 && vertices.length <= MaxVerts, "too little/many vertices");
       //find the right-most point
       let rightMost=0,
           maxX= vertices[0][0];
-      for(let x,i=1; i<count; ++i){
+      for(let x,i=1; i<vertices.length; ++i){
         x=vertices[i][0];
         if(x>maxX){
           maxX= x;
@@ -84,15 +85,14 @@
       //examine all the points, sorting them in order of ccw from the rightmost, one by one
       //and eventually wraps back to the rightmost point, at which time exit this inf-loop
       for(;;){
-        hull[hpos]=cur;
+        TheHull[hpos]=cur;
         //search for next index that wraps around the hull
         //by computing cross products to find the most counter-clockwise
         //vertex in the set, given the previos hull index
         let next= 0,
-            hp=hull[hpos];
-        for(let e1,e2,c,i=1; i<count; ++i){
-          if(next===cur){
-            next= i; continue } //same point, skip
+            hp=TheHull[hpos];
+        for(let e1,e2,c,i=1; i<vertices.length; ++i){
+          if(next==cur){ next= i; continue } //same point, skip
           //cross every set of three unique vertices
           //record each counter clockwise third vertex and add
           //to the output hull
@@ -100,9 +100,7 @@
           e1= _V.sub(vertices[next], vertices[hp]);
           e2= _V.sub(vertices[i], vertices[hp]);
           c= _V.cross(e1,e2);
-          if(c<0){
-            //counterclockwise, e2 on left of e1
-            next=i}
+          if(c<0){ next=i } //counterclockwise, e2 on left of e1
           //cross product is zero then e vectors are on same line
           //therefore want to record vertex farthest along that line
           if(_.feq0(c) && _V.len2(e2) > _V.len2(e1)){next=i}
@@ -111,11 +109,11 @@
         cur=next;
         ++hpos;
         //conclude algorithm upon wrap-around
-        if(next===rightMost){ break }
+        if(next==rightMost){ break }
       }
       const result=[];
       for(let i=0; i<hpos; ++i)
-        result.push(_V.clone(vertices[hull[i]]));
+        result.push(_V.clone(vertices[TheHull[i]]));
       return result;
     }
 
@@ -170,7 +168,7 @@
        * @return {Area}
        */
       half(){
-        return new Area(MFL(this.width/2),MFL(this.height/2))
+        return new Area(_M.ndiv(this.width,2),_M.ndiv(this.height,2))
       }
     }
 
@@ -193,21 +191,41 @@
       }
     }
 
+    /**
+     * @class
+     */
+    class Body{
+      constructor(s,x=0,y=0){
+        this.pos=_V.vec(x,y);
+        this.shape=s;
+      }
+    }
+
+    /**
+     * @abstract
+     */
+    class Shape{
+      constructor(){
+        this.orient=0;
+      }
+      setOrient(r){
+        throw Error("no implementation")
+      }
+    }
+
     /**A Circle.
      * @memberof module:mcfud/geo2d
      * @class
-     * @property {Vec2} pos
      * @property {number} radius
      * @property {number} orient
      */
-    class Circle{
+    class Circle extends Shape{
       /**
        * @param {number} r
        */
       constructor(r){
+        super();
         this.radius=r;
-        this.orient=0;
-        this.pos=_V.vec();
       }
       /**Set the rotation.
        * @param {number} r
@@ -215,15 +233,6 @@
        */
       setOrient(r){
         this.orient=r;
-        return this;
-      }
-      /**Set origin.
-       * @param {number} x
-       * @param {number} y
-       * @return {Circle} self
-       */
-      setPos(x,y){
-        _V.set(this.pos,x,y);
         return this;
       }
     }
@@ -238,43 +247,24 @@
      * @property {number} orient
      * @property {Vec2[]} calcPoints
      */
-    class Polygon{
-      /**
-       * @param {number} x
-       * @param {number} y
-       */
-      constructor(x,y){
-        this.calcPoints=null;
-        this.normals=null;
-        this.edges=null;
-        this.points=null;
-        this.orient = 0;
-        this.pos=_V.vec();
-        this.setPos(x,y);
-      }
-      /**Set origin.
-       * @param {number} x
-       * @param {number} y
-       * @return {Polygon} self
-       */
-      setPos(x=0,y=0){
-        _V.set(this.pos,x,y);
-        return this;
+    class Polygon extends Shape{
+      constructor(points){
+        super();
+        this.calcPoints=[];
+        this.normals=[];
+        this.edges=[];
+        this.set(points);
       }
       /**Set vertices.
        * @param {Vec2[]} points
-       * @return {Polygon} self
+       * @return {Polygon}
        */
       set(points){
-        this.calcPoints= this.calcPoints || [];
-        this.normals= this.normals || [];
-        this.edges= this.edges || [];
         this.calcPoints.length=0;
         this.normals.length=0;
         this.edges.length=0;
-        this.points= _.assert(points.length>2) &&
-                     _orderPoints(points);
-        _.doseq(this.points, p=>{
+        this.points= _orderPointsCCW(points);
+        this.points.forEach(p=>{
           this.calcPoints.push(_V.vec());
           this.edges.push(_V.vec());
           this.normals.push(_V.vec());
@@ -292,48 +282,37 @@
       /**Move the points.
        * @param {number} x
        * @param {number} y
-       * @return {Polygon} self
+       * @return {Polygon}
        */
-      translate(x, y){
-        _.doseq(this.points,p=>{
-          p[0] += x; p[1] += y;
+      moveBy(x, y){
+        this.points.forEach(p=>{
+          p[0] += x;
+          p[1] += y;
         });
         return this._recalc();
       }
       /** @ignore */
       _recalc(){
-        if(this.points){
-          _.doseq(this.points,(p,i)=>{
-            _V.copy(this.calcPoints[i],p);
-            if(!_.feq0(this.orient))
-              _V.rot$(this.calcPoints[i],this.orient);
-          });
-          let i2,p1,p2;
-          _.doseq(this.points,(p,i)=>{
-            i2= (i+1) % this.calcPoints.length;
-            p1=this.calcPoints[i];
-            p2=this.calcPoints[i2];
-            this.edges[i]= _V.sub(p2,p1);
-            this.normals[i]= _V.unit(_V.normal(this.edges[i]));
-          });
-        }
+        let N=this.points.length;
+        this.points.forEach((p,i)=>{
+          _V.copy(this.calcPoints[i],p);
+          if(!_.feq0(this.orient))
+            _V.rot$(this.calcPoints[i],this.orient);
+        });
+        this.points.forEach((p,i)=>{
+          this.edges[i]= _V.sub(this.calcPoints[(i+1)%N],
+                                this.calcPoints[i]);
+          this.normals[i]= _V.unit(_V.normal(this.edges[i]));
+        });
         return this;
-      }
-      /**Return the translated polygon points.
-       * @param {Polygon} poly
-       * @return {array} points
-       */
-      static translateCalcPoints(poly){
-        return _V.translate(poly.pos,poly.calcPoints)
       }
     }
 
     /** @ignore */
     function toPolygon(r){
-      return new Polygon(r.pos[0],
-                         r.pos[1]).set([_V.vec(r.width,0),
-                                        _V.vec(r.width,r.height),
-                                        _V.vec(0,r.height),_V.vec()])
+      return new Polygon([_V.vec(r.width,0),
+                          _V.vec(r.width,r.height),
+                          _V.vec(0,r.height),_V.vec()]);
     }
 
     /**A collision manifold.
@@ -458,40 +437,30 @@
         if(absOverlap < resolve.overlap){
           resolve.overlap = absOverlap;
           _V.copy(resolve.overlapN,axis);
-          if(overlap<0)
-            _V.flip$(resolve.overlapN);
+          if(overlap<0) _V.flip$(resolve.overlapN);
         }
       }
     }
 
-    /**
-     * @private
-     * @var {Manifold}
-     */
-    const _RES= new Manifold();
-
-    /**
-     * @private
-     * @var {Polygon}
-     */
-    const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //const _FAKE_POLY= toPolygon(new Rect(0,0, 1, 1));
 
     /** @ignore */
     function _circle_circle(a, b, resolve){
-      let vAB= _V.vecAB(a.pos,b.pos);
-      let r_ab = a.radius+b.radius;
-      let r2 = r_ab*r_ab;
-      let d2 = _V.len2(vAB);
-      let status= !(d2 > r2);
+      let r_ab = a.shape.radius+b.shape.radius,
+          vAB= _V.vecAB(a.pos,b.pos),
+          d2 = _V.len2(vAB),
+          r2 = r_ab*r_ab,
+          dist, status= !(d2 > r2);
       if(status && resolve){
-        let dist = Math.sqrt(d2);
+        dist = Math.sqrt(d2);
         resolve.A = a;
         resolve.B = b;
         resolve.overlap = r_ab - dist;
         _V.copy(resolve.overlapN, _V.unit$(vAB));
         _V.copy(resolve.overlapV, _V.mul(vAB,resolve.overlap));
-        resolve.AInB = a.radius <= b.radius && dist <= b.radius - a.radius;
-        resolve.BInA = b.radius <= a.radius && dist <= a.radius - b.radius;
+        resolve.AInB = a.shape.radius <= b.shape.radius && dist <= b.shape.radius - a.shape.radius;
+        resolve.BInA = b.shape.radius <= a.shape.radius && dist <= a.shape.radius - b.shape.radius;
       }
       return status;
     }
@@ -499,18 +468,17 @@
     /** @ignore */
     function _poly_circle(polygon, circle, resolve){
       // get position of the circle relative to the polygon.
-      let vPC= _V.vecAB(polygon.pos,circle.pos);
-      let r2 = circle.radius*circle.radius;
-      let cps = polygon.calcPoints;
-      let edge = _V.vec();
-      let point;
+      let r2 = circle.shape.radius*circle.shape.radius,
+          vPC= _V.vecAB(polygon.pos,circle.pos),
+          cps = polygon.shape.calcPoints,
+          point, edge = _V.vec();
       // for each edge in the polygon:
       for(let next,prev, overlap,overlapN,len=cps.length,i=0; i<len; ++i){
-        next = i === len-1 ? 0 : i+1;
-        prev = i === 0 ? len-1 : i-1;
+        next = i == len-1 ? 0 : i+1;
+        prev = i == 0 ? len-1 : i-1;
         overlap = 0;
         overlapN = null;
-        _V.copy(edge,polygon.edges[i]);
+        _V.copy(edge,polygon.shape.edges[i]);
         // calculate the center of the circle relative to the starting point of the edge.
         point=_V.vecAB(cps[i],vPC);
         // if the distance between the center of the circle and the point
@@ -523,38 +491,38 @@
         let region = _voronoiRegion(edge, point);
         if(region === LEFT_VORONOI){
           // need to make sure we're in the RIGHT_VORONOI of the previous edge.
-          _V.copy(edge,polygon.edges[prev]);
+          _V.copy(edge,polygon.shape.edges[prev]);
           // calculate the center of the circle relative the starting point of the previous edge
           let point2= _V.vecAB(cps[prev],vPC);
           region = _voronoiRegion(edge, point2);
           if(region === RIGHT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist>circle.radius){
+            if(dist>circle.shape.radius){
               // No intersection
               return false;
             } else if(resolve){
               // intersects, find the overlap.
               resolve.BInA = false;
               overlapN = _V.unit(point);
-              overlap = circle.radius - dist;
+              overlap = circle.shape.radius - dist;
             }
           }
         } else if(region === RIGHT_VORONOI){
           // need to make sure we're in the left region on the next edge
-          _V.copy(edge,polygon.edges[next]);
+          _V.copy(edge,polygon.shape.edges[next]);
           // calculate the center of the circle relative to the starting point of the next edge.
           _V.sub$(_V.copy(point,vPC),cps[next]);
           region = _voronoiRegion(edge, point);
           if(region === LEFT_VORONOI){
             // it's in the region we want.  Check if the circle intersects the point.
             let dist = _V.len(point);
-            if(dist>circle.radius){
+            if(dist>circle.shape.radius){
               return false;
             } else if(resolve){
               resolve.BInA = false;
               overlapN = _V.unit(point);
-              overlap = circle.radius - dist;
+              overlap = circle.shape.radius - dist;
             }
           }
         }else{
@@ -565,14 +533,14 @@
           let dist = _V.dot(point,normal);
           let distAbs = Math.abs(dist);
           // if the circle is on the outside of the edge, there is no intersection.
-          if(dist > 0 && distAbs > circle.radius){
+          if(dist > 0 && distAbs > circle.shape.radius){
             return false;
           } else if(resolve){
             overlapN = normal;
-            overlap = circle.radius - dist;
+            overlap = circle.shape.radius - dist;
             // if the center of the circle is on the outside of the edge, or part of the
             // circle is on the outside, the circle is not fully inside the polygon.
-            if(dist >= 0 || overlap < 2 * circle.radius){
+            if(dist >= 0 || overlap < 2 * circle.shape.radius){
               resolve.BInA = false;
             }
           }
@@ -612,18 +580,18 @@
 
     /** @ignore */
     function _poly_poly(a, b, resolve){
-      let pa = a.calcPoints;
-      let pb = b.calcPoints;
+      let pa = a.shape.calcPoints,
+          pb = b.shape.calcPoints;
       for(let i=0; i < pa.length; ++i){
-        if(_testSAT(a.pos, pa, b.pos, pb, a.normals[i], resolve))
+        if(_testSAT(a.pos, pa, b.pos, pb, a.shape.normals[i], resolve))
           return false;
       }
       for(let i=0;i < pb.length; ++i){
-        if(_testSAT(a.pos, pa, b.pos, pb, b.normals[i], resolve))
+        if(_testSAT(a.pos, pa, b.pos, pb, b.shape.normals[i], resolve))
           return false;
       }
       if(resolve){
-        if(resolve.overlap===0 || _.feq0(resolve.overlap))
+        if(resolve.overlap==0 || _.feq0(resolve.overlap))
           return false;
         resolve.A = a;
         resolve.B = b;
@@ -707,20 +675,32 @@
       }
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       Rect,
       Area,
       Line,
+      Body,
       Circle,
       Polygon,
       Manifold,
       C2DMatrix,
+      /**Wrap shape in this body
+       * @memberof module:mcfud/geo2d
+       * @param {Circle|Polygon} s
+       * @param {number} x
+       * @param {number} y
+       * @return {Body}
+       */
+      bodyWrap(s,x,y){
+        return new Body(s, x, y)
+      },
       /**Sort vertices in counter clockwise order.
        * @memberof module:mcfud/geo2d
        * @param {Vec2[]} vs
        * @return {Vec2[]}
        */
-      orderVertices(vs){ return _orderPoints(vs) },
+      orderVertices(vs){ return _orderPointsCCW(vs) },
       /**Calculate the area of this polygon.
        * @memberof module:mcfud/geo2d
        * @param{Vec2[]} points
@@ -735,7 +715,7 @@
           q=ps[i2];
           area += (p[0]*q[1] - q[0]*p[1]);
         }
-        return MFL(ABS(area)/2)
+        return _M.ndiv(Math.abs(area),2)
       },
       /**Find the center point of this polygon.
        * @memberof module:mcfud/geo2d
@@ -754,24 +734,21 @@
           cx += (p[0]+q[0]) * (p[0]*q[1]-q[0]*p[1]);
           cy += (p[1]+q[1]) * (p[0]*q[1]-q[0]*p[1]);
         }
-        return _V.vec(MFL(cx/A), MFL(cy/A))
+        return _V.vec(_M.ndiv(cx,A), _M.ndiv(cy,A))
       },
       /**Get the AABB rectangle.
        * @memberof module:mcfud/geo2d
-       * @param {Circle|Polygon} obj
-       * @param {Vec} [pos]
+       * @param {Body} obj
        * @return {Rect}
        */
-      getAABB(obj,pos=null){
-        if(!pos){
-          pos=obj.pos;
-        }
-        if(_.has(obj,"radius")){
-          return new Rect(pos[0]-obj.radius,
-                          pos[1]-obj.radius,
-                          obj.radius*2, obj.radius*2)
+      getAABB(obj){
+        _.assert(obj instanceof Body, "wanted a body");
+        if(_.has(obj.shape,"radius")){
+          return new Rect(obj.pos[0]-obj.shape.radius,
+                          obj.pos[1]-obj.shape.radius,
+                          obj.shape.radius*2, obj.shape.radius*2)
         }else{
-          let cps= _V.translate(pos, obj.calcPoints);
+          let cps= _V.translate(obj.pos, obj.shape.calcPoints);
           let xMin= cps[0][0];
           let yMin= cps[0][1];
           let xMax= xMin;
@@ -811,8 +788,8 @@
        * @return {Vec2[]} points in counter-cwise, bottom-right first
        */
       calcRectPoints(w,h){
-        const hw=MFL(w/2);
-        const hh=MFL(h/2);
+        const hw=w/2,
+              hh=h/2;
         return [_V.vec(hw,-hh), _V.vec(hw,hh),
                 _V.vec(-hw,hh), _V.vec(-hw,-hh)]
       },
@@ -828,10 +805,10 @@
        * @return {boolean}
        */
       rectEqRect(r1,r2){
-        return r1.width===r2.width &&
-               r1.height===r2.height &&
-               r1.pos[0]===r2.pos[0] &&
-               r1.pos[1]===r2.pos[1]
+        return r1.width==r2.width &&
+               r1.height==r2.height &&
+               r1.pos[0]==r2.pos[0] &&
+               r1.pos[1]==r2.pos[1]
       },
       /**Check if `R` contains `r`.
        * @memberof module:mcfud/geo2d
@@ -856,7 +833,7 @@
        * @param {Rect} r
        * @return {number}
        */
-      rectGetMidX(r){ return r.pos[0] + MFL(r.width/2) },
+      rectGetMidX(r){ return r.pos[0] + r.width/2 },
       /**Get the left on the x-axis.
        * @memberof module:mcfud/geo2d
        * @param {Rect} r
@@ -874,7 +851,7 @@
        * @param {Rect} r
        * @return {number}
        */
-      rectGetMidY(r){ return r.pos[1] + MFL(r.height/2) },
+      rectGetMidY(r){ return r.pos[1] + r.height/2 },
       /**Get the bottom on the y-axis.
        * @memberof module:mcfud/geo2d
        * @param {Rect} r
@@ -942,9 +919,10 @@
        * @return {boolean}
        */
       hitTestPointCircle(px, py, c){
+        _.assert(c instanceof Body, "wanted a body");
         let dx=px-c.pos[0];
         let dy=py-c.pos[1];
-        return dx*dx+dy*dy <= c.radius*c.radius;
+        return dx*dx+dy*dy <= c.shape.radius*c.shape.radius;
       },
       /**If these 2 circles collide, return the manifold.
        * @memberof module:mcfud/geo2d
@@ -953,6 +931,7 @@
        * @return {Manifold} if false undefined
        */
       hitCircleCircle(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         let m=new Manifold();
         if(_circle_circle(a,b,m)) return m;
       },
@@ -963,6 +942,7 @@
        * @return {boolean}
        */
       hitTestCircleCircle(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         return _circle_circle(a,b,new Manifold());
       },
       /**If this polygon collides with the circle, return the manifold.
@@ -972,6 +952,7 @@
        * @return {Manifold} if false undefined
        */
       hitPolygonCircle(p, c){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         let m=new Manifold();
         if(_poly_circle(p,c,m)) return m;
       },
@@ -982,6 +963,7 @@
        * @return {boolean}
        */
       hitTestPolygonCircle(p, c){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         return _poly_circle(p,c,new Manifold())
       },
       /**If this circle collides with polygon, return the manifold.
@@ -991,6 +973,7 @@
        * @return {Manifold} if false undefined
        */
       hitCirclePolygon(c, p){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         let m=new Manifold();
         if(_circle_poly(c,p,m)) return m;
       },
@@ -1001,6 +984,7 @@
        * @return {boolean}
        */
       hitTestCirclePolygon(c, p){
+        _.assert(p instanceof Body && c instanceof Body, "need bodies");
         return _circle_poly(c,p,new Manifold())
       },
       /**If these 2 polygons collide, return the manifold.
@@ -1010,6 +994,7 @@
        * @return {Manifold} if false undefined
        */
       hitPolygonPolygon(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         let m=new Manifold();
         if(_poly_poly(a,b,m)) return m;
       },
@@ -1020,6 +1005,7 @@
        * @return {boolean}
        */
       hitTestPolygonPolygon(a, b){
+        _.assert(a instanceof Body && b instanceof Body, "need bodies");
         return _poly_poly(a,b,new Manifold())
       },
       /**Check if a point is inside these polygon vertices.
@@ -1049,11 +1035,13 @@
        * @return {boolean}
        */
       hitTestPointPolygon(testx,testy,poly){
+        _.assert(poly instanceof Body, "wanted a body");
         return this.hitTestPointInPolygon(testx,testy,
-                                          _V.translate(poly.pos,poly.calcPoints))
+                                          _V.translate(poly.pos,poly.shape.calcPoints))
       },
       hitTestLinePolygon(p,p2, poly){
-        let vs=Polygon.translateCalcPoints(poly);
+        _.assert(poly instanceof Body, "wanted a body");
+        let vs=_V.translate(poly.pos, poly.shape.calcPoints);
         for(let i=0,i2=0; i<vs.length; ++i){
           i2= i+1;
           if(i2 == vs.length) i2=0;
@@ -1120,7 +1108,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"),
                            require("./math"),
                            require("./vec2"),
@@ -1130,3 +1118,5 @@
   }
 
 })(this);
+
+

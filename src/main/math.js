@@ -10,15 +10,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
     //const EPSILON= 0.0000000001;
     const NEG_DEG_2PI= -360;
@@ -32,24 +33,21 @@
      * @module mcfud/math
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const PERLIN_YWRAPB = 4;
     const PERLIN_YWRAP = 1 << PERLIN_YWRAPB;
     const PERLIN_ZWRAPB = 8;
     const PERLIN_ZWRAP = 1 << PERLIN_ZWRAPB;
     const PERLIN_SIZE = 4095;
+    let _perlinArr,
+        perlin_octaves = 4, // default to medium smooth
+        perlin_amp_falloff = 0.5; // 50% reduction/octave
 
-    let perlin_octaves = 4; // default to medium smooth
-    let perlin_amp_falloff = 0.5; // 50% reduction/octave
-    let _perlinArr;
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const scaled_cosine=(i)=> 0.5 * (1.0 - Math.cos(i * Math.PI));
+    const _mod_deg=(deg)=> deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI;
 
-    function scaled_cosine(i){
-      return 0.5 * (1.0 - Math.cos(i * Math.PI))
-    }
-
-    /** @ignore */
-    function _mod_deg(deg){
-      return deg<0 ? -(-deg%DEG_2PI) : deg%DEG_2PI }
-
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       /**Liner interpolation.
        * @memberof module:mcfud/math
@@ -68,7 +66,29 @@
        * @return {number}
        */
       xmod(x,N){
-        return x<0 ? x-(-(N + N*Math.floor(-x/N))) : x%N
+        return x<0 ? x-(-(N + N*int(-x/N))) : x%N
+      },
+      /**Divide this number as integer.
+       * @memberof module:mcfud/math
+       * @param {number} a
+       * @param {number} b
+       * @return {number} integer result
+       */
+      ndiv(a,b){
+        return int(a/b)
+      },
+      /**Calc the base to the exponent power, as in base^exponent
+       * @memberof module:mcfud/math
+       * @param {number} a base
+       * @param {number} n exponent
+       * @return {number}
+       */
+      pow(a,n){
+        if(n==0) return 1;
+        if(n==1) return a;
+        if(n==2) return a*a;
+        if(n==3) return a*a*a;
+        return Math.pow(a,n);
       },
       /**Limit the value to within these 2 numbers.
        * @memberof module:mcfud/math
@@ -131,8 +151,8 @@
        * @ignore
        */
       biasGreater(a,b){
-        const biasRelative= 0.95;
-        const biasAbsolute= 0.01;
+        const biasRelative= 0.95,
+              biasAbsolute= 0.01;
         return a >= (b*biasRelative + a*biasAbsolute)
       },
       /**Re-maps a number from one range to another.
@@ -158,8 +178,8 @@
        * @return {number[]} fOutput
        */
       perlin1D(nCount, fSeed, nOctaves, fBias, fOutput){
-        let fNoise, fScaleAcc, fScale;
-        let nPitch, nSample1, nSample2, fBlend, fSample;
+        let fNoise, fScaleAcc, fScale,
+            nPitch, nSample1, nSample2, fBlend, fSample;
         for(let x=0; x<nCount; ++x){
           fNoise = 0; fScaleAcc = 0; fScale = 1;
           for(let o=0; o<nOctaves; ++o){
@@ -188,9 +208,9 @@
        * @return {number[]} fOutput
        */
       perlin2D(nWidth, nHeight, fSeed, nOctaves, fBias, fOutput){
-        let fNoise, fScaleAcc, fScale;
-        let fBlendX, fBlendY, fSampleT, fSampleB;
-        let nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
+        let fNoise, fScaleAcc, fScale,
+            fBlendX, fBlendY, fSampleT, fSampleB,
+            nPitch, nSampleX1, nSampleY1, nSampleX2, nSampleY2;
         for(let x=0; x<nWidth; ++x)
           for(let y=0; y<nHeight; ++y){
             fNoise = 0; fScaleAcc = 0; fScale = 1;
@@ -220,7 +240,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("./core"))
   }else{
     gscope["io/czlab/mcfud/math"]=_module

@@ -12,15 +12,17 @@
  *
  * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
-  function _module(Core){
+  function _module(Core,_M){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const MFL=Math.floor;
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+    const int=Math.floor;
     const {u:_} = Core;
 
     /**
@@ -53,8 +55,8 @@
       //if flipped the co-ord system is LHS (like a browser, y grows down, objects are top-left+width_height)
       //else RHS (standard, y grows up, objects are left-bottom+width_height)
       let flipped=(top<bottom),
-          midX= MFL((left+right)/2),
-          midY= MFL((top+bottom)/2);
+          midX= _M.ndiv(left+right,2),
+          midY= _M.ndiv(top+bottom,2);
       //find which quadrants r touches
       function _locate(r){
         let x,y,width,height;
@@ -218,8 +220,8 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"));
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("./core"),require("./math"));
   }else{
     gscope["io/czlab/mcfud/qtree"]=_module
   }

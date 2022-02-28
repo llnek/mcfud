@@ -10,15 +10,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const {u:_}=Core;
 
@@ -39,9 +40,9 @@
        * @param {any} other
        */
       constructor(cur,other){
-        this.cur=cur;
-        this.state= null;
+        this.state= UNDEF;
         this.other=other;
+        this.cur=cur;
       }
       /**Make a copy of this.
        * @param {function} cp  able to make a copy of state
@@ -62,7 +63,7 @@
      */
     class GameBoard{
       constructor(){
-        this.aiActor=null;
+        this.aiActor=UNDEF;
       }
       /**Get the function that copies a game state.
        * @return {function}
@@ -158,11 +159,9 @@
       }
     }
 
-    /** @ignore */
-    function _calcScore(board,game,depth,maxDepth){
-      //+ve if AI wins
-      return board.evalScore(game,depth,maxDepth)
-    }
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    //+ve if AI wins
+    const _calcScore=(board,game,depth,maxDepth)=> board.evalScore(game,depth,maxDepth);
 
     /**Implements the Min-Max (alpha-beta) algo.
      * @param {GameBoard} board
@@ -174,8 +173,8 @@
      * @return {number}
      */
     function _miniMax(board, game, depth,maxDepth, alpha, beta, maxing){
-      if(depth===0 || board.isOver(game)){
-        return [_calcScore(board,game,depth,maxDepth),null]
+      if(depth==0 || board.isOver(game)){
+        return [_calcScore(board,game,depth,maxDepth),UNDEF]
       }
       ///////////
       let state=game,
@@ -239,8 +238,7 @@
       evalMiniMax(board){
         const f= board.takeGFrame();
         const d= board.depth;
-        let score,move;
-        [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
+        let [score, move]= _miniMax(board, f, d,d, -Infinity, Infinity, true);
         if(_.nichts(move))
           console.log(`evalMiniMax: score=${score}, pos= ${move}`);
         return move;

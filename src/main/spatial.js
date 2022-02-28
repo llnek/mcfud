@@ -10,17 +10,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2020-2021, Kenneth Leung. All rights reserved. */
+ * Copyright © 2020-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Creates the module.
    */
-  function _module(Core){
+  function _module(Core,_M){
+
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
-    const MFL=Math.floor;
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+    const int=Math.floor;
     const {u:_,is} = Core;
 
     /**
@@ -82,12 +84,12 @@
           if(!item){return}
           let r = item.getBBox(),
               g = item.getSpatial(),
-              gridX1 = MFL(r.x1 / cellW),
-              gridY1 = MFL(r.y1 / cellH),
-              gridX2 = MFL(r.x2/cellW),
-              gridY2 = MFL(r.y2/ cellH);
-          if(g.x1 !== gridX1 || g.x2 !== gridX2 ||
-             g.y1 !== gridY1 || g.y2 !== gridY2){
+              gridX1 = _M.ndiv(r.x1 , cellW),
+              gridY1 = _M.ndiv(r.y1 , cellH),
+              gridX2 = _M.ndiv(r.x2,cellW),
+              gridY2 = _M.ndiv(r.y2, cellH);
+          if(g.x1 != gridX1 || g.x2 != gridX2 ||
+             g.y1 != gridY1 || g.y2 != gridY2){
             this.degrid(item);
             g.x1= gridX1;
             g.x2= gridX2;
@@ -147,8 +149,8 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("./core"));
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("./core"),require("./math"));
   }else{
     gscope["io/czlab/mcfud/spatial"]=_module
   }

@@ -10,18 +10,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2021, Kenneth Leung. All rights reserved.
+// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
-  function _module(Core,Basic,Sort){
+  function _module(Core,_M,Basic,Sort){
+
     if(!Basic) Basic= gscope["io/czlab/mcfud/algo/basic"]();
     if(!Sort) Sort= gscope["io/czlab/mcfud/algo/sort"]();
     if(!Core) Core= gscope["io/czlab/mcfud/core"]();
+    if(!_M) _M= gscope["io/czlab/mcfud/math"]();
+
     const {prnIter, TreeMap,Bag,Stack,Queue,ST,StdCompare:CMP}= Basic;
     const {IndexMinPQ,MinPQ}= Sort;
     const int=Math.floor;
@@ -38,6 +41,7 @@
       return true;
     }
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an undirected graph of vertices named 0 through <em>V</em> – 1.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -131,6 +135,7 @@
     }
     //Graph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the vertices
      * connected to a given source vertex <em>s</em>
      *  in an undirected graph.
@@ -187,6 +192,7 @@
     }
     //DepthFirstSearch.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding the vertices connected to a source vertex <em>s</em> in the undirected graph.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -244,6 +250,7 @@
     }
     //NonrecursiveDFS.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding paths from a source vertex <em>s</em>
      * to every other vertex in an undirected graph.
      * @memberof module:mcfud/algo_graph
@@ -317,7 +324,8 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // breadth-first search from a single source
-    function _bfs(G, s, M){ return _bfss(G,[s],M) }
+    const _bfs=(G, s, M)=> _bfss(G,[s],M);
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // breadth-first search from multiple sources
     function _bfss(G, sources, M){
@@ -342,6 +350,7 @@
         }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     // check optimality conditions for single source
     function _check(G, s,M){
@@ -376,6 +385,7 @@
       }
       return true;
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function _chkVerts(vs,V){
       if(!vs || vs.length==0)
@@ -383,6 +393,8 @@
       vs.forEach(v=> _chkVertex(v,V));
       return true;
     }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for finding shortest paths (number of edges)
      * from a source vertex <em>s</em> (or a set of source vertices)
      * to every other vertex in an undirected graph.
@@ -457,6 +469,7 @@
     }
     //BreadthFirstPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a weighted edge in an {@link EdgeWeightedGraph}.
      * Each edge consists of two integers.
      * (naming the two vertices) and a real-value weight.
@@ -521,6 +534,7 @@
     }
     //Edge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents an edge-weighted graph of vertices named 0 through <em>V</em> – 1,
      * where each undirected edge is of type {@link Edge} and has a real-valued weight.
      * @memberof module:mcfud/algo_graph
@@ -658,6 +672,7 @@
     }
     //EdgeWeightedGraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the connected components in an undirected graph.
      * @memberof module:mcfud/algo_graph
      * @class
@@ -749,6 +764,7 @@
     }
     //CC.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a directed graph of vertices
      *  named 0 through <em>V</em> - 1.
      *  It supports the following two primary operations: add an edge to the digraph,
@@ -890,6 +906,7 @@
     }
     //Digraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining the vertices reachable
      * from a given source vertex <em>s</em> (or set of source vertices) in a digraph.
      * @memberof module:mcfud/algo_graph
@@ -948,6 +965,7 @@
     }
     //DirectedDFS.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining whether a digraph has a directed cycle.
      *  The <em>hasCycle</em> operation determines whether the digraph has
      *  a simple directed cycle and, if so, the <em>cycle</em> operation
@@ -968,9 +986,9 @@
         this.bMarked  = new Array(G.V());
         this.onStack = new Array(G.V());
         this.edgeTo  = new Array(G.V());
-        this.mCycle=null;
+        this.mCycle=UNDEF;
         for(let v=0; v<G.V(); ++v)
-          if(!this.bMarked[v] && this.mCycle === null) this._dfs(G, v);
+          if(!this.bMarked[v] && !this.mCycle) this._dfs(G, v);
       }
       // run DFS and find a directed cycle (if one exists)
       _dfs(G, v){
@@ -979,7 +997,7 @@
         for(let w, it=G.adj(v).iter(); it.hasNext();){
           w=it.next();
           // short circuit if directed cycle found
-          if(this.mCycle !== null){return}
+          if(this.mCycle){return}
           // found new vertex, so recur
           if(!this.bMarked[w]){
             this.edgeTo[w] = v;
@@ -1001,7 +1019,7 @@
        * @return {boolean}
        */
       hasCycle(){
-        return this.mCycle !== null;
+        return !!this.mCycle;
       }
       /**Returns a directed cycle if the digraph has a directed cycle, and {@code null} otherwise.
        * @return {Iterator}
@@ -1042,6 +1060,7 @@
     }
     //DirectedCycle.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a weighted edge in an
      *  {@link EdgeWeightedDigraph}. Each edge consists of two integers
      *  (naming the two vertices) and a real-value weight. The data type
@@ -1097,6 +1116,7 @@
     }
     //DirectedEdge.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a edge-weighted digraph of vertices named 0 through <em>V</em> - 1,
      * where each directed edge is of type {@link DirectedEdge} and has a real-valued weight.
      * @memberof module:mcfud/algo_graph
@@ -1238,6 +1258,7 @@
     }
     //EdgeWeightedDigraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for determining depth-first search ordering of the vertices in a digraph
      *  or edge-weighted digraph, including preorder, postorder, and reverse postorder.
      *  <p>
@@ -1358,6 +1379,7 @@
     }
     //DepthFirstOrder.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for
      *  determining whether an edge-weighted digraph has a directed cycle.
      *  The <em>hasCycle</em> operation determines whether the edge-weighted
@@ -1427,7 +1449,7 @@
       // certify that digraph is either acyclic or has a directed cycle
       _check(){
         if(this.hasCycle()){// edge-weighted digraph is cyclic
-          let first = null, last = null;
+          let first = UNDEF, last = UNDEF;
           for(let e, it=this.cycle(); it.hasNext();){
             e=it.next();
             if(!first) first = e;
@@ -1471,6 +1493,7 @@
     }
     //EdgeWeightedDirectedCycle.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a digraph, where the
      *  vertex names are arbitrary strings.
      *  By providing mappings between string vertex names and integers,
@@ -1575,6 +1598,7 @@
     }
     //SymbolGraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a digraph, where the
      *  vertex names are arbitrary strings.
      *  By providing mappings between string vertex names and integers,
@@ -1678,6 +1702,7 @@
     }
     //SymbolDigraph.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for
      *  determining a topological order of a <em>directed acyclic graph</em> (DAG).
      *  A digraph has a topological order if and only if it is a DAG.
@@ -1693,8 +1718,8 @@
        * @param {Graph} G the digraph
        */
       constructor(G){
-        this._order=null;
-        this.rank=null;
+        this._order=UNDEF;
+        this.rank=UNDEF;
         let finder;
         if(G instanceof EdgeWeightedDigraph){
           finder = new EdgeWeightedDirectedCycle(G);
@@ -1756,6 +1781,7 @@
     }
     //Topological.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -1829,6 +1855,7 @@
     }
     //DepthFirstDirectedPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -1925,6 +1952,7 @@
     }
     //BreadthFirstDirectedPaths.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving the
      *  single-source shortest paths problem in edge-weighted digraphs
      *  where the edge weights are non-negative.
@@ -1996,7 +2024,7 @@
       pathTo(v){
         if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
           let path = new Stack();
-          for(let e = this.edgeTo[v]; e != null; e = this.edgeTo[e.from()])
+          for(let e = this.edgeTo[v]; e; e = this.edgeTo[e.from()])
             path.push(e);
           return path.iter();
         }
@@ -2010,12 +2038,12 @@
             throw Error("negative edge weight detected");
         }
         // check that distTo[v] and edgeTo[v] are consistent
-        if(this._distTo[s] != 0 || this.edgeTo[s] !== null)
+        if(this._distTo[s] != 0 || this.edgeTo[s])
           throw Error("distTo[s] and edgeTo[s] inconsistent");
         ////
         for(let v=0; v<G.V(); ++v){
           if(v == s) continue;
-          if(this.edgeTo[v] === null && this._distTo[v] != Infinity)
+          if(!this.edgeTo[v] && this._distTo[v] != Infinity)
             throw Error("distTo[] and edgeTo[] inconsistent");
         }
         // check that all edges e = v->w satisfy distTo[w] <= distTo[v] + e.weight()
@@ -2029,7 +2057,7 @@
         }
         // check that all edges e = v->w on SPT satisfy distTo[w] == distTo[v] + e.weight()
         for(let v,e,w=0; w<G.V(); ++w){
-          if(this.edgeTo[w] === null){}else{
+          if(!this.edgeTo[w]){}else{
             e = this.edgeTo[w];
             v = e.from();
             if(w != e.to()) throw Error("bad edge");
@@ -2077,6 +2105,7 @@
         equals(o){ return o.V==this.V }
       }
     }
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**
      * @memberof module:mcfud/algo_graph
@@ -2170,6 +2199,7 @@
     }
     //AStarSP.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     /**Represents a data type for solving
      *  the single-source shortest paths problem in edge-weighted graphs
      *  where the edge weights are non-negative.
@@ -2241,7 +2271,7 @@
       pathTo(v){
         if(_chkVertex(v,this._distTo.length) && this.hasPathTo(v)){
           let x=v,path = new Stack();
-          for(let e = this.edgeTo[v]; e !== null; e = this.edgeTo[x]){
+          for(let e = this.edgeTo[v]; e; e = this.edgeTo[x]){
             path.push(e);
             x = e.other(x);
           }
@@ -2258,12 +2288,12 @@
             throw Error("negative edge weight detected");
         }
         // check that distTo[v] and edgeTo[v] are consistent
-        if(this._distTo[s] != 0 || this.edgeTo[s] !== null){
+        if(this._distTo[s] != 0 || this.edgeTo[s]){
           throw Error("distTo[s] and edgeTo[s] inconsistent");
         }
         for(let v=0; v<G.V(); ++v){
           if(v == s) continue;
-          if(this.edgeTo[v] === null &&
+          if(!this.edgeTo[v] &&
              this._distTo[v] != Infinity){
             throw Error("distTo[] and edgeTo[] inconsistent");
           }
@@ -2280,7 +2310,7 @@
         }
         // check that all edges e = v-w on SPT satisfy distTo[w] == distTo[v] + e.weight()
         for(let v,e,w=0; w<G.V(); ++w){
-          if(this.edgeTo[w] === null) continue;
+          if(!this.edgeTo[w]) continue;
           e = this.edgeTo[w];
           if(w != e.either() && w != e.other(e.either())) return false;
           v = e.other(w);
@@ -2311,6 +2341,7 @@
     }
     //DijkstraUndirectedSP.test();
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       DepthFirstDirectedPaths,
       BreadthFirstDirectedPaths,
@@ -2340,8 +2371,10 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
-    module.exports=_module(require("../main/core"),require("./basic"), require("./sort"))
+  if(typeof module == "object" && module.exports){
+    module.exports=_module(require("../main/core"),
+                           require("../main/math"),
+                           require("./basic"), require("./sort"))
   }else{
     gscope["io/czlab/mcfud/algo/graph"]=_module
   }

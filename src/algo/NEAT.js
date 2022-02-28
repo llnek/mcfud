@@ -12,13 +12,14 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
-;(function(gscope){
+;(function(gscope,UNDEF){
 
   "use strict";
 
   /**Create the module.
    */
   function _module(Core){
+
     if(!Core) Core=gscope["io/czlab/mcfud/core"]();
     const int=Math.floor;
     const {u:_, is}= Core;
@@ -140,7 +141,7 @@
           this.value=n;
         },
         clone(){
-          return NumFitness(v, flip)
+          return NumFitness(this.value, flip)
         }
       }
     }
@@ -871,7 +872,6 @@
       numToSpawn(){return this.spawnsRqd}
       numMembers(){return this.vecMembers.length}
       gensNoImprovement(){return this._gensNoImprovement}
-      //speciesLeaderFitness(){return this._leader.fitness.score() }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1155,7 +1155,6 @@
               if(++numSpawnedSoFar == this.popSize){ numToSpawn = 0 }
             }
           }
-          //kkeeee
         });
         //if there is an underflow due to the rounding error and the amount
         //of offspring falls short of the population size additional children
@@ -1206,7 +1205,7 @@
   }
 
   //export--------------------------------------------------------------------
-  if(typeof module === "object" && module.exports){
+  if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"))
   }else{
     gscope["io/czlab/mcfud/algo/NEAT"]=_module
