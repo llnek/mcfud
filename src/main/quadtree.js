@@ -49,57 +49,58 @@
      */
 
     /**Creates a QuadTree. */
-    function QuadTree(left,right,top,bottom,maxCount,maxDepth,level){
+    function QuadTree(X1,X2,Y1,Y2,maxCount,maxDepth,level){
       let boxes=null,
           objects = [];
-      //if flipped the co-ord system is LHS (like a browser, y grows down, objects are top-left+width_height)
-      //else RHS (standard, y grows up, objects are left-bottom+width_height)
-      let flipped=(top<bottom),
-          midX= _M.ndiv(left+right,2),
-          midY= _M.ndiv(top+bottom,2);
+      let midX= _M.ndiv(X1+X2,2),
+          midY= _M.ndiv(Y1+Y2,2);
+
       //find which quadrants r touches
       function _locate(r){
-        let x,y,width,height;
-        if(r.getBBox){
-          let {x1,x2,y1,y2}=r.getBBox();
-          x=x1;y=y1;width=x2-x1;height=flipped? y2-y1:y1-y2;
-        }else if(r.x !== undefined && r.y !== undefined && r.width !== undefined && r.height !== undefined){
-          x=r.x; y=r.y; width=r.width; height=r.height;
+        function _loc({x1,x2,y1,y2}){
+          let out=[],
+              left= x1<midX,
+              right= x2>midX;
+          if(y1<midY){
+            if(left) out.push(3);
+            if(right) out.push(0);
+          }
+          if(y2>midY){
+            if(left) out.push(2);
+            if(right) out.push(1);
+          }
+          return out;
         }
-        let out=[],
-            left= x<midX,
-            right= x+width>midX,
-            up= flipped? (y<midY) : (y+height>midY),
-            down= flipped? (y+height>midY): (y<midY);
-        if(up){
-          if(left) out.push(3);
-          if(right) out.push(0); }
-        if(down){
-          if(left) out.push(2);
-          if(right) out.push(1); }
-        return out;
+        /////
+        if(r.getBBox){
+          return _loc(r.getBBox())
+        }else{
+          _.assert(r.x1 !== undefined && r.y1 !== undefined &&
+                   r.x2 !== undefined && r.y2 !== undefined,"wanted bbox for quadtree");
+          return _loc(r)
+        }
       }
 
       //split into 4 quadrants
       function _split(){
+        //flipit
         //3|0
         //---
         //2|1
         _.assert(boxes===null);
-        boxes=[QuadTree(midX, right,top,midY,maxCount,maxDepth,level+1),
-               QuadTree(midX, right, midY, bottom,maxCount,maxDepth,level+1),
-               QuadTree(left, midX, midY, bottom,maxCount,maxDepth,level+1),
-               QuadTree(left, midX, top, midY,maxCount,maxDepth,level+1)];
+        boxes=[QuadTree(midX, X2, Y1,midY,     maxCount,maxDepth,level+1),
+               QuadTree(midX, X2, midY, Y2, maxCount,maxDepth,level+1),
+               QuadTree(X1, midX, midY, Y2, maxCount,maxDepth,level+1),
+               QuadTree(X1, midX, Y1, midY,    maxCount,maxDepth,level+1)];
       }
 
-      const bbox={x1:left,x2:right,y1:top,y2:bottom};
+      const bbox={x1:X1,x2:X2,y1:Y1,y2:Y2};
       return{
         boundingBox(){ return bbox },
         subTrees(){return boxes},
         dbg(f){ return f(objects,boxes,maxCount,maxDepth,level) },
-        insert:function(node){
-          for(let n=0;n<arguments.length;++n){
-            node=arguments[n];
+        insert(...nodes){
+          nodes.forEach(node=>{
             if(boxes){
               _locate(node).forEach(i=> boxes[i].insert(node))
             }else{
@@ -110,7 +111,7 @@
                 objects.length=0;
               }
             }
-          }
+          })
         },
         remove(node){
           if(boxes){
@@ -135,12 +136,11 @@
                 total+=n;
               }
             }
-            if(sum===boxes.length){//4
+            if(sum==boxes.length){//4
               //subtrees are leaves and total count is small
               //enough so pull them up into this node
               if(total<maxCount){
-                _.assert(objects.length===0,
-                         "quadtree wanted zero items");
+                _.assert(objects.length==0, "quadtree wanted zero items");
                 boxes.forEach(b=>b._swap(objects));
                 boxes=null;
                 //now this node is a leaf!
@@ -205,14 +205,14 @@
     const _$={
       /**
        * @memberof module:mcfud/quadtree
-       * @param {object} region {left,right,top,bottom} the bounding region
+       * @param {object} region {x1,x2,y1,y2} the bounding region
        * @param {number} maxCount maximum number of objects in each tree
        * @param {number} maxDepth maximum depth of tree
        * @return {QuadTree}
        */
       quadtree(region,maxCount=12,maxDepth=5){
-        const {left,right,top,bottom}=region;
-        return QuadTree(left,right,top,bottom,maxCount,maxDepth,0)
+        const {x1,x2,y1,y2}=region;
+        return QuadTree(x1,x2,y1,y2,maxCount,maxDepth,0)
       }
     };
 

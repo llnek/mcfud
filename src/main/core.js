@@ -537,16 +537,16 @@
        * @param {number} max
        * @return {number}
        */
-      randInt2(min,max){ return _randXYInclusive(min,max) },
+      randInt2(min,max){
+        return min + int(PRNG() * (max-min+1)) },
       /**Get a random float between min and max.
        * @memberof module:mcfud/core._
        * @param {number} min
        * @param {number} max
        * @return {number}
        */
-      randFloat(min, max){
-        return min + PRNG() * (max-min)
-      },
+      randFloat2(min, max){
+        return min + PRNG() * (max-min+1) },
       /**Get a random float between -1 and 1.
        * @memberof module:mcfud/core._
        * @return {number}

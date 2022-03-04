@@ -253,7 +253,7 @@
         this.calcPoints=[];
         this.normals=[];
         this.edges=[];
-        this.set(points);
+        this.set(points||[]);
       }
       /**Set vertices.
        * @param {Vec2[]} points
@@ -1038,6 +1038,25 @@
         _.assert(poly instanceof Body, "wanted a body");
         return this.hitTestPointInPolygon(testx,testy,
                                           _V.translate(poly.pos,poly.shape.calcPoints))
+      },
+      hitTestLineCircle(A,B, x, y, radius){
+        let AB=_V.sub(B,A),
+            C=[x,y],
+            AC=_V.sub(C,A),
+            BC=_V.sub(C,B),
+            AC_L2=_V.len2(AC);
+        //try to get the 90deg proj onto line
+        //let proj=_V.proj_scalar(AC,AB);
+        //let U=proj/_V.len(AB);
+        let dist,u = _V.dot(AC,AB) / _V.dot(AB,AB);
+        if(u >= 0 && u <= 1){
+          // point is on the line so just get the dist2 to the point
+          dist= AC_L2 - u*u*_V.len2(AB);
+        }else{
+          // find which end is closest and get dist2 to circle
+          dist = u < 0 ? AC_L2 : _V.len2(BC);
+        }
+        return [dist < radius * radius];
       },
       hitTestLinePolygon(p,p2, poly){
         _.assert(poly instanceof Body, "wanted a body");
