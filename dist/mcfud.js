@@ -935,20 +935,32 @@
       },
       shuffle2(obj,inplace=true){
         _pre(isVec,obj,"array");
-        if(obj.length<3){
-          obj= this.shuffle(obj,inplace)
-        }else{
-          const n = obj.length,
-                res=Slicer.call(obj,0);
-          for(let s,r,i=0; i<n; ++i){
-            // choose index uniformly in [i, n-1]
-            r = i + int(PRNG() * (n - i));
-            s= obj[r];
-            obj[r] = obj[i];
-            obj[i] = s;
-          }
+        const res=Slicer.call(obj,0);
+        switch(res.length){
+          case 0:
+          case 1:
+            break;
+          case 2:
+            if(this.randSign()>0){
+              let a=res[0];
+              res[0]=res[1];
+              res[1]=a;
+            }
+            break;
+          default:
+            for(let s,r,i=0,n=res.length; i<n; ++i){
+              // choose index uniformly in [i, n-1]
+              r = i + int(PRNG() * (n - i));
+              s= res[r];
+              res[r] = res[i];
+              res[i] = s;
+            }
         }
-        return obj;
+        return inplace?this.copy(obj,res):res;
+      },
+      shuffle3(obj,inplace=true){
+        let a= inplace? obj : Slicer.call(obj,0);
+        return a.sort((x,y)=> this.rand()>0.5?-1:(this.rand()>0.5?1:0))
       },
       /**Get the distinct items only.
        * @memberof module:mcfud/core._
