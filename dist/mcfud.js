@@ -5424,6 +5424,10 @@
                       _.dissoc(X,item.getGuid())
               }
             }
+            g.x1=UNDEF;
+            g.x2=UNDEF;
+            g.y1=UNDEF;
+            g.y2=UNDEF;
           }
         }
       }
