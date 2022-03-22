@@ -212,15 +212,16 @@
 						out.push(new NeuronLayer(neuronsPerHidden, inputs));
 						for(let i=0; i<numHidden-1; ++i)
 							out.push(new NeuronLayer(neuronsPerHidden,neuronsPerHidden));
-						inputs= neuronsPerHidden;
 					}
-					return _.conj(out,new NeuronLayer(outputs, inputs));
+					return _.conj(out,new NeuronLayer(outputs, numHidden>0?neuronsPerHidden:inputs));
 				})([]);
+
 				this.numOfWeights=this.layers.reduce((sum,y)=>{
 					return sum + y.neurons.reduce((acc,u)=>{
 						return acc+u.weights.length
 					},0)
 				},0);
+
 				this.numOutputs=outputs;
 				this.numInputs=inputs;
 				this.numHidden=numHidden;
