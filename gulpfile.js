@@ -28,6 +28,7 @@ const jsFiles = [
   "src/algo/genetic.js",
   "src/algo/NEAT.js",
   "src/algo/NEAT2.js",
+  "src/algo/maze.js",
   "src/main/test.js"
 ];
 
