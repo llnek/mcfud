@@ -28,7 +28,7 @@
     if(!_M) _M=gscope["io/czlab/mcfud/math"]();
     if(!_V) _V=gscope["io/czlab/mcfud/vec2"]();
     if(!_X) _X=gscope["io/czlab/mcfud/matrix"]();
-    if(!_B) _B= gscope["io/czlab/mcfud/algo_basic"]();
+    if(!_B) _B= gscope["io/czlab/mcfud/algo/basic"]();
 
     const {Stack,StdCompare:CMP}= _B;
     const int=Math.floor;
