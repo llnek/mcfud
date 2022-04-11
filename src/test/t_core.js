@@ -76,6 +76,27 @@ Test.deftest("Core").
     let ok2= o.get("x")===undefined && o.get("z")===undefined && o.get("a")===1 && o.get("c")===2;
     return ok1&&ok2;
   }).
+  ensure("copyKeys",()=>{
+    let o=_.copyKeys({}, {a:1,c:2,x:3,y:4},"a,c");
+    let ok1= o.a===1 && o.c===2 && Object.keys(o).length===2;
+    o=_.copyKeys(new Map(), new Map([["a",1],["x",3],["c",2],["z",4]]),["x","z"]);
+    let ok2= o.get("x")===3 && o.get("z")===4 && o.size===2;
+    return ok1&&ok2;
+  }).
+  ensure("clearKeys",()=>{
+    let o=_.clearKeys({a:1,c:2,x:3,y:4},"a,c,z,q");
+    let ok1= Object.keys(o).length===2;
+    o=_.clearKeys(new Map([["a",1],["x",3],["c",2],["z",4]]),["x","z","k","m"]);
+    let ok2= o.size===2;
+    return ok1&&ok2;
+  }).
+  ensure("setManyKeys",()=>{
+    let o=_.setManyKeys({},"a,c,z,q",1);
+    let ok1= o.a===1 && o.q===1 && Object.keys(o).length===4;
+    o=_.setManyKeys(new Map(),["x","z","k","m"],1);
+    let ok2= o.get("x")===1 && o.get("k")===1 && o.size===4;
+    return ok1&&ok2;
+  }).
   ensure("selectKeys",()=>{
     let o=_.selectKeys({a:1,c:2,x:3,y:4},"a,c");
     let ok1= o.a===1 && o.c===2 && Object.keys(o).length===2;
@@ -96,11 +117,13 @@ Test.deftest("Core").
     }
     return t===N;
   }).
-  ensure("randFloat",()=>{
+  ensure("randFloat2",()=>{
     let t=0,N=1000;
     for(let x,i=0;i<N;++i){
-      x=_.randFloat(10,17);
-      if(x >= 10 && x < 17)t++;
+      x=_.randFloat2(10,17);
+      if(x >= 10 && x < 17){
+        t++;
+      }
     }
     return t===N;
   }).
