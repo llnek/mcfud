@@ -19,6 +19,8 @@ var express= require("express");
 
 var BC= require( "./blockchain");
 var P2P= require("./p2p");
+var TX= require("./tx");
+
 
 let {Block, genNextBlock, getChain}= BC;
 let {connect, getSockets, initServer} = P2P;
