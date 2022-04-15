@@ -22,7 +22,7 @@
 
   /**Create the module.
   */
-  function _module(Core, CryptoJS){
+  function _module(Core, CryptoJS, P2P){
 
     if(!CryptoJS)
       CryptoJS=gscope.CryptoJS;
@@ -40,31 +40,31 @@
     const H1="79ad3126b0d0645bc5cf8ca4af61ce4a7a41e6ad5e66c86419a7e2ec3f121627";
     const H0="";
     const TS1=Date.parse("01 Jan 2001 00:00:00 GMT");
-    let _blockChain = [Block(TS1,0,"Bonjour!",H1,H0,POW())];
-    function CHAIN(pos){ return is.num(pos) ? _blockChain.at(pos) : _blockChain }
-    function CHAIN_ADD(b){ return _blockChain.push(b)>0 }
+
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    function CHAIN(pos){ return is.num(pos) ? _$.blockChainDB.at(pos) : _$.blockChainDB }
+    function CHAIN_ADD(b){ return _$.blockChainDB.push(b)>0 }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const
       DIFFICULTY_ADJUSTMENT_BLOCKS= 10,
       BLOCK_GEN_INTERVAL_SECS= 10;
 
+
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function POW(nonce=0,difficulty=0){ return {nonce, difficulty} }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function Block(ts,index,data,hash,prev,pow){
-      return{
-        ts,index, data, hash, prev,
-        proofOfWork: _.inject({}, pow)
-      }
+      return{ ts,index, data, hash, prev, POW: _.inject({}, pow) }
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcAdjDifficulty(e){
       let
         prev = CHAIN(-DIFFICULTY_ADJUSTMENT_BLOCKS),
-        {difficulty}=prev.proofOfWork,
+        {difficulty}=prev.POW,
         diff = e.ts - prev.ts,
         expected = BLOCK_GEN_INTERVAL_SECS*1000 * DIFFICULTY_ADJUSTMENT_BLOCKS;
       return (diff < expected/2)? (difficulty+1)
@@ -76,7 +76,7 @@
       let e= CHAIN(-1);
       return (e.index != 0 &&
               e.index % DIFFICULTY_ADJUSTMENT_BLOCKS == 0)?
-        calcAdjDifficulty(e) : e.proofOfWork.difficulty;
+        calcAdjDifficulty(e) : e.POW.difficulty;
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -115,6 +115,7 @@
     function mineBlock(index, prev, ts, data, difficulty){
       for(let v,hash,nonce=0; ;++nonce){
         hash = calcHash(index, prev, ts, data, difficulty, nonce);
+        //console.log("hash==="+hash)
         if(hashMatchesDifficulty(hash, difficulty))
           return Block(ts,index, data, hash, prev, {nonce, difficulty})
       }
@@ -122,7 +123,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcHashForBlock(b){
-      let {nonce,difficulty}=b.proofOfWork;
+      let {nonce,difficulty}=b.POW;
       return calcHash(b.index, b.prev, b.ts, b.data, difficulty, nonce)
     }
 
@@ -141,7 +142,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcTotalDifficulty(bc){
       return bc.reduce((acc,b)=>{
-        return acc + Math.pow(2,b.proofOfWork.difficulty)
+        return acc + Math.pow(2,b.POW.difficulty)
       },0)
     }
 
@@ -153,7 +154,7 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function hasValidHash(b){
-      let {difficulty}=b.proofOfWork;
+      let {difficulty}=b.POW;
       if(!hashMatchesContent(b)){
         console.log(`invalid hash, got: ${b.hash}`);
         return false;
@@ -182,8 +183,8 @@
              r.data==b.data &&
              r.hash==b.hash &&
              r.prev==b.prev &&
-             r.proofOfWork.nonce==b.proofOfWork.nonce &&
-             r.proofOfWork.difficulty==b.proofOfWork.difficulty
+             r.POW.nonce==b.POW.nonce &&
+             r.POW.difficulty==b.POW.difficulty
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -206,21 +207,22 @@
       DIFFICULTY_ADJUSTMENT_BLOCKS,
       BLOCK_GEN_INTERVAL_SECS,
       Block,
+      blockChainDB: [],
       /**Get the chain, READONLY please.
        * @memberof module:mcfud/blockchain
        * @return {Block[]}
        */
-      getChain(){ return _blockChain },
+      getChain(){ return this.blockChainDB },
       /**Get the first block in the chain.
        * @memberof module:mcfud/blockchain
        * @return {Block}
        */
-      headChain(){ return _blockChain[0] },
+      headChain(){ return this.blockChainDB[0] },
       /**Get the last block in the chain.
        * @memberof module:mcfud/blockchain
        * @return {Block}
        */
-      tailChain(){ return _.last(_blockChain) },
+      tailChain(){ return _.last(this.blockChainDB) },
       /**Create a new block using generator (async).
        * @memberof module:mcfud/blockchain
        * @param {any} data
@@ -228,7 +230,7 @@
        */
       genNextBlockAsync(data, cb){
         let
-          prev = _.last(_blockChain),
+          prev = _.last(this.blockChainDB),
           diff = calcDifficulty(),
           gen= genBlock(prev.index+1, prev.hash, _.now(), data, diff);
         function func(){
@@ -250,7 +252,7 @@
        */
       genNextBlock(data){
         let
-          prev = _.last(_blockChain),
+          prev = _.last(this.blockChainDB),
           diff = calcDifficulty(),
           b= mineBlock(prev.index+1, prev.hash, _.now(), data, diff);
         addBlock(b);
@@ -274,7 +276,7 @@
        * @return {boolean}
        */
       addBlockToChain(b){
-        if(isValidNewBlock(b, _.last(_blockChain))){
+        if(isValidNewBlock(b, _.last(this.blockChainDB))){
           return CHAIN_ADD(b)
         }
       },
@@ -284,38 +286,38 @@
        */
       replaceChain(bc){
         if(isValidChain(bc) &&
-           calcTotalDifficulty(bc) >= calcTotalDifficulty(_blockChain)){
+           calcTotalDifficulty(bc) >= calcTotalDifficulty(this.blockChainDB)){
           console.log('Replacing blockchain with updated blockchain');
-          _blockChain = bc;
+          this.blockChainDB= bc;
           this.bcastChanges();
         }else{
           console.log('Received invalid blockchain');
         }
       },
       bcastChanges(){
-        console.log("TODO: broadcast");
+        P2P.bcastLatest(this);
       }
     };
 
-    return _$;
-  }
+    //set the root
+    _$.blockChainDB.push(Block(TS1,0,"Bonjour!",H1,H0,POW()));
 
-  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  if(0){
-    let M=_module(require("../main/core"), require("crypto-js"));
-    let old=M.getChain();
-    for(let i=0;i<12;++i){
-      let b= M.genNextBlock("hello"+i);
+
+    if(0){
+      for(let i=0;i<12;++i){
+        _$.genNextBlock("hello"+i);
+      }
     }
-    M.replaceChain(M.getChain());
-    let xxx=M.getChain();
-    console.log(`ok= ${old===xxx}`);
+
+
+    return _$;
   }
 
   //export--------------------------------------------------------------------
   if(typeof module == "object" && module.exports){
     module.exports=_module(require("../main/core"),
-                           require("crypto-js"));
+                           require("crypto-js"),
+                           require("./p2p.js"));
   }else{
     gscope["io/czlab/mcfud/crypto/blockchain"]=_module
   }

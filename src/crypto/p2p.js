@@ -21,12 +21,13 @@
 //import {addBlockToChain, Block, getBlockchain, getLatestBlock, isValidBlockStructure, replaceChain} from './blockchain';
   /**Create the module.
   */
-  function _module(Core){
+  function _module(Core, WebSocket){
 
     if(!Core)
       Core=gscope["io/czlab/mcfud/core"]();
 
     const { is,u:_ }=Core;
+    const {Server}= WebSocket;
 
     /**
      * @module mcfud/p2p
@@ -34,20 +35,31 @@
 
     const _sockets = [];
 
-    const MessageType={
+    function SOCS_ADD(s){ return _sockets.push(s) }
+    function SOCS(){ return _sockets }
+
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const MsgType={
       QUERY_LATEST: 0,
       QUERY_ALL: 1,
       RESPONSE_BLOCKCHAIN: 2
     };
 
-
-    function SOCS_ADD(s){ return _sockets.push(s) }
-    function SOCS(){ return _sockets }
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function Message(type, data){
-      return { type, data }
-    }
+    const responseChainMsg=(bc)=>({
+      type: MsgType.BLOCKCHAIN,
+      data: JSON.stringify(bc.getChain())
+    });
+    const queryChainLengthMsg=(bc)=>({
+      type: MsgType.QUERY_LATEST
+    });
+    const queryAllMsg=(bc)=>({
+      type: MsgType.QUERY_ALL
+    });
+    const responseLatestMsg=(bc)=>({
+      type: MsgType.BLOCKCHAIN,
+      data: JSON.stringify([bc.tailChain()])
+    });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function JSONToObject(data){
@@ -64,7 +76,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function initMessageHandler(ws){
+    function cfgMessageHandler(ws,bcObj){
       ws.on("message", (msg)=>{
         const obj= JSONToObject(msg);
         if(!obj){
@@ -72,18 +84,18 @@
         }else{
           console.log(`received message ${JSON.stringify(obj)}`);
           switch(obj.type){
-            case MessageType.QUERY_LATEST:
-              writeMsg(ws, responseLatestMsg());
+            case MsgType.QUERY_LATEST:
+              writeMsg(ws, responseLatestMsg(bcObj));
               break;
-            case MessageType.QUERY_ALL:
-              writeMsg(ws, responseChainMsg());
+            case MsgType.QUERY_ALL:
+              writeMsg(ws, responseChainMsg(bcObj));
               break;
-            case MessageType.RESPONSE_BLOCKCHAIN:
+            case MsgType.RESPONSE_BLOCKCHAIN:
               const received= JSONToObject(obj.data);
               if(!received){
                 console.log(`invalid blocks received:\n${obj.data}`);
               }else{
-                handleBlockchainResponse(received);
+                handleUpdates(received);
               }
               break;
           }
@@ -97,17 +109,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const queryChainLengthMsg=()=>({"type": MessageType.QUERY_LATEST, "data": UNDEF});
-    const queryAllMsg=()=>({"type": MessageType.QUERY_ALL, "data": UNDEF});
-    const responseChainMsg=()=>({
-    "type": MessageType.RESPONSE_BLOCKCHAIN, "data": JSON.stringify(getBlockchain())
-    });
-    const responseLatestMsg=()=>({
-    "type": MessageType.RESPONSE_BLOCKCHAIN,
-    "data": JSON.stringify([getLatestBlock()]) });
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function initErrorHandler(ws){
+    function cfgErrorHandler(ws){
       let closeConnection = (w)=>{
         console.log(`connection failed to peer: ${w.url}`);
         _.disj(_sockets,w)
@@ -117,30 +119,29 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function handleBlockchainResponse(receivedBlocks){
-      if(receivedBlocks.length == 0){
+    function handleUpdates(newBlocks,bcObj){
+      if(newBlocks.length == 0){
         console.log('received block chain size of 0');
         return;
       }
-      const latestBlockReceived= receivedBlocks.at(-1);
-      if(!isValidBlockStructure(latestBlockReceived)){
+      const latest= newBlocks.at(-1);
+      if(!bcObj.isValidBlockStructure(latest)){
         console.log('block structuture not valid');
         return;
       }
-      const latestBlockHeld= getLatestBlock();
-      if(latestBlockReceived.index > latestBlockHeld.index){
-        console.log('blockchain possibly behind. We got: '
-            + latestBlockHeld.index + ' Peer got: ' + latestBlockReceived.index);
-        if(latestBlockHeld.hash == latestBlockReceived.previousHash){
-          if(addBlockToChain(latestBlockReceived)){
-            broadcast(responseLatestMsg())
+      const curLast= bcObj.tailChain();
+      if(latest.index > curLast.index){
+        console.log('blockchain possibly behind. We got: ' + curLast.index + ' Peer got: ' + latest.index);
+        if(curLast.hash == latest.previousHash){
+          if(bcObj.addBlockToChain(latest)){
+            broadcast(responseLatestMsg(bcObj))
           }
-        }else if(receivedBlocks.length == 1){
+        }else if(newBlocks.length == 1){
           console.log('We have to query the chain from our peer');
-          broadcast(queryAllMsg());
+          broadcast(queryAllMsg(bcObj))
         }else{
           console.log('Received blockchain is longer than current blockchain');
-          replaceChain(receivedBlocks);
+          bcObj.replaceChain(newBlocks);
         }
       }else{
         console.log('received blockchain is not longer than received blockchain. Do nothing');
@@ -151,34 +152,37 @@
     //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      initP2PServer(p2pPort){
+      blockChain: UNDEF,
+      initServer(p2pPort, bcLib){
         let server = new WebSocket.Server({port: p2pPort});
-        server.on("connection", (ws)=> initConnection(ws));
+        this.blockChain=bcLib;
+        server.on("connection", (ws)=> this.cfgConnection(ws));
         console.log(`listening websocket p2p port on: ${p2pPort}`);
       },
       getSockets(){ return _sockets},
-      bcastLatest(){
-        broadcast(responseLatestMsg())
+      //bcast(obj){ obj && broadcast(obj) },
+      bcastLatest(bcObj){
+        console.log("send changes to peers");
+        //broadcast(responseLatestMsg(this.blockChain))
       },
-      connectToPeers(addr){
+      connect(addr){
         let ws= new WebSocket(addr);
-        ws.on("open", ()=> initConnection(ws));
+        ws.on("open", ()=> this.cfgConnection(ws));
         ws.on("error", ()=> console.log('connection failed'));
       },
-      initConnection(ws){
+      cfgConnection(ws){
         SOCS_ADD(ws);
-        initMessageHandler(ws);
-        initErrorHandler(ws);
-        writeMsg(ws, queryChainLengthMsg());
+        cfgMessageHandler(ws, this.blockChain);
+        cfgErrorHandler(ws, this.blockChain);
+        writeMsg(ws, queryChainLengthMsg(this.blockChain));
       }
     };
 
     return _$;
   }
-
   //export--------------------------------------------------------------------
   if(typeof module == "object" && module.exports){
-    module.exports=_module(require("../main/core"))
+    module.exports=_module(require("../main/core"), require("ws"));
   }else{
     gscope["io/czlab/mcfud/crypto/p2p"]=_module
   }
