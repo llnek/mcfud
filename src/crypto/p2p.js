@@ -42,23 +42,32 @@
     const MsgType={
       QUERY_LATEST: 0,
       QUERY_ALL: 1,
-      RESPONSE_BLOCKCHAIN: 2
+      RESPONSE_BLOCKCHAIN: 2,
+      QUERY_TRANSACTION_POOL: 4,
+      RESPONSE_TRANSACTION_POOL: 8
     };
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    const queryTransactionPoolMsg = {
+      type: MsgType.QUERY_TRANSACTION_POOL
+    };
+    const queryChainLengthMsg={
+      type: MsgType.QUERY_LATEST
+    };
+    const queryAllMsg={
+      type: MsgType.QUERY_ALL
+    };
+    const responseLatestMsg=(bc)=>({
+      type: MsgType.BLOCKCHAIN,
+      data: JSON.stringify([bc.tailChain()])
+    });
     const responseChainMsg=(bc)=>({
       type: MsgType.BLOCKCHAIN,
       data: JSON.stringify(bc.getChain())
     });
-    const queryChainLengthMsg=(bc)=>({
-      type: MsgType.QUERY_LATEST
-    });
-    const queryAllMsg=(bc)=>({
-      type: MsgType.QUERY_ALL
-    });
-    const responseLatestMsg=(bc)=>({
-      type: MsgType.BLOCKCHAIN,
-      data: JSON.stringify([bc.tailChain()])
+    const responseTransactionPoolMsg = (tx)=> ({
+      type: MsgType.RESPONSE_TRANSACTION_POOL,
+      data: JSON.stringify(tx.getTransactionPool())
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -76,7 +85,7 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function cfgMessageHandler(ws,bcObj){
+    function cfgMessageHandler(ws,bcObj,txObj){
       ws.on("message", (msg)=>{
         const obj= JSONToObject(msg);
         if(!obj){
@@ -96,6 +105,24 @@
                 console.log(`invalid blocks received:\n${obj.data}`);
               }else{
                 handleUpdates(received);
+              }
+              break;
+            case MsgType.QUERY_TRANSACTION_POOL:
+              writeMsg(ws, responseTransactionPoolMsg(txObj));
+              break;
+            case MsgType.RESPONSE_TRANSACTION_POOL:
+              let txs= JSONToObject(obj.data);
+              if(!txs){
+                console.log('invalid transaction received: %s', JSON.stringify(obj.data));
+              }else{
+                txs.forEach(t=>{
+                  try{
+                    txObj.handleReceivedTransaction(t);
+                    _$.bcastTxPool();
+                  }catch (e){
+                    console.log(e.message);
+                  }
+                });
               }
               break;
           }
@@ -153,9 +180,10 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       blockChain: UNDEF,
-      initServer(p2pPort, bcLib){
+      initServer(p2pPort, bcLib, txLib){
         let server = new WebSocket.Server({port: p2pPort});
         this.blockChain=bcLib;
+        this.txObj=txLib;
         server.on("connection", (ws)=> this.cfgConnection(ws));
         console.log(`listening websocket p2p port on: ${p2pPort}`);
       },
@@ -163,7 +191,15 @@
       //bcast(obj){ obj && broadcast(obj) },
       bcastLatest(bcObj){
         console.log("send changes to peers");
-        //broadcast(responseLatestMsg(this.blockChain))
+        broadcast(responseLatestMsg(bcObj));
+      },
+      bcastTxPool(){
+        let msg= {
+          type: MsgType.RESPONSE_TRANSACTION_POOL,
+          data: JSON.stringify(this.txObj.getTransactionPool())
+        };
+        console.log("send tx-pool to peers");
+        broadcast(msg);
       },
       connect(addr){
         let ws= new WebSocket(addr);
@@ -172,7 +208,7 @@
       },
       cfgConnection(ws){
         SOCS_ADD(ws);
-        cfgMessageHandler(ws, this.blockChain);
+        cfgMessageHandler(ws, this.blockChain, this.txObj);
         cfgErrorHandler(ws, this.blockChain);
         writeMsg(ws, queryChainLengthMsg(this.blockChain));
       }

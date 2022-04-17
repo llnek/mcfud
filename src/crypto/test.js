@@ -20,7 +20,7 @@ var express= require("express");
 var BC= require( "./blockchain");
 var P2P= require("./p2p");
 var TX= require("./tx");
-
+var WALL= require("./wallet");
 
 let {Block, genNextBlock, getChain}= BC;
 let {connect, getSockets, initServer} = P2P;
@@ -53,8 +53,10 @@ function start(myHttpPort){
   });
 }
 
+
+WALL.init(BC, TX, P2P);
 start(httpPort);
-P2P.initServer(p2pPort, BC);
+P2P.initServer(p2pPort, BC, TX);
 
 
 
