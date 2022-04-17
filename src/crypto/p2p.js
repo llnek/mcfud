@@ -16,9 +16,6 @@
 
   "use strict";
 
-//import * as WebSocket from 'ws';
-//import {Server} from 'ws';
-//import {addBlockToChain, Block, getBlockchain, getLatestBlock, isValidBlockStructure, replaceChain} from './blockchain';
   /**Create the module.
   */
   function _module(Core, WebSocket){
@@ -67,7 +64,7 @@
     });
     const responseTransactionPoolMsg = (tx)=> ({
       type: MsgType.RESPONSE_TRANSACTION_POOL,
-      data: JSON.stringify(tx.getTransactionPool())
+      data: JSON.stringify(tx.transactionPool)
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -104,7 +101,7 @@
               if(!received){
                 console.log(`invalid blocks received:\n${obj.data}`);
               }else{
-                handleUpdates(received);
+                handleUpdates(received,bcObj);
               }
               break;
             case MsgType.QUERY_TRANSACTION_POOL:
@@ -117,7 +114,7 @@
               }else{
                 txs.forEach(t=>{
                   try{
-                    txObj.handleReceivedTransaction(t);
+                    txObj.handleReceivedTx(t);
                     _$.bcastTxPool();
                   }catch (e){
                     console.log(e.message);
@@ -152,26 +149,26 @@
         return;
       }
       const latest= newBlocks.at(-1);
-      if(!bcObj.isValidBlockStructure(latest)){
-        console.log('block structuture not valid');
+      if(!bcObj.isValidBlockShape(latest)){
+        console.log("block structuture not valid");
         return;
       }
       const curLast= bcObj.tailChain();
       if(latest.index > curLast.index){
-        console.log('blockchain possibly behind. We got: ' + curLast.index + ' Peer got: ' + latest.index);
-        if(curLast.hash == latest.previousHash){
+        console.log(`blockchain possibly behind. got: ${curLast.index}, peer got: ${latest.index}`);
+        if(curLast.hash == latest.prev){
           if(bcObj.addBlockToChain(latest)){
             broadcast(responseLatestMsg(bcObj))
           }
         }else if(newBlocks.length == 1){
-          console.log('We have to query the chain from our peer');
+          console.log("have to query the chain from our peer");
           broadcast(queryAllMsg(bcObj))
         }else{
-          console.log('Received blockchain is longer than current blockchain');
+          console.log("blockchain is longer than current blockchain");
           bcObj.replaceChain(newBlocks);
         }
       }else{
-        console.log('received blockchain is not longer than received blockchain. Do nothing');
+        console.log("received blockchain is not longer than received blockchain. Do nothing");
       }
     }
 
@@ -179,27 +176,21 @@
     //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      blockChain: UNDEF,
       initServer(p2pPort, bcLib, txLib){
         let server = new WebSocket.Server({port: p2pPort});
-        this.blockChain=bcLib;
+        this.bcObj=bcLib;
         this.txObj=txLib;
         server.on("connection", (ws)=> this.cfgConnection(ws));
         console.log(`listening websocket p2p port on: ${p2pPort}`);
       },
       getSockets(){ return _sockets},
-      //bcast(obj){ obj && broadcast(obj) },
-      bcastLatest(bcObj){
+      bcastLatest(){
         console.log("send changes to peers");
-        broadcast(responseLatestMsg(bcObj));
+        broadcast(responseLatestMsg(this.bcObj));
       },
       bcastTxPool(){
-        let msg= {
-          type: MsgType.RESPONSE_TRANSACTION_POOL,
-          data: JSON.stringify(this.txObj.getTransactionPool())
-        };
         console.log("send tx-pool to peers");
-        broadcast(msg);
+        broadcast(responseTransactionPoolMsg(this.txObj));
       },
       connect(addr){
         let ws= new WebSocket(addr);
@@ -208,9 +199,9 @@
       },
       cfgConnection(ws){
         SOCS_ADD(ws);
-        cfgMessageHandler(ws, this.blockChain, this.txObj);
-        cfgErrorHandler(ws, this.blockChain);
-        writeMsg(ws, queryChainLengthMsg(this.blockChain));
+        cfgMessageHandler(ws, this.bcObj, this.txObj);
+        cfgErrorHandler(ws, this.bcObj);
+        writeMsg(ws, queryChainLengthMsg(this.bcObj));
       }
     };
 

@@ -48,7 +48,6 @@
       DIFFICULTY_ADJUSTMENT_BLOCKS= 10,
       BLOCK_GEN_INTERVAL_SECS= 10;
 
-
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcAdjDifficulty(e){
       let
@@ -57,7 +56,7 @@
         diff = e.ts - prev.ts,
         expected = BLOCK_GEN_INTERVAL_SECS*1000 * DIFFICULTY_ADJUSTMENT_BLOCKS;
       return (diff < expected/2)? (difficulty+1)
-                                : (diff > expected*2)? (difficulty-1) : difficulty;
+                                : (diff > expected*2)? (difficulty-1) : difficulty
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -67,7 +66,6 @@
               e.index % DIFFICULTY_ADJUSTMENT_BLOCKS == 0)?
         calcAdjDifficulty(e) : e.POW.difficulty;
     }
-
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function* genBlock(index, prev, ts, data, difficulty){
@@ -153,19 +151,6 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isValidChain(bc){
-      for(let i= 0; i< bc.length; ++i){
-        if(i==0){
-          if(!isValidRoot(bc[i]))
-          return false;
-        }else if(!_$.isValidNewBlock(bc[i], bc[i-1])){
-          return false
-        }
-      }
-      return true;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function calcHash(index, prev, ts, data, difficulty, nonce){
       return CryptoJS.SHA256("" + index + prev + ts + data.toString() + difficulty + nonce).toString()
     }
@@ -177,15 +162,6 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function POW(nonce=0,difficulty=0){ return {nonce, difficulty} }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function findBlock(index, prev, ts, data, difficulty){
-      for(let hash, nonce=0; ; ++nonce){
-        hash= calcHash(index, prev, ts, data, difficulty, nonce);
-        if(hashMatchesDifficulty(hash, difficulty))
-          return Block(index, hash, prev, ts, data, difficulty, nonce);
-      }
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //MODULE EXPORT
@@ -227,14 +203,14 @@
        */
       genNextBlockAsync(data, cb){
         let
-          prev = _.last(this.blockChainDB),
           diff = calcDifficulty(),
+          prev = _.last(this.blockChainDB),
           gen= genBlock(prev.index+1, prev.hash, _.now(), data, diff);
         function func(){
           let b= gen.next().value;
           if(b){
             addBlock(b);
-            this.bcastChanges();
+            _$.bcastChanges();
             if(cb) cb(b);
           }else{
             setTimeout(func,0)
@@ -249,8 +225,8 @@
        */
       genNextBlock(data){
         let
-          prev = _.last(this.blockChainDB),
           diff = calcDifficulty(),
+          prev = _.last(this.blockChainDB),
           b= mineBlock(prev.index+1, prev.hash, _.now(), data, diff);
         addBlock(b);
         this.bcastChanges();
@@ -301,12 +277,23 @@
           console.log(msg);
         return msg?false: hasValidHash(b);
       },
+      isValidChain(bc){
+        for(let i= 0; i< bc.length; ++i){
+          if(i==0){
+            if(!isValidRoot(bc[i]))
+            return false;
+          }else if(!this.isValidNewBlock(bc[i], bc[i-1])){
+            return false
+          }
+        }
+        return true;
+      },
       /**Replace with this chain.
        * @memberof module:mcfud/blockchain
        * @param {Block[]} bc
        */
       replaceChain(bc){
-        if(isValidChain(bc) &&
+        if(this.isValidChain(bc) &&
            calcTotalDifficulty(bc) >= calcTotalDifficulty()){
           console.log('Replacing blockchain with updated blockchain');
           this.resetChain(bc);
@@ -319,14 +306,14 @@
         this.bcastChanges();
       },
       bcastChanges(){
-        this.P2P.bcastLatest(this)
+        this.P2P.bcastLatest()
       },
       genRawNextBlock(data){
         let
           prev= this.tailChain(),
           difficulty= getDifficulty(),
           nx= prev.index + 1,
-          b= findBlock(nx, prev.hash, _.now(), data, difficulty);
+          b= mineBlock(nx, prev.hash, _.now(), data, difficulty);
         if(this.addBlockToChain(b)){
           this.bcastChanges();
           return b;

@@ -36,13 +36,13 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function filterTxPoolTxs(unspentTxOuts, transactionPool){
+    function filterTxPoolTxs(unspent, pool){
       let
         out= [],
-        x,txIns = transactionPool.map(t=> t.txIns).flat();
-      for(let u of unspentTxOuts){
-        x= _.find(txIns, (a)=> a.txOutId == u.txOutId &&
-                               a.txOutIndex == u.txOutIndex);
+        x,txIns = pool.map(t=> t.txIns).flat();
+      for(let u of unspent){
+        x= _.find(txIns, a=> a.txOutId == u.txOutId &&
+                             a.txOutIndex == u.txOutIndex);
         if(!x)
           out.push(u);
       }
@@ -63,15 +63,14 @@
       }
       throw Error(
         `Cannot create transaction from the available unspent transaction outputs.
-         Required amount: ${amount}. Available unspentTxOuts: ${JSON.stringify(out)}`
-      )
+         Required amount: ${amount}. Available unspentTxOuts: ${JSON.stringify(out)}`)
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function createTxOuts(receiver, myAddress, amount, leftOver){
-      const txOut1= _$.TX.TxOut(receiver, amount);
+    function createTxOuts(TX,receiver, addr, amount, leftOver){
+      let txOut1= TX.TxOut(receiver, amount);
       return leftOver== 0 ? [txOut1]
-                          : [txOut1, _$.TX.TxOut(myAddress, leftOver) ];
+                          : [txOut1, TX.TxOut(addr, leftOver) ];
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -79,18 +78,20 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       _KEY:UNDEF,
-      createTransaction(receiver, amount, privateKey, unspentTxOuts, txPool){
+      createTx(receiver, amount, privateKey, unspent, txPool){
         let
-          myAddress= getPublicKey(privateKey),
-          myOuts = unspentTxOuts.filter(u=> u.address == myAddress);
-        myOuts = filterTxPoolTxs(myOuts, txPool);
-        let {included, leftOver} = findTxOutsForAmount(amount, myOuts);
-        let toUnsignedTxIn = (u)=> this.TX.TxIn(u.txOutId, u.txOutIndex);
-        let tx= this.TX.Transaction(this.TX.getTransactionId(tx),
-                                    included.map(toUnsignedTxIn),
-                                    createTxOuts(receiver, myAddress, amount, leftOver));
+          TX=this.TX,
+          addr= getPublicKey(privateKey),
+          outs = unspent.filter(u=> u.address == addr);
+        outs = filterTxPoolTxs(outs, txPool);
+        let {included, leftOver} = findTxOutsForAmount(amount, outs);
+        let toTxIn = (u)=> TX.TxIn(u.txOutId, u.txOutIndex);
+        let tx= TX.Transaction("",
+                               included.map(toTxIn),
+                               createTxOuts(TX,receiver, addr, amount, leftOver));
+        tx.id=TX.getTransactionId(tx);
         for(let i=0; i< tx.txIns.length; ++i){
-          tx.txIns[i].signature = this.TX.signTxIn(tx, i, privateKey, unspentTxOuts)
+          tx.txIns[i].signature = TX.signTxIn(tx, i, privateKey, unspent)
         }
         return tx;
       },
@@ -117,13 +118,11 @@
         //this._KEY=UNDEF;
         return this;
       },
-      getBalance(address, unspentTxOuts){
-        return this.findUnspentTxOuts(address, unspentTxOuts).reduce((acc,u)=>{
-          return acc + u.amount
-        },0)
+      getBalance(addr, unspent){
+        return this.findUnspentRecs(addr, unspent).reduce((acc,u)=> acc + u.amount,0)
       },
-      findUnspentTxOuts(ownerAddress, unspentTxOuts){
-        return _.filter(unspentTxOuts, (u)=> u.address == ownerAddress)
+      findUnspentRecs(owner, unspent){
+        return _.filter(unspent, u=> u.address == owner)
       },
       init(BC,TX, P2P){
         this.BC= BC.init(TX, P2P);
@@ -131,37 +130,32 @@
         this.P2P=P2P;
       },
       genNextBlock(){
-        let
-          t= this.TX.getCoinbaseTransaction(this.getPublicFromWallet(), this.BC.tailChain().index + 1);
-          data= [t].concat(this.TX.getTransactionPool());
-        return this.BC.generateRawNextBlock(data);
+        let t= this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.tailChain().index + 1);
+        return this.BC.genRawNextBlock([t].concat(this.TX.cloneTxPool()));
       },
-      genBlockWithTransaction(receiver, amount){
-        if(!this.TX.isValidAddress(receiver)){
-          throw Error('invalid address');
-        }
-        if(!is.num(amount)){
-          throw Error('invalid amount');
-        }
-        let
-          c= this.TX.getCoinbaseTransaction(this.getPublicFromWallet(), this.BC.tailChain().index+1),
-          tx= this.createTransaction(receiver, amount,
-                                     this.getPrivateFromWallet(),
-                                     this.TX.getUnspentTxOuts(), this.TX.getTransactionPool());
-        return this.BC.generateRawNextBlock([c,tx]);
+      genBlockWith(receiver, amount){
+        _.assert(this.TX.isValidAddress(receiver), "invalid address");
+        _.assert(is.num(amount), "invalid amount");
+        return this.BC.generateRawNextBlock([
+          this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.tailChain().index+1),
+          this.createTx(receiver, amount,
+                                      this.getPrivateFromWallet(),
+                                      this.TX.cloneUnspentRecs(), this.TX.cloneTxPool())
+        ]);
       },
       getAccountBalance(){
-        return this.getBalance(this.getPublicFromWallet(), this.TX.getUnspentTxOuts());
+        return this.getBalance(this.getPublicFromWallet(), this.TX.unspentRecs)
       },
-      sendTransaction(address, amount){
-        const tx= this.createTransaction(address, amount, this.getPrivateFromWallet(),
-                                         this.TX.getUnspentTxOuts(), this.TX.getTransactionPool());
-        this.TX.addToTransactionPool(tx, this.TX.getUnspentTxOuts());
+      sendTx(addr, amount){
+        const tx= this.createTx(addr, amount,
+                                      this.getPrivateFromWallet(),
+                                      this.TX.cloneUnspentRecs(), this.TX.cloneTxPool());
+        this.TX.addToTxPool(tx, this.TX.cloneUnspentRecs());
         this.P2P.bcastTxPool();
         return tx;
       },
-      getMyUnspentTransactionOutputs(){
-        return this.findUnspentTxOuts(this.getPublicFromWallet(), this.TX.getUnspentTxOuts())
+      listUnspent(){
+        return this.findUnspentRecs(this.getPublicFromWallet(), this.TX.unspentRecs)
       }
 
     };
