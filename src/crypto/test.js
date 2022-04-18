@@ -57,7 +57,7 @@ function start(myHttpPort, BC, TX, WALL, P2P){
   });
 
   app.get("/listUnspent", (req, res)=>{
-    res.send(TX.listUnspent())
+    res.send(WALL.listUnspent())
   });
 
   app.post("/mineRawBlock", (req, res)=>{
@@ -128,12 +128,11 @@ function start(myHttpPort, BC, TX, WALL, P2P){
   app.listen(myHttpPort, ()=>{
     console.log('Listening http on port: ' + myHttpPort);
   });
+
+  P2P.initServer(p2pPort);
 }
 
-
-WALL.init(BC, TX, P2P);
-start(httpPort, BC,TX,WALL, P2P);
-P2P.initServer(p2pPort, BC, TX);
+start(httpPort, BC,TX,WALL.init(BC,TX,P2P), P2P);
 
 
 

@@ -37,11 +37,12 @@
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function CHAIN(pos){ return is.num(pos) ? _$.blockChainDB.at(pos) : _$.blockChainDB }
-    function CHAIN_ADD(b){ return _$.blockChainDB.push(b)>0 }
+    function CHAIN(pos){ return is.num(pos) ? _blockChainDB.at(pos) : _blockChainDB }
+    function CHAIN_ADD(b){ return _blockChainDB.push(b)>0 }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TS1=Date.parse("01 Jan 2001 00:00:00 GMT");
+    const _blockChainDB= [];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const
@@ -173,23 +174,46 @@
       calcTotalDifficulty,
       CHAIN,
       CHAIN_ADD,
+      /**Get the next block index.
+       * @memberof module:mcfud/crypto/blockchain
+       * @return {number}
+       */
+      nextIndex(){
+        return CHAIN(-1).index+1
+      },
+      /**
+       * @memberof module:mcfud/crypto/blockchain
+       * @return {string}
+       */
+      serialize(){
+        return JSON.stringify(_blockChainDB)
+      },
+      /**Get the block data.
+       * @memberof module:mcfud/crypto/blockchain
+       * @param {number} pos
+       * @return {any}
+       */
+      getDataOf(pos){
+        let c= CHAIN(pos);
+        return c? c.data : UNDEF;
+      },
       /**Get the chain, READONLY please.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @return {Block[]}
        */
-      getChain(){ return this.blockChainDB },
+      //getChain(){ return _blockChainDB },
       /**Get the first block in the chain.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @return {Block}
        */
-      headChain(){ return this.blockChainDB[0] },
+      headChain(){ return _blockChainDB[0] },
       /**Get the last block in the chain.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @return {Block}
        */
-      tailChain(){ return _.last(this.blockChainDB) },
+      tailChain(){ return _.last(_blockChainDB) },
       /**Check if block zero is correct.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {Block[]} b
        * @param {boolean}
        */
@@ -197,14 +221,14 @@
         return isValidRoot(b)
       },
       /**Create a new block using generator (async).
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {any} data
        * @param {function} cb
        */
       genNextBlockAsync(data, cb){
         let
           diff = calcDifficulty(),
-          prev = _.last(this.blockChainDB),
+          prev = _.last(_blockChainDB),
           gen= genBlock(prev.index+1, prev.hash, _.now(), data, diff);
         function func(){
           let b= gen.next().value;
@@ -219,49 +243,49 @@
         setTimeout(func,0);
       },
       /**Create a new block.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {any} data
        * @return {Block}
        */
       genNextBlock(data){
         let
           diff = calcDifficulty(),
-          prev = _.last(this.blockChainDB),
+          prev = _.last(_blockChainDB),
           b= mineBlock(prev.index+1, prev.hash, _.now(), data, diff);
         addBlock(b);
         this.bcastChanges();
         return b;
       },
       /**Check if the block is kosher.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {Block} b
        * @return {boolean}
        */
-      isValidBlockStructure(b){
+      isValidBlockShape(b){
         return is.num(b.index) &&
                is.str(b.hash) &&
                is.str(b.prev) &&
                is.num(b.ts) && _.echt(b.data)
       },
       /**Add this block to the chain.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {Block} b
        * @return {boolean}
        */
       addBlockToChain(b){
-        if(this.isValidNewBlock(b, _.last(this.blockChainDB))){
+        if(this.isValidNewBlock(b, _.last(_blockChainDB))){
           return CHAIN_ADD(b)
         }
       },
       /**Check if this is a valid new block.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {Block} b
        * @param {Block} prev
        * @return {boolean}
        */
       isValidNewBlock(b, prev){
         let msg;
-        if(!this.isValidBlockStructure(b)){
+        if(!this.isValidBlockShape(b)){
           msg="invalid structure";
         }
         else if(prev.index+1 != b.index){
@@ -289,7 +313,7 @@
         return true;
       },
       /**Replace with this chain.
-       * @memberof module:mcfud/blockchain
+       * @memberof module:mcfud/crypto/blockchain
        * @param {Block[]} bc
        */
       replaceChain(bc){
@@ -302,11 +326,11 @@
         }
       },
       resetChain(bc){
-        this.blockChainDB= bc;
+        _.append(_blockChainDB,bc,true);
         this.bcastChanges();
       },
       bcastChanges(){
-        this.P2P.bcastLatest()
+        this.evtMsg.pub(["bc.latest"], CHAIN(-1))
       },
       genRawNextBlock(data){
         let
@@ -319,11 +343,11 @@
           return b;
         }
       },
-      init(ext, p2p){
+      init(ext, evt){
         if(ext){ ext.lift(this) }
         let data= this.genRoot();
-        this.blockChainDB=[ Block(TS1,0, data, calcHash(0,"",TS1, data,0,0),"", POW()) ];
-        this.P2P=p2p;
+        this.evtMgr=evt;
+        _blockChainDB[0]= Block(TS1,0, data, calcHash(0,"",TS1, data,0,0),"", POW());
         return this;
       },
       genRoot(){ return "Beware: Money is the root of all evil!" }

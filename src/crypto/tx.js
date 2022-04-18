@@ -27,8 +27,10 @@
      * @module mcfud/crypto/transaction
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const {u:_, is}= Core;
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const EC = new ECDSA.ec("secp256k1");
     const COINBASE_AMOUNT= 50;
 
@@ -61,19 +63,27 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function validateTx(t, unspent){
+      function getTxInAmount(txIn){
+        let r= findUnspentRec(txIn.txOutId, txIn.txOutIndex, unspent);
+        _.assert(r, "failed to locate unspent-rec");
+        return r.amount;
+      }
+      function check(txIn){
+        let ref= unspent.find(x=> x.txOutId == txIn.txOutId && x.txOutIndex == txIn.txOutIndex);
+        return ref && EC.keyFromPublic(ref.address, "hex").verify(t.id, txIn.signature);
+      }
       if(_$.getTransactionId(t) != t.id){
         console.error(`invalid tx id: ${t.id}`)
-      }else{
-        for(let i=0; i<t.txIns.length; ++i){
-          if(!validateTxIn(t.txIns[i], t, unspent)){
-            console.error(`some of the txIns are invalid in tx: ${t.id}`);
-            t=UNDEF;
-            break;
-          }
-        }
-        return t && (t.txOuts.reduce((acc,x)=> acc + x.amount,0)==
-                     t.txIns.reduce((acc,x)=> acc+getTxInAmount(x, unspent),0))
+        return false;
       }
+      for(let i=0; i<t.txIns.length; ++i){
+        if(!check(t.txIns[i])){
+          console.error(`some of the txIns are invalid in tx: ${t.id}`);
+          return false;
+        }
+      }
+      return t.txOuts.reduce((acc,x)=> acc + x.amount,0)==
+             t.txIns.reduce((acc,x)=> acc+getTxInAmount(x),0)
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -103,18 +113,29 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function validateBlockTxs(txs, unspent, index){
-      let msg,t = txs[0];
-      if(!validateGrantTx(t, index)){
+    function validateBlockTxs(txs, index, unspent){
+      function check(txIns){
+        for(let s,x,bin=new Map(), i=0; i< txIns.length; ++i){
+          x=txIns[i];
+          s= ""+ x.txOutId + x.txOutIndex;
+          if(bin.has(s)){
+            console.log(`duplicate txIn: ${s}`);
+            return true;
+          }
+          bin.set(s,1);
+        }
+      }
+      let msg;
+      if(!validateGrantTx(txs[0], index)){
         msg=`invalid grant-transaction: ${JSON.stringify(t)}`
-      }else if(hasDuplicates(txs.map(x=> x.txIns).flat())){
+      }else if(check(txs.map(x=> x.txIns).flat())){
         msg=`duplicate txIns`
       }else{
         //all but coinbase transactions
         for(let i=1; i< txs.length; ++i){
           if(!validateTx(txs[i], unspent)){
             msg="invalid tx";
-            i=Infinity;
+            break;
           }
         }
       }
@@ -124,100 +145,53 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function hasDuplicates(txIns){
-      for(let s,x,bin=new Map(), i=0; i< txIns.length; ++i){
-        x=txIns[i];
-        s= ""+ x.txOutId + x.txOutIndex;
-        if(bin.has(s)){
-          console.log(`duplicate txIn: ${s}`);
-          return true;
-        }
-        bin.set(s,1);
-      }
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function validateTxIn(txIn, t, unspent){
-      let ref= unspent.find(x=> x.txOutId == txIn.txOutId && x.txOutIndex == txIn.txOutIndex);
-      return ref && EC.keyFromPublic(ref.address, "hex").verify(t.id, txIn.signature);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function findUnspentRec(id, index, unspent){
       return unspent.find(x=> x.txOutId == id && x.txOutIndex == index)
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function getTxInAmount(txIn, unspent){
-      let r= findUnspentRec(txIn.txOutId, txIn.txOutIndex, unspent);
-      _.assert(r, "failed to locate unspent-rec");
-      return r.amount;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function updateUnspentRec(txs, unspent){
-      let newOuts = txs.map(t=> t.txOuts.
-          map((u,i)=> UnspentRec(t.id, i, u.address, u.amount))).
-          reduce((acc,b) => acc.concat(b), []);
-      let consumed= txs.map(t=> t.txIns).
-          reduce((acc,b) => acc.concat(b), []).
-          map(x=> UnspentRec(x.txOutId, x.txOutIndex, "", 0));
-      return unspent.filter(x=>
-        !findUnspentRec(x.txOutId, x.txOutIndex, consumed)).concat(newOuts);
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function toHexString(bytes){
-      return Array.from(bytes, (b)=>{
-        return ("0" + (b&0xFF).toString(16)).slice(-2) }).join('')
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isValidTxInShape(txIn){
-      let msg;
-      if(!txIn){
-        msg="txIn is null"
-      }else if(!is.str(txIn.signature)){
-        msg="invalid signature type in txIn"
-      }else if(!is.str(txIn.txOutId)){
-        msg="invalid txOutId type in txIn"
-      }else if(!is.num(txIn.txOutIndex)){
-        msg="invalid txOutIndex type in txIn"
-      }
-      if(msg)
-        console.log(msg);
-      return !msg;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isValidTxOutShape(txOut){
-      let msg;
-      if(!txOut){
-        msg="txOut is null"
-      }else if(!is.str(txOut.address)){
-        msg="invalid address type in txOut"
-      }else if(!isValidAddress(txOut.address)){
-        msg="invalid TxOut address"
-      }else if(!is.num(txOut.amount)){
-        msg="invalid amount type in txOut"
-      }
-      if(msg)
-        console.log(msg);
-
-      return !msg;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function isValidTxShape(txs){
-      for(let i=0;i<txs.length;++i){
-        if(!isValidTransactionShape(txs[i]))
-          return false
-      }
-      return true;
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function isValidTransactionShape(t){
+      function isValidAddress(addr){
+        //valid address is a valid ecdsa public key in the 04 + X-coordinate + Y-coordinate format
+        let msg;
+        if(addr.length != 130){
+          msg="invalid public key length"
+        }else if(!addr.match("^[a-fA-F0-9]+$")){
+          msg="public key must contain only hex characters"
+        }else if(!addr.startsWith("04")){
+          msg="public key must start with 04"
+        }
+        if(msg) console.log(msg);
+        return !msg;
+      }
+      function isValidTxInShape(txIn){
+        let msg;
+        if(!txIn){
+          msg="txIn is null"
+        }else if(!is.str(txIn.signature)){
+          msg="invalid signature type in txIn"
+        }else if(!is.str(txIn.txOutId)){
+          msg="invalid txOutId type in txIn"
+        }else if(!is.num(txIn.txOutIndex)){
+          msg="invalid txOutIndex type in txIn"
+        }
+        if(msg) console.log(msg);
+        return !msg;
+      }
+      function isValidTxOutShape(txOut){
+        let msg;
+        if(!txOut){
+          msg="txOut is null"
+        }else if(!is.str(txOut.address)){
+          msg="invalid address type in txOut"
+        }else if(!isValidAddress(txOut.address)){
+          msg="invalid TxOut address"
+        }else if(!is.num(txOut.amount)){
+          msg="invalid amount type in txOut"
+        }
+        if(msg) console.log(msg);
+        return !msg;
+      }
       let msg;
       if(!is.str(t.id)){
         msg="transactionId missing"
@@ -243,20 +217,8 @@
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //valid address is a valid ecdsa public key in the 04 + X-coordinate + Y-coordinate format
-    function isValidAddress(addr){
-      let msg;
-      if(addr.length != 130){
-        msg="invalid public key length"
-      }else if(!addr.match("^[a-fA-F0-9]+$")){
-        msg="public key must contain only hex characters"
-      }else if(!addr.startsWith("04")){
-        msg="public key must start with 04"
-      }
-      if(msg)
-        console.log(msg);
-      return !msg;
-    }
+    const _transactionPool= [];
+    const _unspentRecs= [];
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //MODULE EXPORT
@@ -276,31 +238,27 @@
             _$.updateTxPool(out);
             this.resetChain(c);
           }else{
-            console.warn("received blockchain invalid")
-          }
+            console.warn("received blockchain invalid") }
         };
         bc.addBlockToChain=function(b){
           if(this.isValidNewBlock(b, this.tailChain())){
-            let retVal= _$.processTxs(b.data, _$.unspentRecs, b.index);
-            if(retVal){
-              this.CHAIN_ADD(b);
-              _$.setUnspentRecs(retVal);
-              _$.updateTxPool(retVal);
-              return b;
+            let ret= _$.processTxs(b.data, b.index, _unspentRecs);
+            if(ret){
+              _$.setUnspentRecs(ret);
+              _$.updateTxPool(ret);
+              return this.CHAIN_ADD(b);
             }
           }
         };
         bc.isValidChain = function(bc){
-          if(!this.ensureRoot(bc[0])){
-            return UNDEF
-          }
+          if(!this.ensureRoot(bc[0])){ return UNDEF }
           let out=[];
           for(let cur,i=0; i< bc.length; ++i){
             cur= bc[i];
             if(i != 0 && !this.isValidNewBlock(bc[i], bc[i-1])){
               return UNDEF
             }
-            out = _$.processTxs(cur.data, out, cur.index);
+            out = _$.processTxs(cur.data, cur.index, out);
             if(!out){
               console.warn("invalid transactions in blockchain");
               return UNDEF
@@ -318,17 +276,20 @@
           [TxIn("",0,"")],
           [TxOut("0429a91b39ad936a5e0690ffdb3136a554da25ba577182f6f187ba329e564a93cc5a3ee6f3258fe5139fd75d92851c85a3fb3f3f2b71e98ac254b8b73cc12db613",50) ]);
       },
-      unspentRecs: [],
-      cloneUnspentRecs(){
-        return JSON.parse(JSON.stringify(this.unspentRecs))
-      },
       setUnspentRecs(r){
-        this.unspentRecs = r;
+        _.append(_unspentRecs,r,true)
       },
-      processTxs(txs, unspent, index){
-        if(isValidTxShape(txs) &&
-           validateBlockTxs(txs, unspent, index))
-          return updateUnspentRec(txs, unspent);
+      getUnspentRecs(){
+        return JSON.parse(JSON.stringify(_unspentRecs))
+      },
+      processTxs(txs, index,unspent){
+        function updateUnspentRec(){
+          let newOnes= txs.reduce((a,t)=>a.concat(t.txOuts.map((u,i)=> UnspentRec(t.id, i, u.address, u.amount))),[]);
+          let used= txs.map(t=> t.txIns).flat().map(x=> UnspentRec(x.txOutId, x.txOutIndex, "", 0));
+          return unspent.filter(x=> !findUnspentRec(x.txOutId, x.txOutIndex, used)).concat(newOnes);
+        }
+        if(txs.every(isValidTransactionShape) &&
+           validateBlockTxs(txs, index, unspent)) return updateUnspentRec();
       },
       getPublicKey(sk){
         return EC.keyFromPrivate(sk, "hex").getPublic().encode("hex");
@@ -341,13 +302,12 @@
         return t;
       },
       getTransactionId(t){
-        let i= t.txIns.reduce((acc,t)=>{
-          return acc + ("" + t.txOutId + t.txOutIndex) },"");
-        let o= t.txOuts.reduce((acc,t)=>{
-          return acc + ("" + t.address + t.amount) },"");
-        return CryptoJS.SHA256(""+i+o).toString();
+        return CryptoJS.SHA256(""+
+                               t.txIns.reduce((acc,t)=> acc + ("" + t.txOutId + t.txOutIndex),"") +
+                               t.txOuts.reduce((acc,t)=> acc + ("" + t.address + t.amount),"")).toString()
       },
       signTxIn(t, txInIndex, privateKey, unspent){
+        function hex(arg){ return Array.from(arg, b=> ("0" + (b&0xFF).toString(16)).slice(-2)).join("") }
         let
           txIn= t.txIns[txInIndex],
           ref= findUnspentRec(txIn.txOutId, txIn.txOutIndex, unspent);
@@ -356,19 +316,18 @@
           _.assert(false,"trying to sign an input with private" +
                          "-key that does not match the address that is referenced in txIn")
         }
-        return toHexString(EC.keyFromPrivate(privateKey, "hex").sign(t.id).toDER());
+        return hex(EC.keyFromPrivate(privateKey, "hex").sign(t.id).toDER());
       },
       handleReceivedTx(t){
-        this.addToTxPool(t, this.unspentRecs)
+        this.addToTxPool(t, _unspentRecs)
       },
-      transactionPool: [],
-      cloneTxPool(){
-        return JSON.parse(JSON.stringify(this.transactionPool))
+      getTxPool(){
+        return JSON.parse(JSON.stringify(_transactionPool))
       },
       addToTxPool(tx, unspent){
         _.assert(validateTx(tx, unspent), "trying to add invalid tx to pool");
         _.assert(this.isValidTxForPool(tx), "trying to add invalid tx to pool");
-        this.transactionPool.push(tx);
+        return _transactionPool.push(tx)>0;
       },
       hasTxIn(txIn, unspent){
         return unspent.find(u=> u.txOutId == txIn.txOutId && u.txOutIndex == txIn.txOutIndex)
@@ -383,25 +342,19 @@
             }
           }
         }
-        invalid.forEach(x=> _.disj(this.transactionPool,x));
+        invalid.forEach(x=> _.disj(_transactionPool,x));
       },
       getTxPoolIns(){
-        return this.transactionPool.map(tx=> tx.txIns).flat()
+        return _transactionPool.map(tx=> tx.txIns).flat()
       },
       isValidTxForPool(tx){
-        let
-          pins = this.getTxPoolIns(),
-          has= (x)=> pins.find(p=> x.txOutIndex == p.txOutIndex && x.txOutId == p.txOutId);
-        for(let x of tx.txIns){
-          if(has(x)){
-            console.error("txIn already found in the txPool");
-            return false;
-          }
-        }
-        return true;
+        let pins = this.getTxPoolIns();
+        return tx.txIns.every(x=>
+          !pins.find(p=> x.txOutIndex == p.txOutIndex && x.txOutId == p.txOutId));
       },
-      init(BC){
-        this.unspentRecs= this.processTxs(BC.CHAIN(0).data, [], 0);
+      init(BC,evt){
+        _.append(_unspentRecs,this.processTxs(BC.getDataOf(0), 0,_unspentRecs),true);
+        this.evtMsg=evt;
         return this;
       }
     };

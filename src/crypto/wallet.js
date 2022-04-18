@@ -31,23 +31,7 @@
     const {u:_, is} = Core;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function getPublicKey(sk){
-      return EC.keyFromPrivate(sk, "hex").getPublic().encode("hex");
-    }
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function filterTxPoolTxs(unspent, pool){
-      let
-        out= [],
-        x,txIns = pool.map(t=> t.txIns).flat();
-      for(let u of unspent){
-        x= _.find(txIns, a=> a.txOutId == u.txOutId &&
-                             a.txOutIndex == u.txOutIndex);
-        if(!x)
-          out.push(u);
-      }
-      return out;
-    }
+    //kenl
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function findTxOutsForAmount(amount, out){
@@ -79,11 +63,20 @@
     const _$={
       _KEY:UNDEF,
       createTx(receiver, amount, privateKey, unspent, txPool){
+        function filterPool(addr){
+          let
+            out= [],
+            txIns = txPool.map(t=> t.txIns).flat(),
+            matched = unspent.filter(u=> u.address == addr);
+          for(let u of matched){
+            if(!_.find(txIns, a=> a.txOutId == u.txOutId &&
+                                  a.txOutIndex == u.txOutIndex)) out.push(u) }
+          return out;
+        }
         let
           TX=this.TX,
-          addr= getPublicKey(privateKey),
-          outs = unspent.filter(u=> u.address == addr);
-        outs = filterTxPoolTxs(outs, txPool);
+          addr= EC.keyFromPrivate(sk, "hex").getPublic().encode("hex"),
+          outs = filterPool(addr);
         let {included, leftOver} = findTxOutsForAmount(amount, outs);
         let toTxIn = (u)=> TX.TxIn(u.txOutId, u.txOutIndex);
         let tx= TX.Transaction("",
@@ -99,8 +92,7 @@
         return EC.genKeyPair().getPrivate().toString(16)
       },
       getPublicFromWallet(){
-        let k = this.getPrivateFromWallet();
-        return EC.keyFromPrivate(k, "hex").getPublic().encode("hex");
+        return EC.keyFromPrivate(this.getPrivateFromWallet(), "hex").getPublic().encode("hex")
       },
       getPrivateFromWallet(){
         return this._KEY
@@ -110,7 +102,6 @@
         //initialize this wallet, do whatever you want here
         if(!this._KEY)
           this._KEY= this.genPrivateKey();
-
         return this;
       },
       deleteWallet(){
@@ -122,46 +113,44 @@
         return this.findUnspentRecs(addr, unspent).reduce((acc,u)=> acc + u.amount,0)
       },
       findUnspentRecs(owner, unspent){
-        return _.filter(unspent, u=> u.address == owner)
+        return unspent.filter(u=> u.address == owner)
       },
-      init(BC,TX, P2P){
-        this.BC= BC.init(TX, P2P);
-        this.TX= TX.init(BC);
-        this.P2P=P2P;
+      init(BC,TX,P2P){
+        this.evtMgr= Core.EventBus();
+        this.BC= BC.init(TX, this.evtMgr);
+        this.TX= TX.init(BC, this.evtMgr);
+        P2P.init(BC, TX, this.evtMgr);
+        return this;
       },
       genNextBlock(){
-        let t= this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.tailChain().index + 1);
-        return this.BC.genRawNextBlock([t].concat(this.TX.cloneTxPool()));
+        let t= this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.nextIndex());
+        return this.BC.genRawNextBlock([t].concat(this.TX.getTxPool()));
       },
       genBlockWith(receiver, amount){
         _.assert(this.TX.isValidAddress(receiver), "invalid address");
         _.assert(is.num(amount), "invalid amount");
-        return this.BC.generateRawNextBlock([
-          this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.tailChain().index+1),
+        return this.BC.genRawNextBlock([
+          this.TX.genGrantTx(this.getPublicFromWallet(), this.BC.nextIndex()),
           this.createTx(receiver, amount,
-                                      this.getPrivateFromWallet(),
-                                      this.TX.cloneUnspentRecs(), this.TX.cloneTxPool())
-        ]);
+                                  this.getPrivateFromWallet(),
+                                  this.TX.getUnspentRecs(), this.TX.getTxPool()) ]);
       },
       getAccountBalance(){
-        return this.getBalance(this.getPublicFromWallet(), this.TX.unspentRecs)
+        return this.getBalance(this.getPublicFromWallet(), this.TX.getUnspentRecs())
       },
       sendTx(addr, amount){
-        const tx= this.createTx(addr, amount,
-                                      this.getPrivateFromWallet(),
-                                      this.TX.cloneUnspentRecs(), this.TX.cloneTxPool());
-        this.TX.addToTxPool(tx, this.TX.cloneUnspentRecs());
-        this.P2P.bcastTxPool();
+        let tx= this.createTx(addr, amount, this.getPrivateFromWallet(),
+                                            this.TX.getUnspentRecs(), this.TX.getTxPool());
+        this.TX.addToTxPool(tx, this.TX.getUnspentRecs());
+        this.evtMgr.pub(["tx.pool"], this.TX.getTxPool());
         return tx;
       },
       listUnspent(){
-        return this.findUnspentRecs(this.getPublicFromWallet(), this.TX.unspentRecs)
+        return this.findUnspentRecs(this.getPublicFromWallet(), this.TX.getUnspentRecs())
       }
-
     };
 
     if(1){
-
     }
 
     return _$.initWallet();

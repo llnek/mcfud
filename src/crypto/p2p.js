@@ -54,17 +54,17 @@
     const queryAllMsg={
       type: MsgType.QUERY_ALL
     };
-    const responseLatestMsg=(bc)=>({
+    const responseLatestMsg=(arg)=>({
       type: MsgType.BLOCKCHAIN,
-      data: JSON.stringify([bc.tailChain()])
+      data: JSON.stringify(arg)
     });
-    const responseChainMsg=(bc)=>({
+    const responseChainMsg=(arg)=>({
       type: MsgType.BLOCKCHAIN,
-      data: JSON.stringify(bc.getChain())
+      data: JSON.stringify(arg)
     });
-    const responseTransactionPoolMsg = (tx)=> ({
+    const responseTransactionPoolMsg =(arg)=> ({
       type: MsgType.RESPONSE_TRANSACTION_POOL,
-      data: JSON.stringify(tx.transactionPool)
+      data: JSON.stringify(arg)
     });
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -91,10 +91,10 @@
           console.log(`received message ${JSON.stringify(obj)}`);
           switch(obj.type){
             case MsgType.QUERY_LATEST:
-              writeMsg(ws, responseLatestMsg(bcObj));
+              writeMsg(ws, responseLatestMsg(bcObj.tailChain()));
               break;
             case MsgType.QUERY_ALL:
-              writeMsg(ws, responseChainMsg(bcObj));
+              writeMsg(ws, responseChainMsg(bcObj.CHAIN()));
               break;
             case MsgType.RESPONSE_BLOCKCHAIN:
               const received= JSONToObject(obj.data);
@@ -157,12 +157,11 @@
       if(latest.index > curLast.index){
         console.log(`blockchain possibly behind. got: ${curLast.index}, peer got: ${latest.index}`);
         if(curLast.hash == latest.prev){
-          if(bcObj.addBlockToChain(latest)){
-            broadcast(responseLatestMsg(bcObj))
-          }
+          if(bcObj.addBlockToChain(latest))
+            broadcast(responseLatestMsg(bcObj.tailChain()))
         }else if(newBlocks.length == 1){
           console.log("have to query the chain from our peer");
-          broadcast(queryAllMsg(bcObj))
+          broadcast(queryAllMsg);
         }else{
           console.log("blockchain is longer than current blockchain");
           bcObj.replaceChain(newBlocks);
@@ -176,22 +175,12 @@
     //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
-      initServer(p2pPort, bcLib, txLib){
+      initServer(p2pPort){
         let server = new WebSocket.Server({port: p2pPort});
-        this.bcObj=bcLib;
-        this.txObj=txLib;
         server.on("connection", (ws)=> this.cfgConnection(ws));
         console.log(`listening websocket p2p port on: ${p2pPort}`);
       },
       getSockets(){ return _sockets},
-      bcastLatest(){
-        console.log("send changes to peers");
-        broadcast(responseLatestMsg(this.bcObj));
-      },
-      bcastTxPool(){
-        console.log("send tx-pool to peers");
-        broadcast(responseTransactionPoolMsg(this.txObj));
-      },
       connect(addr){
         let ws= new WebSocket(addr);
         ws.on("open", ()=> this.cfgConnection(ws));
@@ -200,8 +189,23 @@
       cfgConnection(ws){
         SOCS_ADD(ws);
         cfgMessageHandler(ws, this.bcObj, this.txObj);
-        cfgErrorHandler(ws, this.bcObj);
-        writeMsg(ws, queryChainLengthMsg(this.bcObj));
+        cfgErrorHandler(ws);
+        writeMsg(ws, queryChainLengthMsg);
+      },
+      onBCLatest(arg){
+        console.log("send changes to peers");
+        broadcast(responseLatestMsg(arg));
+      },
+      onTxPool(arg){
+        console.log("send tx-pool to peers");
+        broadcast(responseTransactionPoolMsg(arg));
+      },
+      init(BC,TX,evt){
+        this.evtMsg=evt;
+        this.bcObj=BC;
+        this.txObj=TX;
+        evt.sub(["bc.latest"], "onBCLatest",this);
+        evt.sub(["tx.pool"], "onTxPool",this);
       }
     };
 
