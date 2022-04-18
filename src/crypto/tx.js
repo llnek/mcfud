@@ -14,25 +14,24 @@
 
 ;(function(gscope,UNDEF){
 
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //original ideas and source from https://github.com/lhartikk/naivecoin
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
   "use strict";
 
   /**Create the module.
   */
   function _module(Core, CryptoJS, ECDSA){
 
-    if(!Core)
-      Core=gscope["io/czlab/mcfud/core"]();
-
     /**
      * @module mcfud/crypto/transaction
      */
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    const {u:_, is}= Core;
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const EC = new ECDSA.ec("secp256k1");
     const COINBASE_AMOUNT= 50;
+    const {u:_, is}= Core;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function UnspentRec(txOutId, txOutIndex, address, amount){
@@ -63,49 +62,41 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function validateTx(t, unspent){
-      function getTxInAmount(txIn){
-        let r= findUnspentRec(txIn.txOutId, txIn.txOutIndex, unspent);
-        _.assert(r, "failed to locate unspent-rec");
-        return r.amount;
+      function getAmount(x){
+        let r= findUnspentRec(x.txOutId, x.txOutIndex, unspent);
+        return _.assert(r, "failed to find unspent-rec") && r.amount;
       }
       function check(txIn){
-        let ref= unspent.find(x=> x.txOutId == txIn.txOutId && x.txOutIndex == txIn.txOutIndex);
+        let ref= unspent.find(x=> x.txOutId == txIn.txOutId &&
+                                  x.txOutIndex == txIn.txOutIndex);
         return ref && EC.keyFromPublic(ref.address, "hex").verify(t.id, txIn.signature);
       }
       if(_$.getTransactionId(t) != t.id){
-        console.error(`invalid tx id: ${t.id}`)
-        return false;
+        return console.error(`invalid tx id: ${t.id}`)
       }
       for(let i=0; i<t.txIns.length; ++i){
-        if(!check(t.txIns[i])){
-          console.error(`some of the txIns are invalid in tx: ${t.id}`);
-          return false;
-        }
+        if(!check(t.txIns[i]))
+          return console.error(`invalid txIns in tx: ${t.id}`)
       }
       return t.txOuts.reduce((acc,x)=> acc + x.amount,0)==
-             t.txIns.reduce((acc,x)=> acc+getTxInAmount(x),0)
+             t.txIns.reduce((acc,x)=> acc+getAmount(x),0)
     }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function validateGrantTx(t, index){
       let msg;
       if(!t){
-        msg="the first tx in the block must be a grant-transaction"
-      }
-      else if(_$.getTransactionId(t) != t.id){
+        msg="the first tx in the block must be a grant-tx"
+      }else if(_$.getTransactionId(t) != t.id){
         msg=`invalid grant-tx id: ${t.id}`
-      }
-      else if(t.txIns.length != 1){
-        msg="one txIn must be specified in the coinbase transaction"
-      }
-      else if(t.txIns[0].txOutIndex != index){
-        msg="the txIn signature in coinbase tx must be the block height"
-      }
-      else if(t.txOuts.length != 1){
-        msg="invalid number of txOuts in coinbase transaction"
-      }
-      else if(t.txOuts[0].amount != COINBASE_AMOUNT){
-        msg="invalid coinbase amount in coinbase transaction"
+      }else if(t.txIns.length != 1){
+        msg="one txIn must be specified in the grant-tx"
+      }else if(t.txIns[0].txOutIndex != index){
+        msg="invalid txIn index in grant-tx"
+      }else if(t.txOuts.length != 1){
+        msg="invalid number of txOuts in grant-tx"
+      }else if(t.txOuts[0].amount != COINBASE_AMOUNT){
+        msg="invalid amount in grant-tx"
       }
       if(msg)
         console.error(msg);
@@ -114,24 +105,21 @@
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     function validateBlockTxs(txs, index, unspent){
-      function check(txIns){
+      function dup(txIns){
         for(let s,x,bin=new Map(), i=0; i< txIns.length; ++i){
           x=txIns[i];
           s= ""+ x.txOutId + x.txOutIndex;
-          if(bin.has(s)){
-            console.log(`duplicate txIn: ${s}`);
-            return true;
-          }
+          if(bin.has(s)) return true;
           bin.set(s,1);
         }
       }
       let msg;
       if(!validateGrantTx(txs[0], index)){
-        msg=`invalid grant-transaction: ${JSON.stringify(t)}`
-      }else if(check(txs.map(x=> x.txIns).flat())){
-        msg=`duplicate txIns`
+        msg="invalid tx[0]"
+      }else if(dup(txs.map(x=> x.txIns).flat())){
+        msg="duplicate txIns"
       }else{
-        //all but coinbase transactions
+        //all but the grant-tx
         for(let i=1; i< txs.length; ++i){
           if(!validateTx(txs[i], unspent)){
             msg="invalid tx";
@@ -195,24 +183,18 @@
       let msg;
       if(!is.str(t.id)){
         msg="transactionId missing"
-      }
-      else if(!(t.txIns instanceof Array)){
+      }else if(!(t.txIns instanceof Array)){
         msg="invalid txIns type in transaction"
-      }
-      else if(!t.txIns.map(isValidTxInShape).reduce((a,b) => (a && b), true)){
+      }else if(!t.txIns.map(isValidTxInShape).reduce((a,b) => (a && b), true)){
         msg="invalid txIn structure"
-      }
-      else if(!(t.txOuts instanceof Array)){
+      }else if(!(t.txOuts instanceof Array)){
         msg="invalid txIns type in transaction"
       }
-      if(msg){
-        console.error(msg);
-        return false;
-      }
-      for(let i=0;i < t.txOuts.length;++i){
-        if(!isValidTxOutShape(t.txOuts[i]))
-          return false
-      }
+      if(msg)
+        return console.error(msg);
+      for(let i=0;i < t.txOuts.length;++i)
+        if(!isValidTxOutShape(t.txOuts[i])) return false;
+      ///
       return true;
     }
 
@@ -228,6 +210,10 @@
       TxIn,
       TxOut,
       Transaction,
+      /**
+       * @param {object} bc
+       * @return {object}
+       */
       lift(bc){
         bc.replaceChain=function(c){
           let
@@ -238,7 +224,8 @@
             _$.updateTxPool(out);
             this.resetChain(c);
           }else{
-            console.warn("received blockchain invalid") }
+            console.warn("received blockchain invalid")
+          }
         };
         bc.addBlockToChain=function(b){
           if(this.isValidNewBlock(b, this.tailChain())){
@@ -259,16 +246,15 @@
               return UNDEF
             }
             out = _$.processTxs(cur.data, cur.index, out);
-            if(!out){
-              console.warn("invalid transactions in blockchain");
-              return UNDEF
-            }
+            if(!out)
+              return console.warn("invalid transactions in blockchain");
           }
           return out;
         };
         bc.genRoot=function(){
           return [_$.genRoot()]
         }
+        return bc;
       },
       genRoot(){
         return Transaction(
@@ -283,13 +269,16 @@
         return JSON.parse(JSON.stringify(_unspentRecs))
       },
       processTxs(txs, index,unspent){
-        function updateUnspentRec(){
-          let newOnes= txs.reduce((a,t)=>a.concat(t.txOuts.map((u,i)=> UnspentRec(t.id, i, u.address, u.amount))),[]);
-          let used= txs.map(t=> t.txIns).flat().map(x=> UnspentRec(x.txOutId, x.txOutIndex, "", 0));
+        function update(){
+          let newOnes= txs.reduce((a,t)=>a.concat(
+            t.txOuts.map((u,i)=>
+            UnspentRec(t.id, i, u.address, u.amount))),[]);
+          let used= txs.map(t=> t.txIns).flat().map(
+            x=> UnspentRec(x.txOutId, x.txOutIndex, "", 0));
           return unspent.filter(x=> !findUnspentRec(x.txOutId, x.txOutIndex, used)).concat(newOnes);
         }
         if(txs.every(isValidTransactionShape) &&
-           validateBlockTxs(txs, index, unspent)) return updateUnspentRec();
+           validateBlockTxs(txs, index, unspent)) return update();
       },
       getPublicKey(sk){
         return EC.keyFromPrivate(sk, "hex").getPublic().encode("hex");
@@ -307,7 +296,8 @@
                                t.txOuts.reduce((acc,t)=> acc + ("" + t.address + t.amount),"")).toString()
       },
       signTxIn(t, txInIndex, privateKey, unspent){
-        function hex(arg){ return Array.from(arg, b=> ("0" + (b&0xFF).toString(16)).slice(-2)).join("") }
+        function hex(arg){
+          return Array.from(arg, b=> ("0" + (b&0xFF).toString(16)).slice(-2)).join("") }
         let
           txIn= t.txIns[txInIndex],
           ref= findUnspentRec(txIn.txOutId, txIn.txOutIndex, unspent);
@@ -334,7 +324,7 @@
       },
       updateTxPool(unspent){
         let invalid= [];
-        for(let tx of this.transactionPool){
+        for(let tx of _transactionPool){
           for(let txIn of tx.txIns){
             if(!this.hasTxIn(txIn, unspent)){
               invalid.push(tx);
@@ -359,10 +349,6 @@
       }
     };
 
-    if(0){
-      let s= _$.getTransactionId(_$.genRoot());
-      console.log(s);
-    }
     return _$;
   }
 

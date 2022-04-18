@@ -10,9 +10,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Copyright © 2013-2022, Kenneth Leung. All rights reserved.
+// Copyright © 2022, Kenneth Leung. All rights reserved.
 
 ;(function(gscope,UNDEF){
+
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  //original ideas and source from https://github.com/lhartikk/naivecoin
+  //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
   "use strict";
 
@@ -20,49 +24,38 @@
   */
   function _module(Core, CryptoJS, ECDSA){
 
-    if(!Core)
-      Core=gscope["io/czlab/mcfud/core"]();
-
     /**
      * @module mcfud/crypto/wallet
      */
 
+    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const EC = new ECDSA.ec("secp256k1");
     const {u:_, is} = Core;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    //kenl
-
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function findTxOutsForAmount(amount, out){
+    function findTxOutsForAmount(amount, unspent){
       let
-        included= [],
-        currentAmount = 0;
-      for(let u of out){
+        sum = 0,
+        included= [];
+      for(let u of unspent){
         included.push(u);
-        currentAmount += u.amount;
-        if(currentAmount >= amount){
-          return {included, leftOver: currentAmount - amount }
-        }
+        sum += u.amount;
+        if(sum >= amount)
+          return {included, leftOver: sum - amount }
       }
-      throw Error(
-        `Cannot create transaction from the available unspent transaction outputs.
-         Required amount: ${amount}. Available unspentTxOuts: ${JSON.stringify(out)}`)
+      _.assert(false, `Can't create tx from the unspent transaction outputs.
+                       Required amount: ${amount},
+                       available unspentTxOuts: ${JSON.stringify(unspent)}`)
     }
 
-    //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-    function createTxOuts(TX,receiver, addr, amount, leftOver){
-      let txOut1= TX.TxOut(receiver, amount);
-      return leftOver== 0 ? [txOut1]
-                          : [txOut1, TX.TxOut(addr, leftOver) ];
-    }
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     //MODULE EXPORT
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const _$={
       _KEY:UNDEF,
-      createTx(receiver, amount, privateKey, unspent, txPool){
+      createTx(receiver, amount, prvKey, unspent, txPool){
+        let TX=this.TX;
         function filterPool(addr){
           let
             out= [],
@@ -73,18 +66,22 @@
                                   a.txOutIndex == u.txOutIndex)) out.push(u) }
           return out;
         }
+        function createTxOuts(addr, leftOver){
+          let txOut1= TX.TxOut(receiver, amount);
+          return leftOver== 0 ? [txOut1]
+                              : [txOut1, TX.TxOut(addr, leftOver) ];
+        }
         let
-          TX=this.TX,
-          addr= EC.keyFromPrivate(sk, "hex").getPublic().encode("hex"),
-          outs = filterPool(addr);
-        let {included, leftOver} = findTxOutsForAmount(amount, outs);
-        let toTxIn = (u)=> TX.TxIn(u.txOutId, u.txOutIndex);
-        let tx= TX.Transaction("",
-                               included.map(toTxIn),
-                               createTxOuts(TX,receiver, addr, amount, leftOver));
+          addr= EC.keyFromPrivate(prvKey, "hex").getPublic().encode("hex"),
+          {included, leftOver} = findTxOutsForAmount(amount, filterPool(addr)),
+          toTxIn = (u)=> TX.TxIn(u.txOutId, u.txOutIndex),
+          tx= TX.Transaction("",
+                             included.map(toTxIn),
+                             createTxOuts(addr, leftOver));
+
         tx.id=TX.getTransactionId(tx);
         for(let i=0; i< tx.txIns.length; ++i){
-          tx.txIns[i].signature = TX.signTxIn(tx, i, privateKey, unspent)
+          tx.txIns[i].signature = TX.signTxIn(tx, i, prvKey, unspent)
         }
         return tx;
       },
@@ -149,9 +146,6 @@
         return this.findUnspentRecs(this.getPublicFromWallet(), this.TX.getUnspentRecs())
       }
     };
-
-    if(1){
-    }
 
     return _$.initWallet();
   }

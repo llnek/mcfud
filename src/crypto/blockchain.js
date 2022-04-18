@@ -17,20 +17,13 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //original ideas and source from https://github.com/lhartikk/naivecoin
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  //
+
   "use strict";
 
   /**Create the module.
   */
   function _module(Core, CryptoJS){
 
-    if(!CryptoJS)
-      CryptoJS=gscope.CryptoJS;
-
-    if(!Core)
-      Core=gscope["io/czlab/mcfud/core"]();
-
-    const { is,u:_ }=Core;
 
     /**
      * @module mcfud/crypto/blockchain
@@ -43,6 +36,7 @@
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const TS1=Date.parse("01 Jan 2001 00:00:00 GMT");
     const _blockChainDB= [];
+    const { is,u:_ }=Core;
 
     //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
     const

@@ -12,6 +12,10 @@
 //
 // Copyright © 2022, Kenneth Leung. All rights reserved.
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//original ideas and source from https://github.com/lhartikk/naivecoin
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 "use strict";
 
 const bodyParser =require( "body-parser");
@@ -49,11 +53,11 @@ function start(myHttpPort, BC, TX, WALL, P2P){
 
   app.get("/address/:address", (req, res)=>{
     res.send({
-      unspentTxOuts: TX.getUnspentTxOuts().filter(u=> u.address == req.params.address) })
+      unspentTxOuts: TX.getUnspentRecs().filter(u=> u.address == req.params.address) })
   });
 
-  app.get("/unspentTransactionOutputs", (req, res)=>{
-    res.send(TX.getUnspentTxOuts())
+  app.get("/unspentRecs", (req, res)=>{
+    res.send(TX.getUnspentRecs())
   });
 
   app.get("/listUnspent", (req, res)=>{
@@ -64,7 +68,7 @@ function start(myHttpPort, BC, TX, WALL, P2P){
     if(!req.body.data){
       res.send("data parameter is missing")
     }else{
-      let b= BC.generateRawNextBlock(req.body.data);
+      let b= BC.genRawNextBlock(req.body.data);
       b? res.send(b): res.status(400).send("could not generate block")
     }
   });
@@ -82,18 +86,18 @@ function start(myHttpPort, BC, TX, WALL, P2P){
     res.send({address: WALL.getPublicFromWallet() })
   });
 
-  app.post("/mineTransaction", (req, res)=>{
+  app.post("/mineTx", (req, res)=>{
     const address = req.body.address;
     const amount = req.body.amount;
     try{
       res.send( WALL.genBlockWith(address, amount))
-    }catch (e){
+    }catch(e){
       console.log(e.message);
       res.status(400).send(e.message);
     }
   });
 
-  app.post("/sendTransaction", (req, res)=>{
+  app.post("/sendTx", (req, res)=>{
     try{
       let
         amount = req.body.amount,
@@ -107,7 +111,7 @@ function start(myHttpPort, BC, TX, WALL, P2P){
     }
   });
 
-  app.get("/transactionPool", (req, res)=>{
+  app.get("/txPool", (req, res)=>{
     res.send(TX.getTransactionPool())
   });
 
@@ -115,7 +119,7 @@ function start(myHttpPort, BC, TX, WALL, P2P){
     res.send(P2P.getSockets().map(s=> s._socket.remoteAddress + ":" + s._socket.remotePort));
   });
 
-  app.post("/addPeer", (req, res)=>{
+  app.post("/peers/add", (req, res)=>{
     P2P.connect(req.body.peer);
     res.send();
   });
