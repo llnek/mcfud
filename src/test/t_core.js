@@ -17,6 +17,7 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const Core=require("../main/core.js");
 const Test=require("../main/test.js");
+const xxx=require("../tpcl/cycle.js");
 const {u:_,is,EventBus}=Core;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 function tearDown(){ 0&&console.log("tearDown called()") }
@@ -55,6 +56,16 @@ Test.deftest("Core").
   ensure("findFiles",()=>{
     return _.findFiles(["/a/b/c.mp3","/c.z","/v/w.wav"],[".mp3",".wav"]).length===2 &&
            _.findFiles(["/a/b/c.mp3","/c.z","/v/w.wav"],[".txt"]).length===0
+  }).
+  ensure("json.io",()=>{
+    let s, z,o={};
+    Object.assign(o,{
+      id: "yo", a: 1, b: [2, o], c: { e: 1, obj:o }
+    });
+    s= JSON.stringify(JSON.decycle(o));
+    //console.log(s);
+    z=JSON.retrocycle(JSON.parse(s));
+    return z.a==1 && z.b[1].id=="yo" && z.c.obj.c.e == 1;
   }).
   ensure("partition",()=>{
     let x= _.partition(2,[1,2,3,4,5]);

@@ -9,6 +9,7 @@ const sourcemaps = require('gulp-sourcemaps');
 
 const jsFiles = [
   "src/tpcl/seedrandom.min.js",
+  "src/tpcl/cycle.js",
   "src/main/core.js",
   "src/main/math.js",
   "src/main/vec2.js",
