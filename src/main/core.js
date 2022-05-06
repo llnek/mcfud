@@ -12,12 +12,13 @@
  *
  * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
 
+
 ;(function(window,doco,seed_rand,UNDEF){
 
   "use strict";
 
   if(typeof module=="object" && module.exports){
-    seed_rand=require("../tpcl/seedrandom.min")
+    //seed_rand=require("../tpcl/seedrandom.min")
   }else{
     doco=window.document
   }
@@ -241,6 +242,15 @@
       error(...args){ console.error(...args) },
       /** log message */
       log(...args){ console.log(...args) },
+      /**Divide this number as integer.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @param {number} b
+       * @return {number} integer result
+       */
+      ndiv(a,b){
+        return Math.floor(a/b)
+      },
       /**Check if this float approximates zero.
        * @memberof module:mcfud/core._
        * @param {number} a
@@ -2071,11 +2081,10 @@
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module=="object" && module.exports){
-    module.exports=_module()
+    module.exports=_module();
   }else{
     window["io/czlab/mcfud/core"]=_module
   }
 
 })(this);
-
 
