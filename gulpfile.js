@@ -27,14 +27,14 @@ const jsFiles = [
   "src/algo/search.js",
   "src/algo/graph.js",
   "src/algo/genetic.js",
-  //"src/algo/NEAT.js",
-  //"src/algo/NEAT2.js",
+  "src/algo/NEAT_Buckland.js",
+  "src/algo/NEAT_CBullet.js",
   "src/algo/maze.js",
-  //"src/tpcl/crypto-js.min.js",
-  //"src/crypto/blockchain.js",
-  //"src/crypto/tx.js",
-  //"src/crypto/p2p.js",
-  //"src/crypto/wallet.js",
+  "src/tpcl/crypto-js.min.js",
+  "src/crypto/blockchain.js",
+  "src/crypto/tx.js",
+  "src/crypto/p2p.js",
+  "src/crypto/wallet.js",
   "src/main/test.js"
 ];
 
