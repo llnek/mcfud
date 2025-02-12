@@ -22,6 +22,19 @@ const jsFiles = [
   "src/main/quadtree.js",
   "src/main/negamax.js",
   "src/main/minimax.js",
+  "src/algo/basic.js",
+  "src/algo/sort.js",
+  "src/algo/search.js",
+  "src/algo/graph.js",
+  "src/algo/genetic.js",
+  //"src/algo/NEAT.js",
+  //"src/algo/NEAT2.js",
+  "src/algo/maze.js",
+  //"src/tpcl/crypto-js.min.js",
+  //"src/crypto/blockchain.js",
+  //"src/crypto/tx.js",
+  //"src/crypto/p2p.js",
+  //"src/crypto/wallet.js",
   "src/main/test.js"
 ];
 

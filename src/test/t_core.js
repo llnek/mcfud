@@ -21,6 +21,9 @@ const xxx=require("../tpcl/cycle.js");
 const {u:_,is,EventBus}=Core;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 function tearDown(){ 0&&console.log("tearDown called()") }
+class Obj{
+  constructor(v){ this.v=v }
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Test.runtest(
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -39,6 +42,23 @@ Test.deftest("Core").
   ensure("srand",()=>{ return _.rand() !== _.rand() }).
   ensure("feq0",()=>{ return _.feq0(0) && !_.feq0(1) }).
   ensure("feq",()=>{ return _.feq(0,0) && !_.feq(1,9) }).
+  ensure("isVecN",()=>{ return is.vecN([1,2,3],2) && !is.vecN([1],2,true) }).
+  ensure("rmap",()=>{ return _.rmap(4,0,10,0,100)==40 }).
+  ensure("evenN",()=>{ return _.evenN(33)==32 && _.evenN(2)==2 && _.evenN(75,true)==76 }).
+  ensure("comparator",()=>{
+    let a=[5,3,2].sort(_.comparator(_.SORT_ASC));
+    let z=[new Obj(5),new Obj(3),new Obj(2)].sort(_.comparator(_.SORT_ASC,a=>a.v, b=>b.v));
+    let ok1= a[0]==2&&a[1]==3&&a[2]==5;
+    let ok2= z[0].v==2&&z[1].v==3&&z[2].v==5;
+    let ok3= ok1 && ok2;
+
+    a=[2,3,5].sort(_.comparator(_.SORT_DESC));
+    z=[new Obj(2),new Obj(3),new Obj(5)].sort(_.comparator(_.SORT_DESC,a=>a.v, b=>b.v));
+    ok1= a[0]==5&&a[1]==3&&a[2]==2;
+    ok2= z[0].v==5&&z[1].v==3&&z[2].v==2;
+
+    return ok1 && ok2 && ok3;
+  }).
   ensure("pack,unpack",()=>{ return _.unpack(_.pack({a:{b:{c:1}}})).a.b.c===1 }).
   ensure("v2,p2",()=>{ return _.v2(2,3)[1]===3 && _.v2()[0]===0 && _.p2(3,2).x===3 && _.p2().y===0 }).
   ensure("numOrZero",()=>{ return _.numOrZero(7)===7 && _.numOrZero("yes")===0 }).

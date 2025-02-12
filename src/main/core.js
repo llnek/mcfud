@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2022, Kenneth Leung. All rights reserved. */
+ * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 
 ;(function(window,doco,seed_rand,UNDEF){
@@ -208,6 +208,16 @@
        * @return {boolean}
        */
       vec(v, ...args){ return _everyF(isVec,v,args) },
+      /**Check if input is type `array` and is same or at least the size of `len`.
+       * @memberof module:mcfud/core.is
+       * @param {any} v anything
+       * @param {number} len min size
+       * @param {boolean} must true if must match exact size
+       * @return {boolean}
+       */
+      vecN(v,len,must=false){
+        return isVec(v) && (must ? v.length==len : v.length >= len)
+      },
       /**Check if input(s) are type `object`.
        * @memberof module:mcfud/core.is
        * @param {any} o anything
@@ -238,8 +248,12 @@
 
     /** @namespace module:mcfud/core._ */
     const _={
+      SORT_DESC: 1,
+      SORT_ASC: -1,
       /** error message */
       error(...args){ console.error(...args) },
+      /** warn message */
+      warn(...args){ console.warn(...args) },
       /** log message */
       log(...args){ console.log(...args) },
       /**Divide this number as integer.
@@ -287,8 +301,8 @@
           if(n=Table[s[i]]){
             ret += n;
           }else{
-            i=Infinity;
             ret=UNDEF;
+            break;
           }
         }
         return ret;
@@ -335,12 +349,13 @@
         args.forEach((v,i)=> a[i]=v);
         return a;
       },
-      /**If not even, make it even.
+      /**If not even, make it even either smaller or bigger.
        * @memberof module:mcfud/core._
        * @param {number} n
+       * @param {boolean} dir false smaller, true bigger
        * @return {number}
        */
-      evenN(n,dir){
+      evenN(n,dir=false){
         n=int(n);
         return isEven(n)?n:(dir?n+1:n-1) },
       /**Check if a is null or undefined - `not real`.
@@ -383,9 +398,10 @@
        * @memberof module:mcfud/core._
        * @param {number} amt
        * @param {number} total
+       * @param {boolean} wrap
        * @return {number}
        */
-      percentRemain(amt, total, wrap){
+      percentRemain(amt, total, wrap=false){
         if(amt>total){
           amt= wrap ? amt%total : total
         }
@@ -696,10 +712,19 @@
       },
       /**Clear array.
        * @memberof module:mcfud/core._
+       * @deprecated
        * @param {array} a
        * @return {array} a
        */
       cls(a){
+        return this.trunc(a)
+      },
+      /**Clear array.
+       * @memberof module:mcfud/core._
+       * @param {array} a
+       * @return {array} a
+       */
+      trunc(a){
         try{ a.length=0 }catch(e){}
         return a;
       },
@@ -743,6 +768,15 @@
           }
         }
         return wantIndex ? [rc,i] : rc;
+      },
+      /**Randomly choose A or B.
+       * @memberof module:mcfud/core._
+       * @param {any} a
+       * @param {any} b
+       * @return {any}
+       */
+      randAorB(a,b){
+        return PRNG() > 0.5 ? a : b
       },
       /**Check if string represents a percentage value.
        * @memberof module:mcfud/core._
@@ -1205,6 +1239,19 @@
         }else if(is.pos(handle)){
           clearTimeout(handle);
         }
+      },
+      /**Remaps a value from one range to another range.
+       * e.g. rmap(2, 0, 10, 0, 100) = 20
+       * @memberof module:mcfud/core._
+       * @param {number} n
+       * @param {number} startR1
+       * @param {number} endR1
+       * @param {number} startR2
+       * @param {number} endR2
+       * @return {number} new value
+       */
+      rmap(n, startR1, endR1, startR2, endR2){
+        return ((n-startR1)/(endR1-startR1))*(endR2-startR2)+startR2
       },
       /**Iterate n times, calling the provided function.
        * @memberof module:mcfud/core._
@@ -1824,6 +1871,24 @@
       roundUnderOffset(val, offset){
         const integral = int(val);
         return (val - integral) < offset ? integral : (integral + 1);
+      },
+      /**Create a comparator function for sorting.
+       * If no functions are supplied, then integral comparisons are assumed.
+       * @memberof module:mcfud/core._
+       * @param {number} flag -ve ascending, +ve descending
+       * @param {Function} fa
+       * @param {Function} fb
+       * @return {Function}
+       */
+      comparator(flag,fa,fb){
+        if(arguments.length==1){
+          //integral comparisons
+          return flag<0 ? function(a,b){ return a<b?-1:(a>b?1:0) }
+                        : function(a,b){ return a>b?-1:(a<b?1:0) }
+        }else{
+          return flag<0 ? function(a,b){ let ra=fa(a), rb=fb(b); return ra<rb?-1:(ra>rb?1:0) }
+                        : function(a,b){ let ra=fa(a), rb=fb(b); return ra>rb?-1:(ra<rb?1:0) }
+        }
       }
     };
 

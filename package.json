@@ -1,6 +1,6 @@
 {
   "name": "mcfud",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "utilities",
   "main": "src/main/core.js",
   "scripts": {
@@ -14,23 +14,27 @@
   "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/llnek/mcfud/issues"
-  },  
+  },
   "directories": {
     "dist": "./src/main"
   },
-
   "homepage": "https://github.com/llnek/mcfud#readme",
-  "devDependencies": {
-    "gulp": "^3.9.1",
+  "devDependencies":{
+    "gulp": "^4.0.2",
+    "gulp-cli": "^3.0.0",
     "gulp-concat": "^2.6.1",
     "gulp-jsdoc3": "^3.0.0",
     "gulp-notify": "^4.0.0",
     "gulp-rename": "^2.0.0",
-    "gulp-sourcemaps": "^2.6.5",
-    "gulp-terser": "^1.4.0",
-    "gulp-uglify": "^3.0.2"
+    "gulp-sourcemaps": "^3.0.0",
+    "gulp-terser": "^2.1.0"
   },
   "dependencies": {
-    "colors": "^1.4.0"
+    "body-parser": "^1.20.0",
+    "colors": "^1.4.0",
+    "crypto-js": "^4.1.1",
+    "elliptic": "^6.5.4",
+    "express": "^4.17.3",
+    "ws": "^8.5.0"
   }
 }
