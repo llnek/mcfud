@@ -35,7 +35,8 @@ const jsFiles = [
   "src/crypto/tx.js",
   "src/crypto/p2p.js",
   "src/crypto/wallet.js",
-  "src/main/test.js"
+  "src/main/test.js",
+  "src/main/epilogue.js"
 ];
 
 var destDir = 'dist'; //or any folder inside your public asset folder
