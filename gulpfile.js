@@ -20,21 +20,7 @@ const jsFiles = [
   "src/main/geo2d.js",
   "src/main/spatial.js",
   "src/main/quadtree.js",
-  "src/main/negamax.js",
-  "src/main/minimax.js",
   "src/algo/basic.js",
-  "src/algo/sort.js",
-  "src/algo/search.js",
-  "src/algo/graph.js",
-  "src/algo/genetic.js",
-  "src/algo/NEAT_Buckland.js",
-  "src/algo/NEAT_CBullet.js",
-  "src/algo/maze.js",
-  "src/tpcl/crypto-js.min.js",
-  "src/crypto/blockchain.js",
-  "src/crypto/tx.js",
-  "src/crypto/p2p.js",
-  "src/crypto/wallet.js",
   "src/main/test.js",
   "src/main/epilogue.js"
 ];
@@ -51,7 +37,7 @@ gulp.task("bundleJS", function(){
 });
 
 gulp.task('doc', function (cb) {
-  gulp.src(['README.md', './src/main/**/*.js'], {read: false}).pipe(jsdoc(cb));
+  gulp.src(['README.md', './src/main/**/*.js', './src/algo/**/*.js'], {read: false}).pipe(jsdoc(cb));
 });
 
 gulp.task("default", gulp.series("bundleJS"), function(){

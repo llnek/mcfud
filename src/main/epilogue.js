@@ -15,7 +15,7 @@
 ;(function(gscope,UNDEF){
   "use strict";
 
-  console.log(`mufud version: 1.2.0`);
+  console.log(`@czlab/mufud version: 1.5.0`);
 
 })(this);
 

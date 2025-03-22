@@ -1,8 +1,8 @@
 {
-  "name": "mcfud",
-  "version": "1.2.0",
+  "name": "@czlab/mcfud",
+  "version": "1.5.0",
   "description": "utilities",
-  "main": "src/main/core.js",
+  "main": "src/node_module.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -16,7 +16,6 @@
     "url": "https://github.com/llnek/mcfud/issues"
   },
   "directories": {
-    "dist": "./src/main"
   },
   "homepage": "https://github.com/llnek/mcfud#readme",
   "devDependencies":{
@@ -31,10 +30,6 @@
   },
   "dependencies": {
     "body-parser": "^1.20.0",
-    "colors": "^1.4.0",
-    "crypto-js": "^4.1.1",
-    "elliptic": "^6.5.4",
-    "express": "^4.17.3",
-    "ws": "^8.5.0"
+    "colors": "^1.4.0"
   }
 }
