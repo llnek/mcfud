@@ -59,6 +59,7 @@ Test.deftest("Core").
 
     return ok1 && ok2 && ok3;
   }).
+  ensure("prnStk",()=>{ return _.prnStk(new Error()).length >0 && _.prnStk().length>0 }).
   ensure("pack,unpack",()=>{ return _.unpack(_.pack({a:{b:{c:1}}})).a.b.c===1 }).
   ensure("v2,p2",()=>{ return _.v2(2,3)[1]===3 && _.v2()[0]===0 && _.p2(3,2).x===3 && _.p2().y===0 }).
   ensure("numOrZero",()=>{ return _.numOrZero(7)===7 && _.numOrZero("yes")===0 }).

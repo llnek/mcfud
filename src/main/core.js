@@ -256,6 +256,15 @@
       warn(...args){ console.warn(...args) },
       /** log message */
       log(...args){ console.log(...args) },
+      /**
+       * @param {Error} e
+       * @return stack trace
+       */
+      prnStk(e){
+        let m;
+        try{ m=e.stack; }catch(x){}
+        return ["", m || (new Error()).stack].join("");
+      },
       /**Divide this number as integer.
        * @memberof module:mcfud/core._
        * @param {number} a
