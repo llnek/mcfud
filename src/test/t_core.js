@@ -141,6 +141,11 @@ Test.deftest("Core").
   ensure("noSuchKeys",()=>{
     return _.noSuchKeys("x,t,g",{a:1,c:2,f:4}) && !_.noSuchKeys("a,c",{a:1,c:2,f:4})
   }).
+  ensure("randSpan",()=>{
+    let [a,b]= _.randSpan([1,2,3,4,4,5,5,65,6,6,6,67,67,67,7]);
+    let [x,y]= _.randSpan(99);
+    return is.num(a,b,x,y);
+  }).
   ensure("randInt2",()=>{
     let t=0,N=1000;
     for(let x,i=0;i<N;++i){
