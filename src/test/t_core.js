@@ -45,6 +45,9 @@ Test.deftest("Core").
   ensure("isVecN",()=>{ return is.vecN([1,2,3],2) && !is.vecN([1],2,true) }).
   ensure("rmap",()=>{ return _.rmap(4,0,10,0,100)==40 }).
   ensure("evenN",()=>{ return _.evenN(33)==32 && _.evenN(2)==2 && _.evenN(75,true)==76 }).
+  ensure("CMPINTASC",()=>{ return [8,7,6,3].sort(_.CMPINTASC).join(",")=="3,6,7,8" }).
+  ensure("CMPINTDESC",()=>{ return [4,5,6,75].sort(_.CMPINTDESC).join(",")=="75,6,5,4" }).
+  ensure("argMax",()=>{ return _.argMax([4,5,75,8])[0]==2 && _.argMax([4,75,9,3])[1]==75 }).
   ensure("comparator",()=>{
     let a=[5,3,2].sort(_.comparator(_.SORT_ASC));
     let z=[new Obj(5),new Obj(3),new Obj(2)].sort(_.comparator(_.SORT_ASC,a=>a.v, b=>b.v));

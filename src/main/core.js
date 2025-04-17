@@ -1915,6 +1915,21 @@
           return flag<0 ? function(a,b){ let ra=fa(a), rb=fb(b); return ra<rb?-1:(ra>rb?1:0) }
                         : function(a,b){ let ra=fa(a), rb=fb(b); return ra>rb?-1:(ra<rb?1:0) }
         }
+      },
+      CMPINTASC(a,b){
+        return a-b
+      },
+      CMPINTDESC(a,b){
+        return b-a
+      },
+      argMax(arr){
+        let max= -Infinity, pos= -1;
+        arr.forEach((v,i)=>{
+          if(v>max){
+            max=v;pos=i;
+          }
+        });
+        return [pos, max];
       }
     };
 

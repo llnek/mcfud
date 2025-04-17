@@ -22,6 +22,7 @@ const jsFiles = [
   "src/main/quadtree.js",
   "src/algo/basic.js",
   "src/main/test.js",
+  "src/node_module.js",
   "src/main/epilogue.js"
 ];
 

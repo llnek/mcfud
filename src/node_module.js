@@ -13,14 +13,13 @@
  * Copyright © 2025, Kenneth Leung. All rights reserved. */
 
 
-;(function(UNDEF){
+;(function(gscope, UNDEF){
 
   "use strict";
 
-
   /**Create the module.
   */
-  function _module(Core,V2,FSM,Crypt,Gfx,Geo,M,Mx,Spat,Q,Test,Basic){
+  function _moduleNode(Core,V2,FSM,Crypt,Gfx,Geo,M,Mx,Spat,Q,Test,Basic){
     return {
       Core:Core,
       Vec2:V2,
@@ -37,10 +36,27 @@
     }
   }
 
+  function _module(){
+    return {
+      Core: gscope["io/czlab/mcfud/core"](),
+      Vec2: gscope["io/czlab/mcfud/vec2"](),
+      FSM: gscope["io/czlab/mcfud/fsm"](),
+      Crypt:  gscope["io/czlab/mcfud/crypt"](),
+      Gfx: gscope["io/czlab/mcfud/gfx"](),
+      Geo2d: gscope["io/czlab/mcfud/geo2d"](),
+      Math: gscope["io/czlab/mcfud/math"](),
+      Matrix: gscope["io/czlab/mcfud/matrix"](),
+      Spatial: gscope["io/czlab/mcfud/spatial"](),
+      QuadTree: gscope["io/czlab/mcfud/qtree"](),
+      //Test: gscope["io/czlab/mcfud/test"](),
+      Basic: gscope["io/czlab/mcfud/algo/basic"]()
+    }
+  }
+
   //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   //exports
   if(typeof module=="object" && module.exports){
-    module.exports=_module(require("./main/core.js"),
+    module.exports=_moduleNode(require("./main/core.js"),
       require("./main/vec2.js"),
       require("./main/fsm.js"),
       require("./main/crypt.js"),
@@ -54,6 +70,7 @@
       require("./algo/basic.js")
     );
   }else{
+    gscope["io/czlab/mcfud"]=_module;
   }
 
 })(this);
