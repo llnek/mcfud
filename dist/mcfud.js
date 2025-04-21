@@ -2100,12 +2100,29 @@ if (typeof JSON.retrocycle !== "function") {
                         : function(a,b){ let ra=fa(a), rb=fb(b); return ra>rb?-1:(ra<rb?1:0) }
         }
       },
+      /**A comparator function for sorting numbers in ascending order.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @param {number} b
+       * @return {number}
+       */
       CMPINTASC(a,b){
         return a-b
       },
+      /**A comparator function for sorting numbers in descending order.
+       * @memberof module:mcfud/core._
+       * @param {number} a
+       * @param {number} b
+       * @return {number}
+       */
       CMPINTDESC(a,b){
         return b-a
       },
+      /**Find the largest value in the array, with its index.
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @return {array} [index, value]
+       */
       argMax(arr){
         let max= -Infinity, pos= -1;
         arr.forEach((v,i)=>{
@@ -2114,6 +2131,24 @@ if (typeof JSON.retrocycle !== "function") {
           }
         });
         return [pos, max];
+      },
+      /**Group same items in the array.
+       * @memberof module:mcfud/core._
+       * @param {array} arr
+       * @param {function} cmpFn
+       * @return {array} [[value, count], ...., []]
+       */
+      groupSimilar(arr, cmpFn){
+        return arr.reduce((acc,v)=>{
+          let rc= acc.find(a=> cmpFn(a[0],v));
+          if(rc){
+            rc[1] += 1;
+          }else{
+            acc.push([v, 1]);
+          }
+          return acc;
+
+        }, []);
       }
     };
 

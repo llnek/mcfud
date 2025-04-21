@@ -48,6 +48,9 @@ Test.deftest("Core").
   ensure("CMPINTASC",()=>{ return [8,7,6,3].sort(_.CMPINTASC).join(",")=="3,6,7,8" }).
   ensure("CMPINTDESC",()=>{ return [4,5,6,75].sort(_.CMPINTDESC).join(",")=="75,6,5,4" }).
   ensure("argMax",()=>{ return _.argMax([4,5,75,8])[0]==2 && _.argMax([4,75,9,3])[1]==75 }).
+  ensure("groupSimilar/number",()=>{ return _.groupSimilar([57,65,7, 57, 7,7,65, 4],_.feq)[2][1]==3}).
+  ensure("groupSimilar/string",()=>{
+    return _.groupSimilar(["a","b","c", "b", "c","c","a", "g"],(a,b)=>a==b)[2][1]==3}).
   ensure("comparator",()=>{
     let a=[5,3,2].sort(_.comparator(_.SORT_ASC));
     let z=[new Obj(5),new Obj(3),new Obj(2)].sort(_.comparator(_.SORT_ASC,a=>a.v, b=>b.v));
